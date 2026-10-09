@@ -314,6 +314,61 @@ describe('buildTimelineLane', () => {
     expect(lane.remaining).toBe(30);
   });
 
+  describe('claude: prefers the standard account window over model-scoped ones', () => {
+    const accountReset = at(2026, 7, 1, 20);
+    const fableReset = at(2026, 6, 29, 20);
+    const sessionReset = at(2026, 6, 28, 15);
+    const sevenDay = {
+      id: 'seven-day',
+      label: '7-day',
+      usedPercent: 70,
+      resetAtMs: accountReset,
+      periodHours: 168,
+    };
+    const fable = {
+      id: 'seven-day-fable',
+      label: '7-day Fable 5',
+      usedPercent: 10,
+      resetAtMs: fableReset,
+      periodHours: 168,
+    };
+    const fiveHour = {
+      id: 'five-hour',
+      label: '5-hour',
+      usedPercent: 40,
+      resetAtMs: sessionReset,
+      periodHours: 5,
+    };
+    const lane = (windows: object[], maxPeriodHours: number) =>
+      buildTimelineLane({
+        ...base,
+        provider: 'claude',
+        quota: { status: 'success', windows },
+        maxPeriodHours,
+      });
+
+    test('weekly view anchors on seven-day even when Fable resets sooner', () => {
+      const weekly = lane([fiveHour, fable, sevenDay], 14 * 24);
+      expect(weekly.anchorMs).toBe(accountReset);
+      expect(weekly.remaining).toBe(30);
+      // The model-scoped window is still summarized in the lane chips.
+      expect(weekly.limits).toContainEqual({ label: '7-day Fable 5', remaining: 90 });
+    });
+
+    test('session view anchors on five-hour', () => {
+      const session = lane([fable, sevenDay, fiveHour], 5);
+      expect(session.anchorMs).toBe(sessionReset);
+      expect(session.periodHours).toBe(5);
+      expect(session.remaining).toBe(60);
+    });
+
+    test('falls back to the existing pick without a seven-day window', () => {
+      const weekly = lane([fiveHour, fable], 14 * 24);
+      expect(weekly.anchorMs).toBe(fableReset);
+      expect(weekly.remaining).toBe(90);
+    });
+  });
+
   test('codex: includes available reset credits with parseable expiry dates', () => {
     const expiresAt = '2026-08-02T12:00:00Z';
     const lane = buildTimelineLane({
