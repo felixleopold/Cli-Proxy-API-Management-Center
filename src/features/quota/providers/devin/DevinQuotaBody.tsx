@@ -44,7 +44,7 @@ export function DevinQuotaBody({ quota, classes }: QuotaBodyProps<DevinQuotaStat
                 <span className={classes.quotaPercent}>
                   {window.remainingPercent === null
                     ? t('devin_quota.unavailable')
-                    : `${window.remainingPercent}%`}
+                    : t('quota_management.percent_left', { percent: window.remainingPercent })}
                 </span>
                 {reset ? (
                   <QuotaResetLabel display={reset} classes={classes} soon={soon} />

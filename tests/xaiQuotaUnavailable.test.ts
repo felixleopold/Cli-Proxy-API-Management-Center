@@ -254,7 +254,7 @@ describe('XaiQuotaBody unavailable weekly usage', () => {
         })
       )
     );
-    expect(markup).toContain('>90%<');
+    expect(markup).toContain('>90% left<');
     expect(markup).toContain('$135.00 / $150.00');
     expect(markup).not.toContain('$15.00 / $150.00');
     expect(markup).toContain('width:90%');

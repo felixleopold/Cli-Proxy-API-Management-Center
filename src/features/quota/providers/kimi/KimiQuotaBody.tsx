@@ -37,7 +37,8 @@ export function KimiQuotaBody({ quota, classes }: QuotaBodyProps<KimiQuotaState>
             : used > 0
               ? 0
               : null;
-        const percentLabel = remaining === null ? '--' : `${remaining}%`;
+        const percentLabel =
+          remaining === null ? '--' : t('quota_management.percent_left', { percent: remaining });
         const rowLabel = row.labelKey
           ? t(row.labelKey, (row.labelParams ?? {}) as Record<string, string | number>)
           : (row.label ?? '');

@@ -112,7 +112,10 @@ export function XaiQuotaBody({ quota, classes }: QuotaBodyProps<XaiQuotaState>) 
   const clampedUsed =
     billing.usedPercent === null ? null : Math.max(0, Math.min(100, billing.usedPercent));
   const remaining = clampedUsed === null ? null : Math.max(0, Math.min(100, 100 - clampedUsed));
-  const percentLabel = formatXaiPercent(remaining);
+  const percentLabel =
+    remaining === null
+      ? '--'
+      : t('quota_management.percent_left', { percent: Math.round(remaining) });
   const amountLabel = formatXaiRemainingAmount(billing);
   const resetLabel = formatQuotaResetTime(billing.billingPeriodEnd);
   // The monthly row is a billing cycle, so it carries no resetAtMs (that field
@@ -131,7 +134,10 @@ export function XaiQuotaBody({ quota, classes }: QuotaBodyProps<XaiQuotaState>) 
       : Math.max(0, Math.min(100, billing.onDemandUsedPercent));
   const onDemandRemaining =
     clampedOnDemandUsed === null ? null : Math.max(0, Math.min(100, 100 - clampedOnDemandUsed));
-  const onDemandPercentLabel = formatXaiPercent(onDemandRemaining);
+  const onDemandPercentLabel =
+    onDemandRemaining === null
+      ? '--'
+      : t('quota_management.percent_left', { percent: Math.round(onDemandRemaining) });
   const onDemandAmountLabel = formatXaiOnDemandAmount(billing);
   const plan = resolveXaiPlan(billing.monthlyLimitCents);
   const weeklyUsed =

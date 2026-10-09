@@ -1573,6 +1573,7 @@
     "windows_idle": "没有正在计时的窗口",
     "windows_empty_session": "当前页面没有凭证提供 5 小时配额窗口。",
     "windows_legend_current": "当前窗口",
+    "percent_left": "剩余 {{percent}}%",
     "windows_legend_upcoming": "即将开始",
     "windows_legend_elapsed": "已结束",
     "windows_legend_reset_credit": "主动重置过期",

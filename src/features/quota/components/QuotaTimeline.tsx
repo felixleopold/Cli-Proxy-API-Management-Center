@@ -358,7 +358,7 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
           {lane.limits.map((limit) => (
             <span key={limit.label} className={styles.laneLimit}>
               {lane.provider === 'meta' ? t(limit.label) : limit.label}{' '}
-              <b>{limit.remaining}%</b>
+              <b>{t('quota_management.percent_left', { percent: limit.remaining })}</b>
             </span>
           ))}
         </div>
@@ -403,7 +403,9 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
                 title={`${lane.displayName}\n${formatDay(window.startMs)} ${formatTime(
                   window.startMs
                 )} → ${formatDay(window.endMs)} ${formatTime(window.endMs)}${
-                  window.remaining !== null ? `\n${window.remaining}% remaining` : ''
+                  window.remaining !== null
+                    ? `\n${t('quota_management.percent_left', { percent: window.remaining })}`
+                    : ''
                 }`}
               >
                 {/* Only the API-reported current window has meaningful usage;
@@ -416,7 +418,9 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
                 )}
                 {showLabel && (
                   <span className={styles.windowLabel}>
-                    {window.remaining !== null ? `${window.remaining}% · ` : ''}
+                    {window.remaining !== null
+                      ? `${t('quota_management.percent_left', { percent: window.remaining })} · `
+                      : ''}
                     {endText}
                   </span>
                 )}
