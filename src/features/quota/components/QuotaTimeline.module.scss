@@ -292,7 +292,8 @@ $lane-width: 210px;
   color: var(--text-quaternary);
 }
 
-// Consumed portion of the current window, drawn behind its label.
+// Consumed portion of the current window, drawn behind its label. It shows USED
+// (the label shows remaining) so its edge can be compared with the now line.
 .windowFill {
   position: absolute;
   left: 0;
@@ -360,6 +361,23 @@ $lane-width: 210px;
 .swatchLive {
   background: color-mix(in srgb, var(--text-tertiary, #888) 34%, transparent);
   border: 1px solid color-mix(in srgb, var(--text-tertiary, #888) 50%, transparent);
+}
+
+.swatchUsed {
+  border: 1px solid color-mix(in srgb, var(--text-tertiary, #888) 50%, transparent);
+  // A used fill that has passed the now line: usage ahead of the clock.
+  background:
+    linear-gradient(
+      to right,
+      transparent calc(45% - 0.5px),
+      var(--text-tertiary, #888) calc(45% - 0.5px) calc(45% + 0.5px),
+      transparent calc(45% + 0.5px)
+    ),
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--text-tertiary, #888) 34%, transparent) 70%,
+      transparent 70%
+    );
 }
 
 .swatchNext {

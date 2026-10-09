@@ -1526,6 +1526,7 @@
     "windows_idle": "không có cửa sổ nào đang đếm ngược",
     "windows_empty_session": "Không có credential nào trên trang này báo cáo cửa sổ quota 5 giờ.",
     "windows_legend_current": "cửa sổ hiện tại",
+    "windows_legend_used": "phần tô = đã dùng; vượt vạch hiện tại = dùng nhanh hơn thời gian",
     "percent_left": "Còn lại {{percent}}%",
     "windows_legend_upcoming": "sắp tới",
     "windows_legend_elapsed": "đã trôi qua",

@@ -1577,6 +1577,7 @@
     "windows_idle": "нет активного окна",
     "windows_empty_session": "Ни одни учётные данные на этой странице не предоставляют 5-часовое окно квоты.",
     "windows_legend_current": "текущее окно",
+    "windows_legend_used": "заливка = использовано; правее линии «сейчас» — расход опережает время",
     "percent_left": "Осталось {{percent}}%",
     "windows_legend_upcoming": "предстоящее",
     "windows_legend_elapsed": "прошедшее",

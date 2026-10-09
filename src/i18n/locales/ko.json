@@ -1574,6 +1574,7 @@
     "windows_idle": "카운트다운 중인 윈도우 없음",
     "windows_empty_session": "이 페이지의 어떤 자격 증명도 5시간 할당량 윈도우를 보고하지 않습니다.",
     "windows_legend_current": "현재 윈도우",
+    "windows_legend_used": "채움 = 사용량; 현재 선을 넘으면 사용 속도가 빠름",
     "percent_left": "{{percent}}% 남음",
     "windows_legend_upcoming": "예정",
     "windows_legend_elapsed": "경과됨",

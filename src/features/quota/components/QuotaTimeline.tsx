@@ -278,6 +278,12 @@ export function QuotaTimeline({
             {t('quota_management.windows_legend_current', { defaultValue: 'current window' })}
           </span>
           <span className={styles.legendItem}>
+            <span className={`${styles.swatch} ${styles.swatchUsed}`} />
+            {t('quota_management.windows_legend_used', {
+              defaultValue: 'fill = used; past the now line = ahead of pace',
+            })}
+          </span>
+          <span className={styles.legendItem}>
             <span className={`${styles.swatch} ${styles.swatchNext}`} />
             {t('quota_management.windows_legend_upcoming', { defaultValue: 'upcoming' })}
           </span>
