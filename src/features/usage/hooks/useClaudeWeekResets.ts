@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { authFilesApi } from '@/services/api';
-import { useAuthStore, useQuotaStore } from '@/stores';
+import { captureQuotaCacheGeneration, useAuthStore, useQuotaStore } from '@/stores';
 import { classifyQuotaFiles } from '@/features/quota/logic';
 import { useQuotaBatchLoader } from '@/features/quota/hooks/useQuotaBatchLoader';
 import { claudeSevenDayResets } from '../usageModel';
@@ -21,17 +21,33 @@ export function useClaudeWeekResets(enabled: boolean) {
   useEffect(() => {
     if (!enabled || !connected || attempted.current || resets.length > 0) return;
     attempted.current = true;
+    // A server switch mid-listing bumps the generation; its files must not be
+    // loaded into the new server's cache.
+    const generation = captureQuotaCacheGeneration();
+    let active = true;
+    let settled = false;
     setListing(true);
     authFilesApi
       .list()
       .then((data) => {
+        if (!active || useQuotaStore.getState().cacheGeneration !== generation.cacheGeneration) {
+          return;
+        }
         const targets = classifyQuotaFiles(data?.files ?? []).filter(
           (entry) => entry.type === 'claude'
         );
         return loadQuota(targets);
       })
       .catch(() => undefined)
-      .finally(() => setListing(false));
+      .finally(() => {
+        settled = true;
+        setListing(false);
+      });
+    return () => {
+      active = false;
+      // An abandoned listing may be retried, e.g. after reconnecting.
+      if (!settled) attempted.current = false;
+    };
   }, [connected, enabled, loadQuota, resets.length]);
 
   return { resets, loading: listing || batchLoading };

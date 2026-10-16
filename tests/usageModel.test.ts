@@ -6,8 +6,8 @@ import {
   buildClientRows,
   buildWeekWindows,
   clientKeyFingerprint,
-  costBetween,
   earliestUpcomingReset,
+  paceCost,
   resolveWeekAnchor,
   rollupWindows,
 } from '../src/features/usage/usageModel';
@@ -113,9 +113,33 @@ describe('rollups', () => {
     ]);
   });
 
-  test('costBetween measures last window at the same elapsed point', () => {
+  test('pace measures last window up to the snapshot, not a later clock', () => {
+    const previous = { startMs: 0, endMs: WEEK_MS, current: false };
+    const current = { startMs: WEEK_MS, endMs: 2 * WEEK_MS, current: true };
     const buckets = [bucket({ hourMs: 0 }), bucket({ hourMs: HOUR }), bucket({ hourMs: 2 * HOUR })];
-    expect(costBetween(buckets, 0, 2 * HOUR)).toBe(2);
+    expect(paceCost(buckets, previous, current, WEEK_MS + 2 * HOUR)).toBe(2);
+  });
+
+  test('pace stops at the previous window end when the current week is DST-long', () => {
+    // Europe/Berlin calendar weeks: Mon 2026-10-12 00:00 CEST, Mon 10-19 00:00 CEST,
+    // Mon 10-26 00:00 CET. The current week is 7 days + 1 hour (DST ends 10-25).
+    const previous = {
+      startMs: Date.parse('2026-10-11T22:00:00Z'),
+      endMs: Date.parse('2026-10-18T22:00:00Z'),
+      current: false,
+    };
+    const current = {
+      startMs: previous.endMs,
+      endMs: Date.parse('2026-10-25T23:00:00Z'),
+      current: true,
+    };
+    expect(current.endMs - current.startMs).toBe(WEEK_MS + HOUR);
+    const buckets = [
+      bucket({ hourMs: previous.endMs - HOUR, costUsd: 2 }),
+      // The current week's first hour: past previous.endMs, never part of the pace.
+      bucket({ hourMs: current.startMs, costUsd: 5 }),
+    ];
+    expect(paceCost(buckets, previous, current, current.endMs - 1)).toBe(2);
   });
 
   test('user colors are ranked over the whole range and unassigned keeps its own slot', () => {
@@ -136,6 +160,13 @@ describe('rollups', () => {
 });
 
 describe('client rows', () => {
+  test('fingerprints trim the key like Go and skip empty keys', () => {
+    const expected = createHash('sha256').update('sk-device-one').digest('hex').slice(0, 12);
+    expect(clientKeyFingerprint('  sk-device-one\n')).toBe(expected);
+    expect(clientKeyFingerprint('   ')).toBe('');
+    expect(buildClientRows([], ['', '  ']).map((row) => row.fingerprint)).toEqual([]);
+  });
+
   test('match configured keys by sha256 prefix and include keys not seen yet', () => {
     const key = 'sk-device-one';
     const expected = createHash('sha256').update(key).digest('hex').slice(0, 12);
@@ -156,14 +187,20 @@ describe('client rows', () => {
 });
 
 test('ledger normalization reads backend field names and drops unparseable hours', () => {
-  const ledger = normalizeUsageLedger({
-    buckets: [
-      { hour: '2026-10-16T11:00:00Z', fingerprint: 'abc', cost_usd: 1.5, input_tokens: 10 },
-      { hour: 'not a date', cost_usd: 99 },
-    ],
-    clients: [{ fingerprint: 'abc', device: 'Mac', user: 'Felix', configured: true }],
-    unpriced_models: ['mystery-model'],
-  });
+  const ledger = normalizeUsageLedger(
+    {
+      to: '2026-10-16T12:00:00Z',
+      buckets: [
+        { hour: '2026-10-16T11:00:00Z', fingerprint: 'abc', cost_usd: 1.5, input_tokens: 10 },
+        { hour: 'not a date', cost_usd: 99 },
+      ],
+      clients: [{ fingerprint: 'abc', device: 'Mac', user: 'Felix', configured: true }],
+      unpriced_models: ['mystery-model'],
+    },
+    0
+  );
+  expect(ledger.toMs).toBe(NOW);
+  expect(normalizeUsageLedger({}, 42).toMs).toBe(42);
   expect(ledger.buckets).toHaveLength(1);
   expect(ledger.buckets[0]).toMatchObject({ hourMs: NOW - HOUR, costUsd: 1.5, inputTokens: 10 });
   expect(ledger.clients[0].user).toBe('Felix');

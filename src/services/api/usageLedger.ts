@@ -46,9 +46,11 @@ const normalizeClients = (value: unknown): UsageClient[] =>
     configured: raw.configured === true,
   }));
 
-export const normalizeUsageLedger = (data: unknown): UsageLedger => {
+export const normalizeUsageLedger = (data: unknown, requestedToMs: number): UsageLedger => {
   const record = isRecord(data) ? data : {};
+  const toMs = Date.parse(str(record.to));
   return {
+    toMs: Number.isFinite(toMs) ? toMs : requestedToMs,
     buckets: list(record.buckets)
       .map(normalizeBucket)
       .filter((bucket): bucket is UsageLedgerBucket => bucket !== null),
@@ -64,7 +66,7 @@ export const usageLedgerApi = {
     const data = await apiClient.get<unknown>(`${BASE}/ledger`, {
       params: { from: new Date(fromMs).toISOString(), to: new Date(toMs).toISOString() },
     });
-    return normalizeUsageLedger(data);
+    return normalizeUsageLedger(data, toMs);
   },
 
   async getClients(): Promise<UsageClient[]> {

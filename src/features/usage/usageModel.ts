@@ -206,6 +206,22 @@ export function costBetween(
   return cost;
 }
 
+/**
+ * Spend in `previous` up to the point `current` had reached at `snapshotMs`, the
+ * ledger's `to` (not a ticking clock, so an open page doesn't stretch the range
+ * past the data). Clamped to `previous.endMs` so a DST-long week can't reach
+ * into the current one.
+ */
+export function paceCost(
+  buckets: readonly UsageLedgerBucket[],
+  previous: UsageWindow,
+  current: UsageWindow,
+  snapshotMs: number
+): number {
+  const endMs = Math.min(previous.startMs + (snapshotMs - current.startMs), previous.endMs);
+  return costBetween(buckets, previous.startMs, endMs);
+}
+
 export type UserSlot = number | 'other' | 'unassigned';
 
 /**
@@ -228,9 +244,10 @@ export function assignUserSlots(rollups: readonly WindowRollup[]): Map<string, U
   return slots;
 }
 
-/** Fingerprint the backend uses for a client api key: first 12 hex of sha256. */
+/** Go `usageledger.Fingerprint`: first 12 hex of sha256 of the trimmed key; '' for none. */
 export function clientKeyFingerprint(apiKey: string): string {
-  return bytesToHex(sha256(new TextEncoder().encode(apiKey))).slice(0, 12);
+  const key = apiKey.trim();
+  return key ? bytesToHex(sha256(new TextEncoder().encode(key))).slice(0, 12) : '';
 }
 
 export interface ClientRow {
@@ -249,7 +266,12 @@ export function buildClientRows(
   clients: readonly UsageClient[],
   apiKeys: readonly string[]
 ): ClientRow[] {
-  const keyByFingerprint = new Map(apiKeys.map((key) => [clientKeyFingerprint(key), key]));
+  const keyByFingerprint = new Map(
+    apiKeys.flatMap((key) => {
+      const fingerprint = clientKeyFingerprint(key);
+      return fingerprint ? [[fingerprint, key] as const] : [];
+    })
+  );
   const rows = new Map<string, ClientRow>();
   for (const client of clients) {
     if (!client.fingerprint) continue;

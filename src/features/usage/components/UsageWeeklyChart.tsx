@@ -130,7 +130,7 @@ export function UsageWeeklyChart({
 
           <div
             className={styles.columns}
-            role="img"
+            role="group"
             aria-label={summary}
             onMouseLeave={() => setActiveIndex(null)}
           >

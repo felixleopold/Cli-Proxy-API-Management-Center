@@ -27,6 +27,8 @@ export interface UsageClient {
 export type UsageClientLabel = Pick<UsageClient, 'fingerprint' | 'device' | 'user'>;
 
 export interface UsageLedger {
+  /** End of the queried range (the snapshot time). */
+  toMs: number;
   buckets: UsageLedgerBucket[];
   clients: UsageClient[];
   unpricedModels: string[];

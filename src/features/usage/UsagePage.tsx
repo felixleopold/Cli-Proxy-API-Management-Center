@@ -23,7 +23,7 @@ import {
   assignUserSlots,
   buildClientRows,
   buildWeekWindows,
-  costBetween,
+  paceCost,
   formatUsd,
   resolveWeekAnchor,
   rollupWindows,
@@ -44,7 +44,8 @@ export function UsagePage() {
   // Selection as "weeks back" so it survives an anchor switch.
   const [weeksBack, setWeeksBack] = useState(0);
 
-  const { ledger, clients, apiKeys, error, disabled, loading, reload, saveClients } = useUsageData();
+  const { ledger, clients, apiKeys, error, disabled, loading, reload, saveClients } =
+    useUsageData();
   const claude = useClaudeWeekResets(mode === 'claude');
   useHeaderRefresh(reload);
 
@@ -102,11 +103,7 @@ export function UsagePage() {
   // Last window's spend by the same point in time: the fair comparison mid-window.
   const paceCostUsd =
     ledger && current && before
-      ? costBetween(
-          ledger.buckets,
-          before.window.startMs,
-          before.window.startMs + (now - current.window.startMs)
-        )
+      ? paceCost(ledger.buckets, before.window, current.window, ledger.toMs)
       : null;
   const compareCost = selected?.window.current ? paceCostUsd : (previous?.costUsd ?? null);
   const change =
