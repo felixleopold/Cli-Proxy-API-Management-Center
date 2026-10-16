@@ -1,0 +1,52 @@
+/* Categorical user colors (validated: adjacent CVD ΔE ≥ 8.4, normal ΔE ≥ 19.3 in both
+ * themes). Each class sets --series; marks paint with it. Light slots 2–5 fall below
+ * 3:1 on the panel surface, so the users table carries the values as text. */
+
+.slot0 {
+  --series: #2a78d6;
+}
+.slot1 {
+  --series: #eb6834;
+}
+.slot2 {
+  --series: #1baf7a;
+}
+.slot3 {
+  --series: #eda100;
+}
+.slot4 {
+  --series: #e87ba4;
+}
+.slot5 {
+  --series: #008300;
+}
+.slot6 {
+  --series: #6250d6;
+}
+.slotOther {
+  --series: var(--text-tertiary);
+}
+.slotUnassigned {
+  --series: var(--text-quaternary);
+}
+
+:global([data-theme='dark']) {
+  .slot0 {
+    --series: #3987e5;
+  }
+  .slot1 {
+    --series: #d95926;
+  }
+  .slot2 {
+    --series: #199e70;
+  }
+  .slot3 {
+    --series: #c98500;
+  }
+  .slot4 {
+    --series: #d55181;
+  }
+  .slot6 {
+    --series: #9085e9;
+  }
+}
