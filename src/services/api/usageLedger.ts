@@ -26,6 +26,7 @@ const normalizeBucket = (raw: Record<string, unknown>): UsageLedgerBucket | null
     hourMs,
     fingerprint: str(raw.fingerprint),
     provider: str(raw.provider),
+    authId: str(raw.auth_id),
     model: str(raw.model),
     requests: num(raw.requests),
     inputTokens: num(raw.input_tokens),

@@ -6,6 +6,8 @@ export interface UsageLedgerBucket {
   /** First 12 hex of sha256(client api key); '' is anonymous. */
   fingerprint: string;
   provider: string;
+  /** Credential (Auth.ID) that served the hour; '' for buckets recorded before attribution. */
+  authId: string;
   model: string;
   requests: number;
   inputTokens: number;
