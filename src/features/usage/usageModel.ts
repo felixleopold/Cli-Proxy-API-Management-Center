@@ -33,11 +33,11 @@ export type BucketUnit = 'hour' | 'sixHours' | 'day' | 'week';
 export const RANGES = ['24h', '7d', '30d', '90d'] as const;
 export type UsageRange = (typeof RANGES)[number];
 
-const RANGE_BUCKETS: Record<UsageRange, { unit: BucketUnit; count: number }> = {
-  '24h': { unit: 'hour', count: 24 },
-  '7d': { unit: 'sixHours', count: 28 },
-  '30d': { unit: 'day', count: 30 },
-  '90d': { unit: 'week', count: 13 },
+const RANGE_PRESETS: Record<UsageRange, { unit: BucketUnit; durationMs: number }> = {
+  '24h': { unit: 'hour', durationMs: DAY_MS },
+  '7d': { unit: 'sixHours', durationMs: WEEK_MS },
+  '30d': { unit: 'day', durationMs: 30 * DAY_MS },
+  '90d': { unit: 'week', durationMs: 90 * DAY_MS },
 };
 
 /** Bucket size for an arbitrary span, matching the range presets. */
@@ -50,9 +50,10 @@ export function unitForSpan(spanMs: number): BucketUnit {
 
 /** Start of the local bucket containing `ms`; weeks start Monday 00:00. */
 export function floorToUnit(ms: number, unit: BucketUnit): number {
-  const date = new Date(ms);
-  date.setMinutes(0, 0, 0);
-  if (unit === 'hour') return date.getTime();
+  // Ledger hours are UTC hours; local setters would pick the earlier of a repeated DST hour.
+  const hourMs = Math.floor(ms / HOUR_MS) * HOUR_MS;
+  if (unit === 'hour') return hourMs;
+  const date = new Date(hourMs);
   if (unit === 'sixHours') {
     date.setHours(date.getHours() - (date.getHours() % 6));
     return date.getTime();
@@ -248,7 +249,7 @@ export interface ResolvedSelection extends TimeSpan {
 }
 
 /**
- * The span a selection covers. Ranges end with the bucket containing now;
+ * The span a selection covers. Ranges end with the hour containing now;
  * windows may end in the future. `snapshotMs` (the ledger's `to`) bounds the
  * elapsed part, so the comparison never reaches past loaded data.
  */
@@ -262,13 +263,11 @@ export function resolveSelection(
   let unit: BucketUnit;
   let authId: string | null = null;
   if (selection.kind === 'range') {
-    const preset = RANGE_BUCKETS[selection.range];
+    // The full duration up to the end of the current ledger hour; chart buckets clip to it.
+    const preset = RANGE_PRESETS[selection.range];
     unit = preset.unit;
-    const current = floorToUnit(nowMs, unit);
-    span = {
-      startMs: addUnits(current, unit, 1 - preset.count),
-      endMs: addUnits(current, unit, 1),
-    };
+    const endMs = floorToUnit(nowMs, 'hour') + HOUR_MS;
+    span = { startMs: endMs - preset.durationMs, endMs };
   } else {
     const subscription = subscriptions.find((item) => item.id === selection.subscriptionId);
     if (!subscription?.quota) return null;

@@ -153,6 +153,31 @@ describe('selection', () => {
     expect(selection.previous).toEqual({ startMs: NOW - 47 * HOUR, endMs: NOW - 24 * HOUR });
   });
 
+  test('a range covers its full duration even when it starts mid-bucket', () => {
+    // Monday 00:00 UTC: weekly buckets must not trim 90 days to 84.
+    const monday = Date.parse('2026-10-19T00:00:00Z');
+    const selection = resolveSelection({ kind: 'range', range: '90d' }, [], monday)!;
+    expect(selection.endMs).toBe(monday + HOUR);
+    expect(selection.startMs).toBe(monday + HOUR - 90 * DAY);
+    const buckets = buildTimeBuckets(selection, selection.unit);
+    expect(buckets[0].startMs).toBe(selection.startMs);
+    expect(buckets.at(-1)!.endMs).toBe(selection.endMs);
+  });
+
+  test('the repeated DST hour still ends the 24h range after the current ledger hour', () => {
+    const tz = process.env.TZ;
+    process.env.TZ = 'Europe/Vienna';
+    try {
+      // 02:30 CET, the second 02:00–03:00 on 2026-10-25.
+      const at = Date.parse('2026-10-25T01:30:00Z');
+      const selection = resolveSelection({ kind: 'range', range: '24h' }, [], at)!;
+      expect(selection.endMs).toBe(Date.parse('2026-10-25T02:00:00Z'));
+      expect(selection.endMs - selection.startMs).toBe(24 * HOUR);
+    } finally {
+      process.env.TZ = tz;
+    }
+  });
+
   test('window mode follows one credential and its previous window at the same point', () => {
     const selection = resolveSelection(
       { kind: 'window', subscriptionId: 'claude-a', stepsBack: 0 },

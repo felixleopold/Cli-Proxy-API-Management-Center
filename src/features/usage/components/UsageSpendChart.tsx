@@ -101,6 +101,12 @@ export function UsageSpendChart({
   };
 
   const handleKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    // Escape dismisses the tooltip (WCAG 1.4.13) and keeps focus on the chart.
+    if (event.key === 'Escape') {
+      if (activeIndex !== null) event.preventDefault();
+      setActiveIndex(null);
+      return;
+    }
     const last = stacked.length - 1;
     const current = activeIndex ?? lastPastIndex;
     const next =
