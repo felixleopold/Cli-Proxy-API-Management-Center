@@ -25,6 +25,7 @@ import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
 import { QuotaHeader } from './components/QuotaHeader';
 import { QuotaCard } from './components/QuotaCard';
+import { QuotaForecast } from './components/QuotaForecast';
 import { QuotaTimeline } from './components/QuotaTimeline';
 import {
   CARD_ENTRANCE_BUDGET_MS,
@@ -334,6 +335,9 @@ export function QuotaPage() {
             onChange={handleTabChange}
           />
         </div>
+
+        {/* Pooled across every credential of the provider, independent of search and paging. */}
+        <QuotaForecast files={files} tab={tab} />
 
         <div className={styles.toolbar}>
           <div className={styles.search}>
