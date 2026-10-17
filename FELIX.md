@@ -20,13 +20,18 @@ Current base: upstream `v1.25.6`.
 - **Timeline legend explains the fill.** The current window's fill deliberately shows *used*
   quota, so its edge can be compared with the now line (past it means usage is ahead of pace),
   while the label shows remaining. A legend entry (`quota_management.windows_legend_used`) says so.
-- **Usage page** (`/usage`, OBSERVE; `src/features/usage/`). API-equivalent USD per user per weekly
-  window, from the fork-only gateway ledger (`/observability/usage/ledger`, `/observability/usage/clients`
-  GET/PUT; needs `usage-ledger.enabled: true`, otherwise an empty state says so). Windows anchor on
-  the earliest upcoming Claude `seven_day` reset from the shared quota cache, falling back to
-  calendar weeks (Monday 00:00 local); a toggle switches anchors. Shows the window total and pace
-  versus last week at the same point, an 8-window stacked chart by user, a user → device → model
-  table, and a key → device/user label editor (fingerprint = first 12 hex of sha256 of the key).
+- **Usage page** (`/usage`, OBSERVE; `src/features/usage/`). API-equivalent USD per user across
+  all providers, from the fork-only gateway ledger (`/observability/usage/ledger`, `/observability/usage/clients`
+  GET/PUT; needs `usage-ledger.enabled: true`, otherwise an empty state says so). Buckets carry the
+  serving credential (`auth_id`; `''` before attribution counts as Unattributed, totals only).
+  Provider tabs and a 24h/7d/30d/90d range; or a subscription window: each credential's window is
+  `[reset − period, reset]` from its passive `quota.signals` on `/credentials` (Claude unified 7d/5h,
+  Codex primary/secondary), stale resets rolled forward by whole periods, with ‹ › stepping back.
+  Shows KPIs versus the previous equal period (or window at the same point), one card per
+  subscription (window, used %, spend by user, ≈ spend at 100% from ≥ 5% used), a stacked spend chart
+  by user or subscription with reset markers, a user → device → model table, and a key → device/user
+  label editor (fingerprint = first 12 hex of sha256 of the key). Series colors follow identity
+  (users alphabetically, subscriptions by provider and name; `components/seriesSlots.module.scss`).
   Logic: `usageModel.ts`; tests: `tests/usageModel.test.ts`.
 
 ## Sync from upstream
