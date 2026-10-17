@@ -310,25 +310,40 @@ interface Snapshot {
   resetAtMs: number;
 }
 
-/** The credential's samples for its pooled window, oldest first. */
+/**
+ * The credential's samples for its pooled window, oldest first. Window duration
+ * must match too: a Codex credential can report two "session" windows.
+ */
 const samplesFor = (credential: PoolCredential, samples: QuotaHistorySample[]): Snapshot[] =>
   samples
-    .filter((sample) => sample.authId === credential.authId && sample.window === credential.window)
+    .filter(
+      (sample) =>
+        sample.authId === credential.authId &&
+        sample.window === credential.window &&
+        sample.windowMinutes * 60 * 1000 === credential.periodMs
+    )
     .sort((left, right) => left.atMs - right.atMs);
 
 /**
  * Used percent at t from snapshots that hold flat until the next one and drop to
  * zero at their reset. Null before the first snapshot: unknown, not zero.
+ * Queries must not go backwards in (t, side) order, which buildSeries guarantees,
+ * so the cursor only ever moves forward and the whole walk is a single pass.
  */
-const usedAt = (snapshots: Snapshot[], t: number, side: Side): number | null => {
-  let latest: Snapshot | null = null;
-  for (const snapshot of snapshots) {
-    if (snapshot.atMs < t || (side === 'right' && snapshot.atMs === t)) latest = snapshot;
-    else break;
-  }
-  if (!latest) return null;
-  const reset = side === 'right' ? t >= latest.resetAtMs : t > latest.resetAtMs;
-  return reset ? 0 : latest.usedPercent;
+const snapshotCursor = (snapshots: Snapshot[]) => {
+  let next = 0;
+  return (t: number, side: Side): number | null => {
+    while (
+      next < snapshots.length &&
+      (snapshots[next].atMs < t || (side === 'right' && snapshots[next].atMs === t))
+    ) {
+      next += 1;
+    }
+    const latest = next > 0 ? snapshots[next - 1] : null;
+    if (!latest) return null;
+    const reset = side === 'right' ? t >= latest.resetAtMs : t > latest.resetAtMs;
+    return reset ? 0 : latest.usedPercent;
+  };
 };
 
 /**
@@ -359,10 +374,11 @@ export function poolHistory(
     ),
   ].filter((t) => t >= fromMs && t <= nowMs);
 
+  const cursors = perCredential.map(snapshotCursor);
   return buildSeries(times, (t, side) => {
     let sum = 0;
-    for (const snapshots of perCredential) {
-      const used = usedAt(snapshots, t, side);
+    for (const usedAt of cursors) {
+      const used = usedAt(t, side);
       if (used === null) return null;
       sum += 100 - used;
     }
@@ -371,18 +387,51 @@ export function poolHistory(
 }
 
 /**
+ * Drain bucket edges ending on the next clock boundary: hours for up to three
+ * days, otherwise local calendar days, which are 23 or 25 hours long across DST.
+ */
+export function drainEdges(nowMs: number, days: DrainSpanDays): number[] {
+  const end = new Date(nowMs);
+  if (days <= 3) {
+    end.setMinutes(60, 0, 0);
+    const hours = days * 24;
+    return Array.from(
+      { length: hours + 1 },
+      (_, index) => end.getTime() - (hours - index) * HOUR_MS
+    );
+  }
+  end.setHours(24, 0, 0, 0);
+  return Array.from({ length: days + 1 }, (_, index) => {
+    const edge = new Date(end);
+    edge.setDate(end.getDate() - (days - index));
+    return edge.getTime();
+  });
+}
+
+/** Index of the bucket [edges[i], edges[i + 1]) holding t, or -1 outside them. */
+const bucketIndex = (edges: number[], t: number): number => {
+  if (edges.length < 2 || t < edges[0] || t >= edges[edges.length - 1]) return -1;
+  let low = 0;
+  let high = edges.length - 1;
+  while (high - low > 1) {
+    const middle = (low + high) >> 1;
+    if (edges[middle] <= t) low = middle;
+    else high = middle;
+  }
+  return low;
+};
+
+/**
  * Pooled used percent consumed in each bucket: positive increments between
- * consecutive samples of the same credential window (same reset). Buckets cover
- * [fromMs, toMs); each value is the total for its bucket.
+ * consecutive samples of the same credential window (same reset). Each value is
+ * the total for its bucket [edges[i], edges[i + 1]).
  */
 export function drainBuckets(
   pool: ProviderPool,
   samples: QuotaHistorySample[],
-  fromMs: number,
-  toMs: number,
-  bucketMs: number
+  edges: number[]
 ): number[] {
-  const buckets = new Array<number>(Math.max(0, Math.ceil((toMs - fromMs) / bucketMs))).fill(0);
+  const buckets = new Array<number>(Math.max(0, edges.length - 1)).fill(0);
   pool.credentials.forEach((credential) => {
     const snapshots = samplesFor(credential, samples);
     for (let index = 1; index < snapshots.length; index += 1) {
@@ -390,8 +439,8 @@ export function drainBuckets(
       const current = snapshots[index];
       if (Math.abs(current.resetAtMs - previous.resetAtMs) > SAME_RESET_TOLERANCE_MS) continue;
       const delta = current.usedPercent - previous.usedPercent;
-      if (delta <= 0 || current.atMs < fromMs || current.atMs >= toMs) continue;
-      buckets[Math.floor((current.atMs - fromMs) / bucketMs)] += delta;
+      const bucket = delta > 0 ? bucketIndex(edges, current.atMs) : -1;
+      if (bucket !== -1) buckets[bucket] += delta;
     }
   });
   return buckets;

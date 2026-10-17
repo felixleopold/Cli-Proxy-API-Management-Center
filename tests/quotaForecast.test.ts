@@ -6,6 +6,7 @@ import {
   buildPools,
   credentialNow,
   drainBuckets,
+  drainEdges,
   poolHistory,
   projectPool,
   readPoolCredential,
@@ -167,7 +168,54 @@ describe('history', () => {
       sample({ atMs: NOW - 0.5 * HOUR_MS, usedPercent: 9, resetAtMs: reset }),
       sample({ authId: 'other', atMs: NOW - HOUR_MS, usedPercent: 99 }),
     ];
-    expect(drainBuckets(pool(c), samples, NOW - 3 * HOUR_MS, NOW, HOUR_MS)).toEqual([3, 0, 4]);
+    const edges = [NOW - 3 * HOUR_MS, NOW - 2 * HOUR_MS, NOW - HOUR_MS, NOW];
+    expect(drainBuckets(pool(c), samples, edges)).toEqual([3, 0, 4]);
+  });
+
+  test('two session windows of one credential are kept apart by duration', () => {
+    const c = credential({ window: 'session', periodMs: 300 * 60 * 1000, usedPercent: 20 });
+    const at = (hours: number, minutes: number, usedPercent: number) =>
+      sample({
+        atMs: NOW - hours * HOUR_MS,
+        window: 'session',
+        windowMinutes: minutes,
+        usedPercent,
+      });
+    const samples = [at(2, 300, 10), at(2, 1440, 70), at(1, 300, 20), at(1, 1440, 80)];
+    const series = poolHistory(pool(c), samples, NOW - 2 * HOUR_MS, NOW);
+    expect(valueAt(series, NOW - 1.5 * HOUR_MS)).toBe(90);
+    expect(valueAt(series, NOW)).toBe(80);
+    const edges = [NOW - 3 * HOUR_MS, NOW - 2 * HOUR_MS, NOW - HOUR_MS, NOW];
+    expect(drainBuckets(pool(c), samples, edges)).toEqual([0, 0, 10]);
+  });
+
+  test('daily drain buckets follow local midnights across a DST change', () => {
+    const previousTz = process.env.TZ;
+    process.env.TZ = 'Europe/Vienna';
+    try {
+      // Oct 25 2026 is 25 hours long in Vienna (clocks fall back at 03:00).
+      const now = Date.parse('2026-10-26T10:00:00+01:00');
+      const edges = drainEdges(now, 7);
+      expect(new Date(edges[0]).toISOString()).toBe('2026-10-19T22:00:00.000Z');
+      expect(edges.map((edge) => new Date(edge).getHours())).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+      const c = credential({ resetAtMs: now + DAY_MS });
+      const samples = [
+        sample({
+          atMs: Date.parse('2026-10-24T23:00:00+02:00'),
+          usedPercent: 10,
+          resetAtMs: now + DAY_MS,
+        }),
+        // Just after midnight on Oct 25 belongs to Oct 25, not Oct 24.
+        sample({
+          atMs: Date.parse('2026-10-25T00:30:00+02:00'),
+          usedPercent: 13,
+          resetAtMs: now + DAY_MS,
+        }),
+      ];
+      expect(drainBuckets(pool(c), samples, edges)).toEqual([0, 0, 0, 0, 0, 3, 0]);
+    } finally {
+      process.env.TZ = previousTz;
+    }
   });
 });
 

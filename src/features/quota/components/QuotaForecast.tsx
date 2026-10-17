@@ -20,9 +20,9 @@ import {
   DAY_MS,
   DRAIN_SPAN_DAYS,
   FORECAST_HORIZON_DAYS,
-  HOUR_MS,
   buildPools,
   drainBuckets,
+  drainEdges,
   poolHistory,
   projectPool,
   summarizePool,
@@ -57,16 +57,6 @@ export interface QuotaForecastProps {
   /** Injectable for tests/screenshots; defaults to the real clock. */
   now?: number;
 }
-
-/** Drain buckets end on a clock boundary so bars line up with the axis ticks. */
-const drainRange = (nowMs: number, days: DrainSpanDays) => {
-  const end = new Date(nowMs);
-  const hourly = days <= 3;
-  if (hourly) end.setMinutes(60, 0, 0);
-  else end.setHours(24, 0, 0, 0);
-  const bucketMs = hourly ? HOUR_MS : DAY_MS;
-  return { fromMs: end.getTime() - days * DAY_MS, toMs: end.getTime(), bucketMs, hourly };
-};
 
 export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) {
   const { t, i18n } = useTranslation();
@@ -143,9 +133,9 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
 
   const drain = useMemo(() => {
     if (!samples) return null;
-    const range = drainRange(nowMs, drainDays);
+    const edges = drainEdges(nowMs, drainDays);
     const series: DrainSeries[] = visible.map((pool) => {
-      const values = drainBuckets(pool, samples, range.fromMs, range.toMs, range.bucketMs);
+      const values = drainBuckets(pool, samples, edges);
       return {
         key: pool.provider,
         label: getTypeLabel(t, pool.provider),
@@ -154,7 +144,7 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
       };
     });
     const empty = series.every((entry) => entry.values.every((value) => value === 0));
-    return { ...range, series, empty, partialIndex: (series[0]?.values.length ?? 0) - 1 };
+    return { edges, hourly: drainDays <= 3, series, empty, partialIndex: edges.length - 2 };
   }, [samples, nowMs, drainDays, visible, comparative, t]);
 
   if (visible.length === 0) return null;
@@ -172,7 +162,7 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
 
   const single = summaries[0];
   const drainPace =
-    drain && !comparative ? single.summary.pacePerHour * (drain.bucketMs / HOUR_MS) : null;
+    drain && !comparative ? single.summary.pacePerHour * (drain.hourly ? 1 : 24) : null;
   const historyNote =
     history.status === 'disabled'
       ? t('quota_management.forecast_history_off')
@@ -394,8 +384,7 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
             ) : drain ? (
               <DrainChart
                 series={drain.series}
-                fromMs={drain.fromMs}
-                bucketMs={drain.bucketMs}
+                edges={drain.edges}
                 partialIndex={drain.partialIndex}
                 pace={drainPace}
                 formatValue={formatRate}

@@ -508,8 +508,8 @@ export interface DrainSeries {
 
 export interface DrainChartProps {
   series: DrainSeries[];
-  fromMs: number;
-  bucketMs: number;
+  /** Bucket boundaries; daily buckets follow calendar days, so widths can differ by DST. */
+  edges: number[];
   /** The bucket still in progress; drawn quieter and labelled "so far". */
   partialIndex: number | null;
   /** Reference value per bucket; labelled by the panel legend. */
@@ -531,8 +531,7 @@ const columnPath = (x: number, width: number, top: number, base: number) => {
 
 export function DrainChart({
   series,
-  fromMs,
-  bucketMs,
+  edges,
   partialIndex,
   pace,
   formatValue,
@@ -541,23 +540,27 @@ export function DrainChart({
 }: DrainChartProps) {
   const [ref, width] = useElementWidth();
   const formats = useTimeFormats();
-  const count = series[0]?.values.length ?? 0;
-  const toMs = fromMs + count * bucketMs;
+  const count = Math.max(0, edges.length - 1);
+  const fromMs = edges[0] ?? 0;
+  const toMs = edges[count] ?? fromMs;
   const dataMax = Math.max(0, pace ?? 0, ...series.flatMap((entry) => entry.values));
   const yMax = niceCeiling(dataMax || 1);
   const frame = makeFrame(width, fromMs, toMs, yMax);
   const yTicks = useMemo(() => valueTicks(yMax), [yMax]);
-  const daily = bucketMs >= DAY_MS;
+  const daily = count > 0 && edges[1] - edges[0] > HOUR_MS;
   // Daily columns are categories: label each under its column, not on boundaries.
   const xTicks = useMemo(
     () =>
       daily
-        ? Array.from({ length: count }, (_, index) => fromMs + (index + 0.5) * bucketMs)
+        ? edges.slice(0, -1).map((edge, index) => (edge + edges[index + 1]) / 2)
         : timeTicks(fromMs, toMs, Math.max(3, Math.floor(frame.plotWidth / 92))),
-    [daily, count, fromMs, toMs, bucketMs, frame.plotWidth]
+    [daily, edges, fromMs, toMs, frame.plotWidth]
   );
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  // Nominal band for sizing; positions follow the edges on the time axis.
   const band = frame.plotWidth / Math.max(1, count);
+  const bandStart = (index: number) => frame.x(edges[index]);
+  const bandCenter = (index: number) => (bandStart(index) + bandStart(index + 1)) / 2;
   const gap = 2;
   const columnWidth = Math.max(
     2,
@@ -575,10 +578,10 @@ export function DrainChart({
   };
 
   const bucketTitle = (index: number) => {
-    const start = fromMs + index * bucketMs;
+    const start = edges[index];
     return daily
       ? formats.day(start)
-      : `${formats.day(start)} ${formats.time(start)}–${formats.time(start + bucketMs)}`;
+      : `${formats.day(start)} ${formats.time(start)}–${formats.time(edges[index + 1])}`;
   };
 
   return (
@@ -601,7 +604,7 @@ export function DrainChart({
         />
 
         {Array.from({ length: count }, (_, index) => {
-          const groupX = MARGIN.left + index * band + (band - groupWidth) / 2;
+          const groupX = bandCenter(index) - groupWidth / 2;
           return (
             <g
               key={index}
@@ -623,9 +626,9 @@ export function DrainChart({
               ))}
               <rect
                 className={styles.hitArea}
-                x={MARGIN.left + index * band}
+                x={bandStart(index)}
                 y={MARGIN.top}
-                width={band}
+                width={bandStart(index + 1) - bandStart(index)}
                 height={PLOT_HEIGHT}
                 onPointerEnter={() => setHoverIndex(index)}
                 onPointerLeave={() => setHoverIndex(null)}
@@ -648,7 +651,7 @@ export function DrainChart({
 
       {hoverIndex !== null && (
         <Tooltip
-          x={MARGIN.left + (hoverIndex + 0.5) * band}
+          x={bandCenter(hoverIndex)}
           width={width}
           title={`${bucketTitle(hoverIndex)}${hoverIndex === partialIndex ? ` · ${soFarLabel}` : ''}`}
           rows={series.map((entry) => ({
