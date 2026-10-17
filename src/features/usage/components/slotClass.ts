@@ -1,10 +1,6 @@
-import type { UserSlot } from '../usageModel';
-import styles from './userSlots.module.scss';
+import type { SeriesSlot } from '../usageModel';
+import styles from './seriesSlots.module.scss';
 
-/** Class that sets `--series` to the user's categorical color. */
-export const slotClassName = (slot: UserSlot): string =>
-  slot === 'other'
-    ? styles.slotOther
-    : slot === 'unassigned'
-      ? styles.slotUnassigned
-      : styles[`slot${slot}`];
+/** Class that sets `--series` to the slot's categorical color. */
+export const slotClassName = (slot: SeriesSlot): string =>
+  slot === 'other' ? styles.slotOther : slot === 'none' ? styles.slotNone : styles[`slot${slot}`];

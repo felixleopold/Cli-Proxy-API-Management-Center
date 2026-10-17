@@ -1,52 +1,51 @@
-/* Categorical user colors (validated: adjacent CVD ΔE ≥ 8.4, normal ΔE ≥ 19.3 in both
- * themes). Each class sets --series; marks paint with it. Light slots 2–5 fall below
- * 3:1 on the panel surface, so the users table carries the values as text. */
+/* Categorical series colors: muted earth tones for the warm-paper theme, one hue per
+ * slot in a fixed order. Validated with the dataviz checker against the card surfaces
+ * (#f2f0ea, #ffffff; dark #1c1a17): lightness band and chroma floor pass, worst adjacent
+ * CVD ΔE 11.1 light / 10.7 dark, normal-vision ΔE ≥ 21.8. Light ochre sits below 3:1,
+ * so every value is also written as text (legend, tooltip, table). */
 
 .slot0 {
-  --series: #2a78d6;
+  --series: #008a9b; /* petrol */
 }
 .slot1 {
-  --series: #eb6834;
+  --series: #ce704a; /* terracotta */
 }
 .slot2 {
-  --series: #1baf7a;
+  --series: #5073b5; /* slate */
 }
 .slot3 {
-  --series: #eda100;
+  --series: #cda045; /* ochre */
 }
 .slot4 {
-  --series: #e87ba4;
+  --series: #7b60ae; /* violet */
 }
 .slot5 {
-  --series: #008300;
+  --series: #6d8c40; /* moss */
 }
 .slot6 {
-  --series: #6250d6;
+  --series: #a55584; /* plum */
 }
 .slotOther {
   --series: var(--text-tertiary);
 }
-.slotUnassigned {
+.slotNone {
   --series: var(--text-quaternary);
 }
 
 :global([data-theme='dark']) {
   .slot0 {
-    --series: #3987e5;
-  }
-  .slot1 {
-    --series: #d95926;
+    --series: #009bac;
   }
   .slot2 {
-    --series: #199e70;
+    --series: #6488cc;
   }
   .slot3 {
-    --series: #c98500;
+    --series: #b88c2e;
   }
   .slot4 {
-    --series: #d55181;
+    --series: #8f75c5;
   }
   .slot6 {
-    --series: #9085e9;
+    --series: #b86797;
   }
 }

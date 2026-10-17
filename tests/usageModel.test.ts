@@ -2,25 +2,32 @@ import { describe, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
 import {
   WEEK_MS,
-  assignUserSlots,
+  assignSlots,
   buildClientRows,
-  buildWeekWindows,
+  buildTimeBuckets,
   clientKeyFingerprint,
-  earliestUpcomingReset,
-  paceCost,
-  resolveWeekAnchor,
-  rollupWindows,
+  currentUsedPercent,
+  filterBuckets,
+  parseSubscription,
+  quotaWindowSpan,
+  resolveSelection,
+  rollupUsers,
+  stackByTime,
+  summarizeSubscription,
+  type Subscription,
 } from '../src/features/usage/usageModel';
 import { normalizeUsageLedger } from '../src/services/api/usageLedger';
 import type { UsageLedgerBucket } from '../src/types';
 
 const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
 const NOW = Date.parse('2026-10-16T12:00:00Z');
 
 const bucket = (overrides: Partial<UsageLedgerBucket>): UsageLedgerBucket => ({
   hourMs: NOW - HOUR,
   fingerprint: 'aaaaaaaaaaaa',
   provider: 'claude',
+  authId: 'claude-a',
   model: 'claude-opus-5-5',
   requests: 1,
   inputTokens: 100,
@@ -33,70 +40,170 @@ const bucket = (overrides: Partial<UsageLedgerBucket>): UsageLedgerBucket => ({
   ...overrides,
 });
 
-describe('week anchoring', () => {
-  test('uses the earliest upcoming Claude reset and rolls stale ones forward', () => {
-    const soon = NOW + 2 * HOUR;
-    const later = NOW + 30 * HOUR;
-    expect(earliestUpcomingReset([later, soon], NOW)).toBe(soon);
-    // A reset cached last week still names the same weekly boundary.
-    expect(earliestUpcomingReset([soon - WEEK_MS], NOW)).toBe(soon);
-    expect(earliestUpcomingReset([NOW], NOW)).toBe(NOW + WEEK_MS);
+const clients = [
+  { fingerprint: 'aaaaaaaaaaaa', device: 'MacBook', user: 'Felix', configured: true },
+  { fingerprint: 'bbbbbbbbbbbb', device: 'iPhone', user: 'Felix', configured: true },
+  { fingerprint: 'cccccccccccc', device: 'Desktop', user: 'Sam', configured: true },
+];
+
+// Claude weekly window resetting 2 days from now, last read an hour ago.
+const claude: Subscription = {
+  id: 'claude-a',
+  provider: 'claude',
+  name: 'a@example.com',
+  observedAtMs: NOW - HOUR,
+  quota: { usedPercent: 40, resetMs: NOW + 2 * DAY, periodMs: WEEK_MS },
+  session: null,
+};
+
+describe('quota signals', () => {
+  test('claude utilization is a fraction and the weekly window leads', () => {
+    const subscription = parseSubscription({
+      name: 'claude-a.json',
+      id: 'claude-a',
+      type: 'claude',
+      email: 'a@example.com',
+      quota: {
+        observed_at: '2026-10-16T11:00:00Z',
+        signals: {
+          'Anthropic-Ratelimit-Unified-5h-Utilization': '0.5',
+          'Anthropic-Ratelimit-Unified-5h-Reset': String((NOW + HOUR) / 1000),
+          'Anthropic-Ratelimit-Unified-7d-Utilization': '0.25',
+          'Anthropic-Ratelimit-Unified-7d-Reset': String((NOW + 2 * DAY) / 1000),
+        },
+      },
+    });
+    expect(subscription).toMatchObject({
+      id: 'claude-a',
+      provider: 'claude',
+      name: 'a@example.com',
+    });
+    expect(subscription.observedAtMs).toBe(NOW - HOUR);
+    expect(subscription.quota).toEqual({
+      usedPercent: 25,
+      resetMs: NOW + 2 * DAY,
+      periodMs: WEEK_MS,
+    });
+    expect(subscription.session).toEqual({
+      usedPercent: 50,
+      resetMs: NOW + HOUR,
+      periodMs: 5 * HOUR,
+    });
   });
 
-  test('windows end at the reset and step back by whole weeks', () => {
-    const resetMs = NOW + 5 * HOUR;
-    const anchor = resolveWeekAnchor('claude', [resetMs], NOW);
-    expect(anchor).toEqual({ kind: 'claude', resetMs });
-
-    const windows = buildWeekWindows(anchor, NOW, 3);
-    expect(windows.map((window) => [window.startMs, window.endMs, window.current])).toEqual([
-      [resetMs - 3 * WEEK_MS, resetMs - 2 * WEEK_MS, false],
-      [resetMs - 2 * WEEK_MS, resetMs - WEEK_MS, false],
-      [resetMs - WEEK_MS, resetMs, true],
-    ]);
+  test('codex windows come from minutes; reset-after counts from the reading', () => {
+    const subscription = parseSubscription({
+      name: 'codex.json',
+      type: 'codex',
+      quota: {
+        observed_at: '2026-10-16T11:00:00Z',
+        signals: {
+          'X-Codex-Primary-Used-Percent': '12',
+          'X-Codex-Primary-Window-Minutes': '300',
+          'X-Codex-Primary-Reset-After-Seconds': '600',
+          'X-Codex-Secondary-Used-Percent': '61',
+          'X-Codex-Secondary-Window-Minutes': '10080',
+          'X-Codex-Secondary-Reset-At': String((NOW + DAY) / 1000),
+        },
+      },
+    });
+    expect(subscription.id).toBe('codex.json');
+    expect(subscription.quota).toEqual({ usedPercent: 61, resetMs: NOW + DAY, periodMs: WEEK_MS });
+    expect(subscription.session).toEqual({
+      usedPercent: 12,
+      resetMs: NOW - HOUR + 600_000,
+      periodMs: 5 * HOUR,
+    });
   });
 
-  test('falls back to calendar weeks starting Monday 00:00 local', () => {
-    const anchor = resolveWeekAnchor('claude', [], NOW);
-    expect(anchor).toEqual({ kind: 'calendar' });
+  test('credentials without signals have no window', () => {
+    expect(parseSubscription({ name: 'gemini.json', type: 'gemini' }).quota).toBeNull();
+  });
+});
 
-    const [previous, current] = buildWeekWindows(anchor, NOW, 2);
-    const start = new Date(current.startMs);
-    expect([start.getDay(), start.getHours(), start.getMinutes()]).toEqual([1, 0, 0]);
-    expect(current.startMs).toBeLessThanOrEqual(NOW);
-    expect(current.endMs).toBeGreaterThan(NOW);
-    expect(previous.endMs).toBe(current.startMs);
+describe('quota windows', () => {
+  test('a window ends at its reset; a stale reset rolls forward by whole periods', () => {
+    expect(quotaWindowSpan(claude.quota!, NOW)).toEqual({
+      startMs: NOW + 2 * DAY - WEEK_MS,
+      endMs: NOW + 2 * DAY,
+    });
+    const stale = { ...claude.quota!, resetMs: NOW - 9 * DAY };
+    expect(quotaWindowSpan(stale, NOW)).toEqual({ startMs: NOW - 2 * DAY, endMs: NOW + 5 * DAY });
+    // The reset instant itself opens the next window.
+    expect(quotaWindowSpan(stale, NOW - 2 * DAY).startMs).toBe(NOW - 2 * DAY);
+    expect(quotaWindowSpan(stale, NOW, 2)).toEqual({
+      startMs: NOW - 16 * DAY,
+      endMs: NOW - 9 * DAY,
+    });
+  });
+
+  test('a reading from before the current window does not count as used', () => {
+    expect(currentUsedPercent(claude.quota!, NOW - HOUR, NOW)).toBe(40);
+    expect(currentUsedPercent(claude.quota!, NOW - 6 * DAY, NOW)).toBeNull();
+    expect(currentUsedPercent(claude.quota!, null, NOW)).toBeNull();
+  });
+});
+
+describe('selection', () => {
+  test('ranges end with the bucket containing now and compare to the period before', () => {
+    const selection = resolveSelection({ kind: 'range', range: '24h' }, [], NOW)!;
+    expect(selection).toMatchObject({ startMs: NOW - 23 * HOUR, endMs: NOW + HOUR, unit: 'hour' });
+    expect(selection.authId).toBeNull();
+    // Cut at the same elapsed point: 23h into a 24h span.
+    expect(selection.previous).toEqual({ startMs: NOW - 47 * HOUR, endMs: NOW - 24 * HOUR });
+  });
+
+  test('window mode follows one credential and its previous window at the same point', () => {
+    const selection = resolveSelection(
+      { kind: 'window', subscriptionId: 'claude-a', stepsBack: 0 },
+      [claude],
+      NOW,
+      NOW - HOUR
+    )!;
+    const startMs = NOW + 2 * DAY - WEEK_MS;
+    expect(selection).toMatchObject({
+      startMs,
+      endMs: NOW + 2 * DAY,
+      unit: 'sixHours',
+      authId: 'claude-a',
+    });
+    // Cut at the snapshot (the ledger's end), not at the clock.
+    expect(selection.previous).toEqual({ startMs: startMs - WEEK_MS, endMs: NOW - HOUR - WEEK_MS });
+    expect(
+      resolveSelection({ kind: 'window', subscriptionId: 'gone', stepsBack: 0 }, [claude], NOW)
+    ).toBeNull();
+  });
+
+  test('window filtering keeps the credential, including unattributed totals elsewhere', () => {
+    const buckets = [
+      bucket({ costUsd: 2 }),
+      bucket({ authId: 'claude-b', costUsd: 3 }),
+      bucket({ authId: '', costUsd: 5 }),
+      bucket({ hourMs: NOW - 8 * DAY, costUsd: 7 }),
+    ];
+    const window = quotaWindowSpan(claude.quota!, NOW);
+    expect(filterBuckets(buckets, { ...window, provider: null, authId: 'claude-a' })).toHaveLength(
+      1
+    );
+    const all = filterBuckets(buckets, { ...window, provider: 'claude', authId: null });
+    expect(all.map((item) => item.costUsd)).toEqual([2, 3, 5]);
   });
 });
 
 describe('rollups', () => {
-  const windows = buildWeekWindows({ kind: 'claude', resetMs: NOW + HOUR }, NOW, 2);
-  const clients = [
-    { fingerprint: 'aaaaaaaaaaaa', device: 'MacBook', user: 'Felix', configured: true },
-    { fingerprint: 'bbbbbbbbbbbb', device: 'iPhone', user: 'Felix', configured: true },
-    { fingerprint: 'cccccccccccc', device: '', user: '', configured: true },
-  ];
-
-  test('groups by window, user, device and model; unlabelled keys are unassigned', () => {
-    const buckets = [
-      bucket({ costUsd: 2 }),
-      bucket({ costUsd: 3, model: 'claude-sonnet-5-5' }),
-      bucket({ fingerprint: 'bbbbbbbbbbbb', costUsd: 1 }),
-      bucket({ fingerprint: 'cccccccccccc', costUsd: 4 }),
-      bucket({ fingerprint: 'dddddddddddd', costUsd: 0.5 }),
-      // Previous window, and one before the range entirely.
-      bucket({ hourMs: NOW - 8 * 24 * HOUR, costUsd: 7 }),
-      bucket({ hourMs: NOW - 30 * 24 * HOUR, costUsd: 100 }),
-    ];
-    const [previous, current] = rollupWindows(buckets, clients, windows);
-
-    expect(previous.costUsd).toBe(7);
-    expect(current.costUsd).toBe(10.5);
-    expect(current.tokens).toBe(5 * 150);
-
-    const [felix, unassigned] = current.users;
-    expect(felix.user).toBe('Felix');
-    expect(felix.costUsd).toBe(6);
+  test('groups by user, device and model; unlabelled keys are unassigned', () => {
+    const rollup = rollupUsers(
+      [
+        bucket({ costUsd: 2 }),
+        bucket({ costUsd: 3, model: 'claude-sonnet-5-5' }),
+        bucket({ fingerprint: 'bbbbbbbbbbbb', costUsd: 1 }),
+        bucket({ fingerprint: 'dddddddddddd', costUsd: 0.5 }),
+      ],
+      clients
+    );
+    expect(rollup.costUsd).toBe(6.5);
+    expect(rollup.tokens).toBe(4 * 150);
+    const [felix, unassigned] = rollup.users;
     expect(felix.devices.map((device) => [device.device, device.costUsd])).toEqual([
       ['MacBook', 5],
       ['iPhone', 1],
@@ -105,57 +212,66 @@ describe('rollups', () => {
       'claude-sonnet-5-5',
       'claude-opus-5-5',
     ]);
-
     expect(unassigned.user).toBe('');
-    expect(unassigned.devices.map((device) => [device.fingerprint, device.device])).toEqual([
-      ['cccccccccccc', ''],
-      ['dddddddddddd', ''],
+  });
+
+  test('time buckets clip to the span and stack spend by series', () => {
+    const span = { startMs: NOW - 90 * 60_000, endMs: NOW + HOUR };
+    const spans = buildTimeBuckets(span, 'hour');
+    expect(spans).toEqual([
+      { startMs: span.startMs, endMs: NOW - HOUR },
+      { startMs: NOW - HOUR, endMs: NOW },
+      { startMs: NOW, endMs: NOW + HOUR },
     ]);
-  });
-
-  test('pace measures last window up to the snapshot, not a later clock', () => {
-    const previous = { startMs: 0, endMs: WEEK_MS, current: false };
-    const current = { startMs: WEEK_MS, endMs: 2 * WEEK_MS, current: true };
-    const buckets = [bucket({ hourMs: 0 }), bucket({ hourMs: HOUR }), bucket({ hourMs: 2 * HOUR })];
-    expect(paceCost(buckets, previous, current, WEEK_MS + 2 * HOUR)).toBe(2);
-  });
-
-  test('pace stops at the previous window end when the current week is DST-long', () => {
-    // Europe/Berlin calendar weeks: Mon 2026-10-12 00:00 CEST, Mon 10-19 00:00 CEST,
-    // Mon 10-26 00:00 CET. The current week is 7 days + 1 hour (DST ends 10-25).
-    const previous = {
-      startMs: Date.parse('2026-10-11T22:00:00Z'),
-      endMs: Date.parse('2026-10-18T22:00:00Z'),
-      current: false,
-    };
-    const current = {
-      startMs: previous.endMs,
-      endMs: Date.parse('2026-10-25T23:00:00Z'),
-      current: true,
-    };
-    expect(current.endMs - current.startMs).toBe(WEEK_MS + HOUR);
-    const buckets = [
-      bucket({ hourMs: previous.endMs - HOUR, costUsd: 2 }),
-      // The current week's first hour: past previous.endMs, never part of the pace.
-      bucket({ hourMs: current.startMs, costUsd: 5 }),
-    ];
-    expect(paceCost(buckets, previous, current, current.endMs - 1)).toBe(2);
-  });
-
-  test('user colors are ranked over the whole range and unassigned keeps its own slot', () => {
-    const rollups = rollupWindows(
+    const stacked = stackByTime(
       [
-        bucket({ costUsd: 1 }),
-        bucket({ fingerprint: 'eeeeeeeeeeee', hourMs: NOW - 8 * 24 * HOUR, costUsd: 9 }),
-        bucket({ fingerprint: 'cccccccccccc', costUsd: 50 }),
+        bucket({ costUsd: 2 }),
+        bucket({ fingerprint: 'cccccccccccc', costUsd: 3 }),
+        bucket({ hourMs: NOW }),
       ],
-      [...clients, { fingerprint: 'eeeeeeeeeeee', device: 'PC', user: 'Ada', configured: true }],
-      windows
+      spans,
+      (item) => item.fingerprint
     );
-    const slots = assignUserSlots(rollups);
-    expect(slots.get('Ada')).toBe(0);
-    expect(slots.get('Felix')).toBe(1);
-    expect(slots.get('')).toBe('unassigned');
+    expect(stacked.map((item) => item.total)).toEqual([0, 5, 1]);
+    expect(stacked[1].values.get('cccccccccccc')).toBe(3);
+  });
+
+  test('subscription summary splits the window by user and extrapolates from the reading', () => {
+    const summary = summarizeSubscription(
+      claude,
+      [
+        bucket({ hourMs: NOW - 2 * HOUR, costUsd: 6 }),
+        bucket({ hourMs: NOW - 3 * HOUR, fingerprint: 'cccccccccccc', costUsd: 2 }),
+        // After the reading: counted as spend, not in the estimate.
+        bucket({ hourMs: NOW, costUsd: 4 }),
+        bucket({ authId: 'claude-b', costUsd: 50 }),
+      ],
+      clients,
+      NOW,
+      { startMs: 0, endMs: 0 }
+    );
+    expect(summary.costUsd).toBe(12);
+    expect(summary.users).toEqual([
+      { user: 'Felix', costUsd: 10 },
+      { user: 'Sam', costUsd: 2 },
+    ]);
+    expect(summary.usedPercent).toBe(40);
+    expect(summary.estimateUsd).toBe(20);
+
+    const barely = { ...claude, quota: { ...claude.quota!, usedPercent: 4 } };
+    expect(
+      summarizeSubscription(barely, [bucket({})], clients, NOW, claude.quota!).estimateUsd
+    ).toBeNull();
+  });
+
+  test('slots follow identity order, keep "" as none and fold past seven', () => {
+    const keys = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    const slots = assignSlots(keys);
+    expect(slots.get('')).toBe('none');
+    expect(slots.get('a')).toBe(0);
+    expect(slots.get('g')).toBe(6);
+    expect(slots.get('h')).toBe('other');
+    expect(assignSlots(['a', 'c']).get('c')).toBe(1);
   });
 });
 
@@ -191,7 +307,13 @@ test('ledger normalization reads backend field names and drops unparseable hours
     {
       to: '2026-10-16T12:00:00Z',
       buckets: [
-        { hour: '2026-10-16T11:00:00Z', fingerprint: 'abc', cost_usd: 1.5, input_tokens: 10 },
+        {
+          hour: '2026-10-16T11:00:00Z',
+          fingerprint: 'abc',
+          auth_id: 'claude-a',
+          cost_usd: 1.5,
+          input_tokens: 10,
+        },
         { hour: 'not a date', cost_usd: 99 },
       ],
       clients: [{ fingerprint: 'abc', device: 'Mac', user: 'Felix', configured: true }],
@@ -202,7 +324,12 @@ test('ledger normalization reads backend field names and drops unparseable hours
   expect(ledger.toMs).toBe(NOW);
   expect(normalizeUsageLedger({}, 42).toMs).toBe(42);
   expect(ledger.buckets).toHaveLength(1);
-  expect(ledger.buckets[0]).toMatchObject({ hourMs: NOW - HOUR, costUsd: 1.5, inputTokens: 10 });
+  expect(ledger.buckets[0]).toMatchObject({
+    hourMs: NOW - HOUR,
+    authId: 'claude-a',
+    costUsd: 1.5,
+    inputTokens: 10,
+  });
   expect(ledger.clients[0].user).toBe('Felix');
   expect(ledger.unpricedModels).toEqual(['mystery-model']);
 });

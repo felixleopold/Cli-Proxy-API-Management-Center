@@ -1,12 +1,13 @@
 @use '../../styles/mixins' as *;
 
-/* Usage page: Quota header vocabulary (title, ▍ mono meta, pill toggle) over
- * dashboard stat tiles and panels. */
+/* Usage page: Quota header vocabulary (title, ▍ mono meta, pill controls), the
+ * provider tabs, a compact KPI strip and panels. Color is reserved for users
+ * and subscriptions in the chart; everything else stays in ink. */
 
 .page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
   width: 100%;
   min-width: 0;
 }
@@ -15,7 +16,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px 24px;
+  gap: 14px 24px;
   flex-wrap: wrap;
 
   @include mobile {
@@ -63,7 +64,7 @@
   }
 }
 
-.metaLive {
+.metaStrong {
   color: var(--text-primary);
 }
 
@@ -72,7 +73,43 @@
   user-select: none;
 }
 
-.modes {
+.controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+
+  @include mobile {
+    justify-content: flex-start;
+  }
+}
+
+@mixin pill-button {
+  font: inherit;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: $radius-full;
+  cursor: pointer;
+  transition:
+    color $transition-fast,
+    background-color $transition-fast;
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover:not(:disabled) {
+      color: var(--text-primary);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+}
+
+.segmented {
   display: inline-flex;
   align-items: center;
   gap: 2px;
@@ -82,26 +119,10 @@
   border-radius: $radius-full;
 
   button {
-    padding: 6px 14px;
-    font: inherit;
+    @include pill-button;
+    padding: 6px 13px;
     font-size: 12.5px;
-    color: var(--text-secondary);
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: $radius-full;
-    cursor: pointer;
-    transition:
-      color $transition-fast,
-      background-color $transition-fast;
-
-    &:hover {
-      color: var(--text-primary);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--primary-color);
-      outline-offset: 1px;
-    }
+    font-variant-numeric: tabular-nums;
 
     &[aria-pressed='true'] {
       background: var(--floating-surface, var(--bg-primary));
@@ -111,18 +132,104 @@
   }
 }
 
+.segmentedSmall button {
+  padding: 4px 11px;
+  font-size: 12px;
+}
+
+/* The selected subscription window: removable, steppable. */
+.windowChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 3px;
+  border: 1px solid var(--text-primary);
+  border-radius: $radius-full;
+  background: var(--floating-surface, var(--bg-primary));
+}
+
+.chipButton {
+  @include pill-button;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+
+  &:disabled {
+    cursor: default;
+    color: var(--text-quaternary);
+  }
+}
+
+.chipClose {
+  margin-left: 2px;
+  border-left: 1px solid var(--border-color);
+  border-radius: 0 $radius-full $radius-full 0;
+}
+
+.chipText {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 6px;
+  font-size: 12.5px;
+  color: var(--text-primary);
+}
+
+.chipIcon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+
+.chipName {
+  @include text-ellipsis;
+  max-width: 240px;
+  font-weight: 600;
+}
+
+.chipSpan {
+  flex: none;
+  font-family: $font-mono;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
 .skeletons {
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-/* ---------- Stat tiles (dashboard vocabulary) ---------- */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  transition: opacity $transition-fast;
+}
 
-.statsRow {
+/* A longer selection is loading; the shorter data stays visible but dimmed. */
+.contentStale {
+  opacity: 0.6;
+}
+
+/* ---------- KPI strip: one bordered row, cells split by hairlines ---------- */
+
+.stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: $spacing-md;
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
+  overflow: hidden;
 
   @media (max-width: 900px) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -133,47 +240,35 @@
   }
 }
 
-.statTile {
+.stat {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
-  padding: $spacing-lg;
-  border-radius: 14px;
-  border: 1px solid var(--border-color);
-  background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
-
-  &::before {
-    content: '';
-    width: 28px;
-    height: 3px;
-    margin-bottom: 2px;
-    border-radius: $radius-full;
-    background: var(--tile-accent, var(--border-hover));
-  }
-}
-
-.tileHero {
-  --tile-accent: var(--viz-success);
+  padding: 14px 18px;
+  // Hairlines between cells in every layout: each cell draws its own left and
+  // top edge and the strip's overflow clips the outer ones.
+  box-shadow:
+    -1px 0 0 var(--border-color),
+    0 -1px 0 var(--border-color);
 }
 
 .statLabel {
+  @include text-ellipsis;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
 }
 
 .statValue {
+  @include text-ellipsis;
   font-family: $font-mono;
-  font-size: 28px;
-  line-height: 1.1;
+  font-size: 22px;
+  line-height: 1.2;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .statName {
@@ -182,6 +277,7 @@
 }
 
 .statHint {
+  @include text-ellipsis;
   font-size: 12px;
   line-height: 1.45;
   color: var(--text-tertiary);
@@ -194,7 +290,7 @@
   flex-direction: column;
   gap: $spacing-md;
   min-width: 0;
-  padding: clamp($spacing-md, 2.4vw, 28px);
+  padding: clamp($spacing-md, 2.4vw, 24px);
   border-radius: 16px;
   border: 1px solid var(--border-color);
   background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
@@ -202,13 +298,22 @@
 
 .panelHead {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px 16px;
+  flex-wrap: wrap;
+
+  > div:first-child {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
 }
 
 .panelTitle {
   margin: 0;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 650;
   letter-spacing: -0.01em;
   color: var(--text-primary);
@@ -228,7 +333,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .modes button {
+  .segmented button,
+  .chipButton,
+  .content {
     transition: none;
   }
 }

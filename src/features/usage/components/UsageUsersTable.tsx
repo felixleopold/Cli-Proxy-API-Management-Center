@@ -2,13 +2,13 @@ import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconChevronDown } from '@/components/ui/icons';
 import { formatCompactNumber, formatPercent } from '@/utils/format';
-import { formatUsd, type UserSlot, type WindowRollup } from '../usageModel';
+import { formatUsd, type SeriesSlot, type UsageRollup } from '../usageModel';
 import { slotClassName } from './slotClass';
 import styles from './UsageUsersTable.module.scss';
 
 interface UsageUsersTableProps {
-  rollup: WindowRollup;
-  slots: Map<string, UserSlot>;
+  rollup: UsageRollup;
+  slots: Map<string, SeriesSlot>;
   userLabel: (user: string) => string;
   /** Masked configured api key per fingerprint. */
   keyHints: Map<string, string>;
@@ -27,7 +27,7 @@ export function UsageUsersTable({ rollup, slots, userLabel, keyHints }: UsageUse
   const [openDevices, setOpenDevices] = useState<Set<string>>(() => new Set());
 
   if (rollup.users.length === 0) {
-    return <p className={styles.empty}>{t('usage.window_empty')}</p>;
+    return <p className={styles.empty}>{t('usage.selection_empty')}</p>;
   }
 
   const share = (cost: number) => (rollup.costUsd > 0 ? (cost / rollup.costUsd) * 100 : 0);
