@@ -51,14 +51,11 @@ export function unitForSpan(spanMs: number): BucketUnit {
 /** Start of the local bucket containing `ms`; weeks start Monday 00:00. */
 export function floorToUnit(ms: number, unit: BucketUnit): number {
   // Ledger hours are UTC hours; local setters would pick the earlier of a repeated DST hour.
-  const hourMs = Math.floor(ms / HOUR_MS) * HOUR_MS;
-  if (unit === 'hour') return hourMs;
-  const date = new Date(hourMs);
-  if (unit === 'sixHours') {
-    date.setHours(date.getHours() - (date.getHours() % 6));
-    return date.getTime();
-  }
-  date.setHours(0);
+  if (unit === 'hour') return Math.floor(ms / HOUR_MS) * HOUR_MS;
+  // Longer units use local time, so fractional-offset zones keep :00 boundaries.
+  const date = new Date(ms);
+  date.setHours(unit === 'sixHours' ? date.getHours() - (date.getHours() % 6) : 0, 0, 0, 0);
+  if (unit === 'sixHours') return date.getTime();
   if (unit === 'week') date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
   return date.getTime();
 }

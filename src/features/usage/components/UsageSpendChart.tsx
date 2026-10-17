@@ -1,4 +1,4 @@
-import { useId, useMemo, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { useEffect, useId, useMemo, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { axisMax } from '@/features/dashboard/utils';
 import {
@@ -57,6 +57,16 @@ export function UsageSpendChart({
   const locale = i18n.resolvedLanguage;
   const tooltipId = useId();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
+  // A hover-opened tooltip must also close on Escape when focus is elsewhere (WCAG 1.4.13).
+  useEffect(() => {
+    if (activeIndex === null) return;
+    const dismiss = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') setActiveIndex(null);
+    };
+    document.addEventListener('keydown', dismiss);
+    return () => document.removeEventListener('keydown', dismiss);
+  }, [activeIndex]);
 
   const peak = Math.max(0, ...stacked.map((bucket) => bucket.total));
   const scaleMax = axisMax(peak, TICK_COUNT);
