@@ -8,6 +8,7 @@ import {
   clientKeyFingerprint,
   currentUsedPercent,
   filterBuckets,
+  floorToUnit,
   parseSubscription,
   quotaWindowSpan,
   resolveSelection,
@@ -173,6 +174,21 @@ describe('selection', () => {
       const selection = resolveSelection({ kind: 'range', range: '24h' }, [], at)!;
       expect(selection.endMs).toBe(Date.parse('2026-10-25T02:00:00Z'));
       expect(selection.endMs - selection.startMs).toBe(24 * HOUR);
+    } finally {
+      process.env.TZ = tz;
+    }
+  });
+
+  test('fractional-offset zones keep local :00 boundaries for days, weeks and six hours', () => {
+    const tz = process.env.TZ;
+    process.env.TZ = 'Asia/Kolkata';
+    try {
+      const at = Date.parse('2026-10-21T15:45:00+05:30');
+      for (const unit of ['sixHours', 'day', 'week'] as const) {
+        expect(new Date(floorToUnit(at, unit)).getMinutes()).toBe(0);
+      }
+      expect(new Date(floorToUnit(at, 'sixHours')).getHours()).toBe(12);
+      expect(new Date(floorToUnit(at, 'day')).getHours()).toBe(0);
     } finally {
       process.env.TZ = tz;
     }
