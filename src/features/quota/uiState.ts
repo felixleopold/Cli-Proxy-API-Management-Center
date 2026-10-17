@@ -1,3 +1,4 @@
+import { FORECAST_HORIZON_DAYS, type ForecastHorizonDays } from './quotaForecastModel';
 import {
   QUOTA_SORT_MODES,
   QUOTA_TAB_ORDER,
@@ -9,6 +10,8 @@ import {
 export type QuotaUiState = {
   tab?: QuotaTabId;
   sortMode?: QuotaSortMode;
+  forecastCollapsed?: boolean;
+  forecastHorizon?: ForecastHorizonDays;
 };
 
 const QUOTA_UI_STATE_KEY = 'quotaPage.uiState';
@@ -22,6 +25,9 @@ export const isQuotaTabId = (value: unknown): value is QuotaTabId =>
 export const isQuotaSortMode = (value: unknown): value is QuotaSortMode =>
   typeof value === 'string' && QUOTA_SORT_MODE_SET.has(value);
 
+const isForecastHorizon = (value: unknown): value is ForecastHorizonDays =>
+  (FORECAST_HORIZON_DAYS as readonly unknown[]).includes(value);
+
 export const readQuotaUiState = (): QuotaUiState | null => {
   if (typeof window === 'undefined') return null;
   try {
@@ -32,6 +38,11 @@ export const readQuotaUiState = (): QuotaUiState | null => {
     return {
       tab: isQuotaTabId(parsed.tab) ? parsed.tab : undefined,
       sortMode: isQuotaSortMode(parsed.sortMode) ? parsed.sortMode : undefined,
+      forecastCollapsed:
+        typeof parsed.forecastCollapsed === 'boolean' ? parsed.forecastCollapsed : undefined,
+      forecastHorizon: isForecastHorizon(parsed.forecastHorizon)
+        ? parsed.forecastHorizon
+        : undefined,
     };
   } catch {
     return null;
