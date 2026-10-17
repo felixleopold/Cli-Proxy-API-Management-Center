@@ -391,15 +391,13 @@ export function poolHistory(
  * days, otherwise local calendar days, which are 23 or 25 hours long across DST.
  */
 export function drainEdges(nowMs: number, days: DrainSpanDays): number[] {
-  const end = new Date(nowMs);
   if (days <= 3) {
-    end.setMinutes(60, 0, 0);
+    // Epoch arithmetic: local setters skip the repeated hour when clocks fall back.
+    const endMs = Math.floor(nowMs / HOUR_MS) * HOUR_MS + HOUR_MS;
     const hours = days * 24;
-    return Array.from(
-      { length: hours + 1 },
-      (_, index) => end.getTime() - (hours - index) * HOUR_MS
-    );
+    return Array.from({ length: hours + 1 }, (_, index) => endMs - (hours - index) * HOUR_MS);
   }
+  const end = new Date(nowMs);
   end.setHours(24, 0, 0, 0);
   return Array.from({ length: days + 1 }, (_, index) => {
     const edge = new Date(end);

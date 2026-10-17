@@ -189,6 +189,21 @@ describe('history', () => {
     expect(drainBuckets(pool(c), samples, edges)).toEqual([0, 0, 10]);
   });
 
+  test('hourly drain edges end on the next hour in both repeated DST hours', () => {
+    const previousTz = process.env.TZ;
+    process.env.TZ = 'Europe/Vienna';
+    try {
+      for (const now of ['2026-10-25T02:30:00+02:00', '2026-10-25T02:30:00+01:00']) {
+        const nowMs = Date.parse(now);
+        const edges = drainEdges(nowMs, 1);
+        expect(edges[edges.length - 1] - nowMs).toBe(HOUR_MS / 2);
+        expect(edges[edges.length - 1] - edges[0]).toBe(24 * HOUR_MS);
+      }
+    } finally {
+      process.env.TZ = previousTz;
+    }
+  });
+
   test('daily drain buckets follow local midnights across a DST change', () => {
     const previousTz = process.env.TZ;
     process.env.TZ = 'Europe/Vienna';
