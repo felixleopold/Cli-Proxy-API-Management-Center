@@ -228,6 +228,25 @@ export const applyAuthFileWebsockets = (
   return next;
 };
 
+export const supportsAuthFileUsageCap = (providerKey: string): boolean =>
+  normalizeProviderKey(providerKey) === 'codex';
+
+/** Parses a whole-number cap from 1 to 99: null for empty text (no cap), undefined if invalid. */
+export const parseUsageCapPercentText = (text: string): number | null | undefined => {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  if (!/^\d+$/.test(trimmed)) return undefined;
+  const value = Number(trimmed);
+  return value >= 1 && value <= 99 ? value : undefined;
+};
+
+export const readAuthFileUsageCapPercent = (value: Record<string, unknown>): number | null => {
+  const raw = value.usage_cap_percent;
+  return typeof raw === 'number' || typeof raw === 'string'
+    ? (parseUsageCapPercentText(String(raw)) ?? null)
+    : null;
+};
+
 export const supportsAuthFileUsingApi = (providerKey: string): boolean =>
   AUTH_FILE_USING_API_PROVIDERS.has(normalizeProviderKey(providerKey));
 
