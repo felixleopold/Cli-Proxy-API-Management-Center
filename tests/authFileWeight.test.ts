@@ -21,6 +21,8 @@ const makeEditor = (json: Record<string, unknown>, weight: string): PrefixProxyE
   priority: '',
   weight,
   weightError: null,
+  usageCapPercent: '',
+  usageCapPercentError: null,
   disableCooling: false,
   disableCoolingTouched: false,
   websockets: false,
@@ -60,6 +62,42 @@ describe('auth-file credential weight patch', () => {
     expect(() => buildAuthFileFieldsPatch(makeEditor({}, '1000001'), resolveError)).toThrow(
       'auth_files.weight_invalid_max'
     );
+  });
+});
+
+describe('auth-file Codex usage cap patch', () => {
+  const withCap = (
+    json: Record<string, unknown>,
+    usageCapPercent: string,
+    providerKey = 'codex'
+  ) => ({
+    ...makeEditor(json, ''),
+    providerKey,
+    usageCapPercent,
+  });
+
+  test('sets, keeps, and clears the cap with null', () => {
+    expect(buildAuthFileFieldsPatch(withCap({}, '80'), resolveError)).toEqual({
+      usage_cap_percent: 80,
+    });
+    expect(
+      buildAuthFileFieldsPatch(withCap({ usage_cap_percent: 80 }, '80'), resolveError)
+    ).toEqual({});
+    expect(buildAuthFileFieldsPatch(withCap({ usage_cap_percent: 80 }, ''), resolveError)).toEqual({
+      usage_cap_percent: null,
+    });
+    expect(
+      buildAuthFileFieldsPatch(withCap({ usage_cap_percent: null }, ''), resolveError)
+    ).toEqual({});
+  });
+
+  test('rejects out-of-range input and ignores non-Codex credentials', () => {
+    for (const value of ['0', '100', '50.5', 'abc']) {
+      expect(() => buildAuthFileFieldsPatch(withCap({}, value), resolveError)).toThrow(
+        'auth_files.usage_cap_invalid'
+      );
+    }
+    expect(buildAuthFileFieldsPatch(withCap({}, '80', 'claude'), resolveError)).toEqual({});
   });
 });
 

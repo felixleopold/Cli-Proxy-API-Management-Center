@@ -13,6 +13,7 @@ import type {
   PrefixProxyEditorState,
 } from '@/features/authFiles/hooks/useAuthFilesPrefixProxyEditor';
 import {
+  supportsAuthFileUsageCap,
   supportsAuthFileUsingApi,
   supportsAuthFileWebsockets,
 } from '@/features/authFiles/constants';
@@ -156,6 +157,7 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
               !editor?.json ||
               Boolean(editor?.headersTouched && editor.headersError) ||
               Boolean(editor?.weightError) ||
+              Boolean(editor?.usageCapPercentError) ||
               Boolean(credentialPolicyError(editor?.policy))
             }
           >
@@ -238,6 +240,23 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
                     disabled={disableControls || editor.saving || !editor.json}
                     onChange={(e) => onChange('weight', e.target.value)}
                   />
+                  {supportsAuthFileUsageCap(editor.providerKey) && (
+                    <Input
+                      label={t('auth_files.usage_cap_label')}
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={99}
+                      step="1"
+                      value={editor.usageCapPercent}
+                      hint={t('auth_files.usage_cap_hint')}
+                      error={editor.usageCapPercentError ?? undefined}
+                      className={styles.suffixedInput}
+                      rightElement={<span className={styles.inputSuffix}>%</span>}
+                      disabled={disableControls || editor.saving || !editor.json}
+                      onChange={(e) => onChange('usageCapPercent', e.target.value)}
+                    />
+                  )}
                   <div className="form-group">
                     <label>{t('auth_files.disable_cooling_label')}</label>
                     <ToggleSwitch
