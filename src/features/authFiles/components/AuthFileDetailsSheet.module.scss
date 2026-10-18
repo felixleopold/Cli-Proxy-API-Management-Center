@@ -88,6 +88,16 @@
   gap: 14px;
 }
 
+.suffixedInput {
+  padding-right: 32px;
+}
+
+.inputSuffix {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  pointer-events: none;
+}
+
 .settingsLink {
   color: var(--primary-color);
   font-weight: 600;
