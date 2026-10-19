@@ -12,17 +12,21 @@ import { useCallback, useId, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconChevronDown } from '@/components/ui/icons';
+import { Select } from '@/components/ui/Select';
 import { useNow } from '@/hooks/useNow';
 import type { AuthFileItem } from '@/types';
 import { getTypeLabel } from '@/features/authFiles/constants';
 import type { QuotaTabId } from '../constants';
 import {
   DAY_MS,
+  DEFAULT_SLEEP_HOURS,
   DRAIN_SPAN_DAYS,
   FORECAST_HORIZON_DAYS,
   buildPools,
   drainBuckets,
   drainEdges,
+  learnPoolActivity,
+  nightHours,
   poolHistory,
   projectPool,
   summarizePool,
@@ -30,6 +34,7 @@ import {
   type DrainSpanDays,
   type ForecastHorizonDays,
   type ForecastProvider,
+  type SleepHours,
 } from '../quotaForecastModel';
 import { useQuotaHistory } from '../hooks/useQuotaHistory';
 import { readQuotaUiState, writeQuotaUiState } from '../uiState';
@@ -73,6 +78,13 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
   const [horizon, setHorizon] = useState<ForecastHorizonDays>(
     () => readQuotaUiState()?.forecastHorizon ?? 7
   );
+  const [sleep, setSleep] = useState<SleepHours>(() => {
+    const stored = readQuotaUiState();
+    return {
+      startHour: stored?.forecastSleepStart ?? DEFAULT_SLEEP_HOURS.startHour,
+      endHour: stored?.forecastSleepEnd ?? DEFAULT_SLEEP_HOURS.endHour,
+    };
+  });
   const [view, setView] = useState<ForecastView>('remaining');
   const [drainDays, setDrainDays] = useState<DrainSpanDays>(7);
 
@@ -97,18 +109,40 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
       hour: 'numeric',
       minute: '2-digit',
     });
+    const clockHour = new Intl.DateTimeFormat(language, { hour: 'numeric', minute: '2-digit' });
     return {
       percent: (value: number) => whole.format(value),
       rate: (value: number) => (value >= 10 ? whole.format(value) : tenth.format(value)),
       when: (ms: number) => (ms - nowMs < 6 * DAY_MS ? when : whenWithDate).format(ms),
+      hour: (hour: number) => clockHour.format(new Date(2000, 0, 1, hour)),
     };
   }, [language, nowMs]);
   const formatPercent = useCallback((value: number) => `${numbers.percent(value)}%`, [numbers]);
   const formatRate = useCallback((value: number) => `${numbers.rate(value)}%`, [numbers]);
 
+  const activities = useMemo(
+    () => visible.map((pool) => learnPoolActivity(pool, samples ?? [], nowMs, sleep)),
+    [visible, samples, nowMs, sleep]
+  );
+  // On the All tab a band is night only when every visible pool is quiet then.
+  const night = useMemo(
+    () =>
+      activities
+        .map((activity) => nightHours(activity.profile))
+        .reduce(
+          (all, hours) => all.map((quiet, hour) => quiet && hours[hour]),
+          new Array<boolean>(24).fill(true)
+        ),
+    [activities]
+  );
+
   const summaries = useMemo(
-    () => visible.map((pool) => ({ pool, summary: summarizePool(pool, nowMs) })),
-    [visible, nowMs]
+    () =>
+      visible.map((pool, index) => ({
+        pool,
+        summary: summarizePool(pool, nowMs, activities[index]),
+      })),
+    [visible, nowMs, activities]
   );
 
   const historyDays = Math.min(horizon, MAX_HISTORY_DAYS);
@@ -117,9 +151,9 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
 
   const lines = useMemo<ForecastLine[]>(
     () =>
-      visible.map((pool) => {
+      visible.map((pool, index) => {
         const past = samples ? poolHistory(pool, samples, startMs, nowMs) : [];
-        const future = projectPool(pool, nowMs, endMs);
+        const future = projectPool(pool, nowMs, endMs, activities[index]);
         return {
           key: pool.provider,
           label: getTypeLabel(t, pool.provider),
@@ -128,7 +162,7 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
           projection: comparative ? toPoolShare(future, pool.capacity) : future,
         };
       }),
-    [visible, samples, startMs, nowMs, endMs, comparative, t]
+    [visible, samples, startMs, nowMs, endMs, comparative, activities, t]
   );
 
   const drain = useMemo(() => {
@@ -159,6 +193,15 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
     setHorizon(days);
     writeQuotaUiState({ forecastHorizon: days });
   };
+  const chooseSleep = (next: SleepHours) => {
+    setSleep(next);
+    writeQuotaUiState({ forecastSleepStart: next.startHour, forecastSleepEnd: next.endHour });
+  };
+  const hourOptions = Array.from({ length: 24 }, (_, hour) => ({
+    value: String(hour),
+    label: numbers.hour(hour),
+  }));
+  const hasNight = night.some(Boolean);
 
   const single = summaries[0];
   const drainPace =
@@ -170,10 +213,16 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
         ? t('quota_management.forecast_history_error')
         : null;
 
-  const legendKey = (variant: 'line' | 'dashed' | 'bar', color: string) => (
+  const legendKey = (variant: 'line' | 'dashed' | 'bar' | 'band', color: string) => (
     <span
       className={
-        variant === 'bar' ? styles.keyBar : variant === 'dashed' ? styles.keyDashed : styles.keyLine
+        variant === 'band'
+          ? styles.keyBand
+          : variant === 'bar'
+            ? styles.keyBar
+            : variant === 'dashed'
+              ? styles.keyDashed
+              : styles.keyLine
       }
       style={{ '--series': color } as CSSProperties}
       aria-hidden="true"
@@ -315,6 +364,12 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
                     </span>
                   </>
                 )}
+                {view === 'remaining' && hasNight && (
+                  <span className={styles.legendItem}>
+                    {legendKey('band', 'var(--text-tertiary)')}
+                    {t('quota_management.forecast_legend_night')}
+                  </span>
+                )}
                 {view === 'drain' &&
                   drain &&
                   (comparative ? (
@@ -375,6 +430,7 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
                 nowMs={nowMs}
                 yMax={comparative ? 100 : single.summary.capacity}
                 fillArea={!comparative}
+                night={night}
                 formatValue={formatPercent}
                 ariaLabel={t('quota_management.forecast_aria_remaining', { count: horizon })}
                 remainingLabel={t('quota_management.forecast_legend_remaining')}
@@ -429,6 +485,36 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
               </div>
               {view === 'remaining' && historyNote && (
                 <span className={styles.note}>{historyNote}</span>
+              )}
+              {view === 'remaining' && (
+                <details className={styles.settings}>
+                  <summary>{t('quota_management.forecast_settings')}</summary>
+                  <div className={styles.settingsBody}>
+                    <span className={styles.settingsLabel}>
+                      {t('quota_management.forecast_sleep_label')}
+                    </span>
+                    <Select
+                      size="sm"
+                      className={styles.hourSelect}
+                      value={String(sleep.startHour)}
+                      options={hourOptions}
+                      ariaLabel={t('quota_management.forecast_sleep_start')}
+                      onChange={(value) => chooseSleep({ ...sleep, startHour: Number(value) })}
+                    />
+                    <span aria-hidden="true">–</span>
+                    <Select
+                      size="sm"
+                      className={styles.hourSelect}
+                      value={String(sleep.endHour)}
+                      options={hourOptions}
+                      ariaLabel={t('quota_management.forecast_sleep_end')}
+                      onChange={(value) => chooseSleep({ ...sleep, endHour: Number(value) })}
+                    />
+                    <p className={styles.settingsHint}>
+                      {t('quota_management.forecast_sleep_hint')}
+                    </p>
+                  </div>
+                </details>
               )}
             </footer>
           </div>

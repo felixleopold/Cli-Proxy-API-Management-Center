@@ -237,7 +237,8 @@
 
 .keyLine,
 .keyDashed,
-.keyBar {
+.keyBar,
+.keyBand {
   flex: none;
   display: inline-block;
 }
@@ -260,6 +261,14 @@
   height: 10px;
   border-radius: 2px 2px 0 0;
   background: var(--series);
+}
+
+.keyBand {
+  width: 12px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--text-primary);
+  opacity: 0.12;
 }
 
 .rangeControl {
@@ -407,6 +416,12 @@
   }
 }
 
+/* Quiet hours: a wash of the text color reads on both themes. */
+.nightBand {
+  fill: var(--text-primary);
+  opacity: 0.045;
+}
+
 /* Matches the dashed legend key in --text-secondary. */
 .paceLine {
   stroke: var(--text-secondary);
@@ -500,6 +515,75 @@
 
 .note {
   font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.settings {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-tertiary);
+
+  summary {
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &::before {
+      content: '';
+      display: inline-block;
+      margin-right: 6px;
+      border-block: 4px solid transparent;
+      border-left: 5px solid currentColor;
+      vertical-align: 1px;
+      transition: transform var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+    }
+
+    &:hover {
+      color: var(--text-secondary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      &::before {
+        transition: none;
+      }
+    }
+  }
+
+  &[open] summary::before {
+    transform: rotate(90deg);
+  }
+}
+
+.settingsBody {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin-top: 8px;
+  color: var(--text-secondary);
+}
+
+.hourSelect {
+  width: 116px;
+}
+
+.settingsLabel {
+  margin-right: 2px;
+}
+
+.settingsHint {
+  flex-basis: 100%;
+  margin: 0;
   color: var(--text-tertiary);
 }
 

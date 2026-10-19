@@ -1620,7 +1620,13 @@
     "forecast_history_off": "Quota history is off on this server, so only the projection from current state is shown.",
     "forecast_history_error": "Quota history couldn't be loaded, so only the projection is shown.",
     "forecast_next_reset": "Next reset +{{percent}}% · {{when}}",
-    "forecast_drain_empty": "No quota use recorded in this period."
+    "forecast_drain_empty": "No quota use recorded in this period.",
+    "forecast_legend_night": "Usual sleep",
+    "forecast_settings": "Forecast settings",
+    "forecast_sleep_label": "Sleep hours",
+    "forecast_sleep_start": "Sleep starts",
+    "forecast_sleep_end": "Sleep ends",
+    "forecast_sleep_hint": "Until enough history is learned, the forecast assumes no quota use during these hours."
   },
   "plugin_management": {
     "title": "Plugin Management",

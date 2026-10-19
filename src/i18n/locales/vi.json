@@ -1577,7 +1577,13 @@
     "forecast_history_off": "Máy chủ này tắt lịch sử hạn mức, nên chỉ hiển thị dự báo từ trạng thái hiện tại.",
     "forecast_history_error": "Không tải được lịch sử hạn mức, nên chỉ hiển thị dự báo.",
     "forecast_next_reset": "Lần đặt lại tới +{{percent}}% · {{when}}",
-    "forecast_drain_empty": "Không ghi nhận mức dùng hạn mức trong khoảng này."
+    "forecast_drain_empty": "Không ghi nhận mức dùng hạn mức trong khoảng này.",
+    "forecast_legend_night": "Giờ ngủ thường lệ",
+    "forecast_settings": "Cài đặt dự báo",
+    "forecast_sleep_label": "Giờ ngủ",
+    "forecast_sleep_start": "Bắt đầu ngủ",
+    "forecast_sleep_end": "Kết thúc ngủ",
+    "forecast_sleep_hint": "Cho đến khi có đủ lịch sử, dự báo giả định không dùng hạn mức trong những giờ này."
   },
   "plugin_management": {
     "title": "Quản lý Plugin",

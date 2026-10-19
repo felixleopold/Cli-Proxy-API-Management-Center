@@ -198,8 +198,16 @@ interface CredentialNow {
   nowMs: number;
 }
 
-/** A reset that has already passed means the window is full again, with the next reset one period on. */
-export function credentialNow(credential: PoolCredential, nowMs: number): CredentialNow {
+/**
+ * A reset that has already passed means the window is full again, with the next
+ * reset one period on. `ratePerMs` is the measured daily-average drain; without
+ * it the pace is the current window's average so far.
+ */
+export function credentialNow(
+  credential: PoolCredential,
+  nowMs: number,
+  ratePerMs?: number
+): CredentialNow {
   const { periodMs } = credential;
   let { resetAtMs, usedPercent } = credential;
   if (nowMs >= resetAtMs) {
@@ -207,34 +215,49 @@ export function credentialNow(credential: PoolCredential, nowMs: number): Creden
     usedPercent = 0;
   }
   const elapsed = Math.max(MIN_PACE_ELAPSED_MS, nowMs - (resetAtMs - periodMs));
-  return { usedPercent, resetAtMs, periodMs, pace: usedPercent / elapsed, nowMs };
+  const pace = ratePerMs ?? usedPercent / elapsed;
+  return { usedPercent, resetAtMs, periodMs, pace, nowMs };
 }
 
 type Side = 'left' | 'right';
 
-/** Projected remaining percent at t ≥ now. 'left' is the limit just before t (before a reset lands). */
-const projectedRemaining = (state: CredentialNow, t: number, side: Side): number => {
-  const { resetAtMs, periodMs, pace, usedPercent, nowMs } = state;
+/**
+ * Projected remaining percent at t ≥ now. Usage between now and t is the pace
+ * times the activity-weighted time between them. 'left' is the limit just
+ * before t (before a reset lands).
+ */
+const projectedRemaining = (
+  state: CredentialNow,
+  clock: ActivityClock,
+  t: number,
+  side: Side
+): number => {
+  const { resetAtMs, periodMs, pace, usedPercent } = state;
   if (t < resetAtMs || (side === 'left' && t === resetAtMs)) {
-    return Math.max(0, 100 - usedPercent - pace * (t - nowMs));
+    return Math.max(0, 100 - usedPercent - pace * clock.at(t));
   }
-  let since = (t - resetAtMs) % periodMs;
-  if (side === 'left' && since === 0) since = periodMs;
-  return Math.max(0, 100 - pace * since);
+  let resets = Math.floor((t - resetAtMs) / periodMs);
+  if (side === 'left' && (t - resetAtMs) % periodMs === 0) resets -= 1;
+  const lastReset = resetAtMs + resets * periodMs;
+  return Math.max(0, 100 - pace * (clock.at(t) - clock.at(lastReset)));
 };
 
-/** Every instant where the projection jumps (reset) or bends (hits zero). */
-const projectionBreakpoints = (state: CredentialNow, endMs: number): number[] => {
-  const { resetAtMs, periodMs, pace, usedPercent, nowMs } = state;
+/** Every instant where the projection jumps (reset) or hits zero. */
+const projectionBreakpoints = (
+  state: CredentialNow,
+  clock: ActivityClock,
+  endMs: number
+): number[] => {
+  const { resetAtMs, periodMs, pace, usedPercent } = state;
   const points: number[] = [];
   if (pace > 0) {
-    const emptyAt = nowMs + (100 - usedPercent) / pace;
+    const emptyAt = clock.reach((100 - usedPercent) / pace);
     if (emptyAt < Math.min(resetAtMs, endMs)) points.push(emptyAt);
   }
   for (let reset = resetAtMs; reset <= endMs; reset += periodMs) {
     points.push(reset);
     if (pace > 0) {
-      const emptyAt = reset + 100 / pace;
+      const emptyAt = clock.reach(clock.at(reset) + 100 / pace);
       if (emptyAt < Math.min(reset + periodMs, endMs)) points.push(emptyAt);
     }
   }
@@ -263,37 +286,65 @@ const buildSeries = (
   return series;
 };
 
-/** Pooled remaining percent from now to endMs. */
-export function projectPool(pool: ProviderPool, nowMs: number, endMs: number): SeriesPoint[] {
-  const states = pool.credentials.map((credential) => credentialNow(credential, nowMs));
-  const times = [nowMs, endMs, ...states.flatMap((state) => projectionBreakpoints(state, endMs))];
+const credentialStates = (pool: ProviderPool, nowMs: number, activity: PoolActivity) =>
+  pool.credentials.map((credential) =>
+    credentialNow(credential, nowMs, activity.rates.get(credential.authId))
+  );
+
+/**
+ * Pooled remaining percent from now to endMs. Between breakpoints (resets,
+ * zero crossings, hours where the activity weight changes) it is exactly linear.
+ */
+export function projectPool(
+  pool: ProviderPool,
+  nowMs: number,
+  endMs: number,
+  activity: PoolActivity = FLAT_ACTIVITY
+): SeriesPoint[] {
+  const states = credentialStates(pool, nowMs, activity);
+  const clock = activityClock(activity.profile, nowMs, endMs);
+  const times = [
+    nowMs,
+    endMs,
+    ...clock.bends,
+    ...states.flatMap((state) => projectionBreakpoints(state, clock, endMs)),
+  ];
   return buildSeries(
     times.filter((t) => t >= nowMs && t <= endMs),
-    (t, side) => states.reduce((sum, state) => sum + projectedRemaining(state, t, side), 0)
+    (t, side) => states.reduce((sum, state) => sum + projectedRemaining(state, clock, t, side), 0)
   );
 }
 
 export interface PoolSummary {
   remaining: number;
   capacity: number;
-  /** Pooled percent per hour. */
+  /** Pooled percent per hour, averaged over the day. */
   pacePerHour: number;
   nextReset: { atMs: number; restorePercent: number } | null;
 }
 
-export function summarizePool(pool: ProviderPool, nowMs: number): PoolSummary {
-  const states = pool.credentials.map((credential) => credentialNow(credential, nowMs));
+export function summarizePool(
+  pool: ProviderPool,
+  nowMs: number,
+  activity: PoolActivity = FLAT_ACTIVITY
+): PoolSummary {
+  const states = credentialStates(pool, nowMs, activity);
   const remaining = states.reduce((sum, state) => sum + 100 - state.usedPercent, 0);
   const pacePerHour = states.reduce((sum, state) => sum + state.pace * HOUR_MS, 0);
 
   const earliest = Math.min(...states.map((state) => state.resetAtMs));
   const resetting = states.filter((state) => state.resetAtMs - earliest <= SAME_RESET_TOLERANCE_MS);
+  const clock = activityClock(
+    activity.profile,
+    nowMs,
+    Math.max(nowMs, ...resetting.map((state) => state.resetAtMs))
+  );
   const nextReset = Number.isFinite(earliest)
     ? {
         atMs: earliest,
         // What the reset restores is whatever the projection says is used by then.
         restorePercent: resetting.reduce(
-          (sum, state) => sum + 100 - projectedRemaining(state, state.resetAtMs, 'left'),
+          (sum, state) => sum + 100 - projectedRemaining(state, clock, state.resetAtMs, 'left'),
           0
         ),
       }
@@ -419,10 +470,31 @@ const bucketIndex = (edges: number[], t: number): number => {
   return low;
 };
 
+interface Drain {
+  atMs: number;
+  delta: number;
+}
+
 /**
- * Pooled used percent consumed in each bucket: positive increments between
- * consecutive samples of the same credential window (same reset). Each value is
- * the total for its bucket [edges[i], edges[i + 1]).
+ * Measured drain of one credential: positive increments between consecutive
+ * samples of the same window (same reset), timed at the later sample.
+ */
+const drainOf = (credential: PoolCredential, samples: QuotaHistorySample[]): Drain[] => {
+  const snapshots = samplesFor(credential, samples);
+  const drains: Drain[] = [];
+  for (let index = 1; index < snapshots.length; index += 1) {
+    const previous = snapshots[index - 1];
+    const current = snapshots[index];
+    if (Math.abs(current.resetAtMs - previous.resetAtMs) > SAME_RESET_TOLERANCE_MS) continue;
+    const delta = current.usedPercent - previous.usedPercent;
+    if (delta > 0) drains.push({ atMs: current.atMs, delta });
+  }
+  return drains;
+};
+
+/**
+ * Pooled used percent consumed in each bucket. Each value is the total for its
+ * bucket [edges[i], edges[i + 1]).
  */
 export function drainBuckets(
   pool: ProviderPool,
@@ -431,17 +503,198 @@ export function drainBuckets(
 ): number[] {
   const buckets = new Array<number>(Math.max(0, edges.length - 1)).fill(0);
   pool.credentials.forEach((credential) => {
-    const snapshots = samplesFor(credential, samples);
-    for (let index = 1; index < snapshots.length; index += 1) {
-      const previous = snapshots[index - 1];
-      const current = snapshots[index];
-      if (Math.abs(current.resetAtMs - previous.resetAtMs) > SAME_RESET_TOLERANCE_MS) continue;
-      const delta = current.usedPercent - previous.usedPercent;
-      const bucket = delta > 0 ? bucketIndex(edges, current.atMs) : -1;
+    drainOf(credential, samples).forEach(({ atMs, delta }) => {
+      const bucket = bucketIndex(edges, atMs);
       if (bucket !== -1) buckets[bucket] += delta;
-    }
+    });
   });
   return buckets;
+}
+
+/* ---------- Activity: when in the day quota gets used ---------- */
+
+/** Local hours [startHour, endHour) assumed asleep until history says otherwise. */
+export interface SleepHours {
+  startHour: number;
+  endHour: number;
+}
+
+export const DEFAULT_SLEEP_HOURS: SleepHours = { startHour: 0, endHour: 8 };
+
+/** Days of measured drain that weigh as much as the sleep baseline. */
+const PROFILE_PRIOR_DAYS = 7;
+/** Hours below this share of the daily mean are drawn as night. */
+const NIGHT_WEIGHT = 0.25;
+/** Daily rate is the drain measured over this trailing span... */
+const RATE_SPAN_MS = 7 * DAY_MS;
+/** ...once history covers at least this much of it. */
+const MIN_RATE_COVERAGE_MS = DAY_MS;
+
+export interface PoolActivity {
+  /** Weight of each local hour of the day, mean 1: it only moves usage within the day. */
+  profile: number[];
+  /** Distinct local days with measured drain. */
+  learnedDays: number;
+  /** Measured daily-average drain per credential, percent per millisecond. */
+  rates: ReadonlyMap<string, number>;
+}
+
+/** Usage spread evenly over the day at each window's average pace. */
+export const FLAT_ACTIVITY: PoolActivity = {
+  profile: new Array<number>(24).fill(1),
+  learnedDays: 0,
+  rates: new Map(),
+};
+
+const isSleepHour = (hour: number, { startHour, endHour }: SleepHours) =>
+  startHour <= endHour ? hour >= startHour && hour < endHour : hour >= startHour || hour < endHour;
+
+/** Zero while asleep, the waking hours sharing the day evenly. */
+export function baselineProfile(sleep: SleepHours): number[] {
+  const hours = Array.from({ length: 24 }, (_, hour) => hour);
+  const awake = hours.filter((hour) => !isSleepHour(hour, sleep)).length;
+  return hours.map((hour) => (isSleepHour(hour, sleep) ? 0 : 24 / awake));
+}
+
+/**
+ * Learns when in the (local) day the pool's quota is used and how fast each
+ * credential drains. The hour-of-day profile blends measured drain into the
+ * sleep baseline as more days are seen; each delta counts at the local hour
+ * it was recorded, so DST days need no special case.
+ */
+export function learnPoolActivity(
+  pool: ProviderPool,
+  samples: QuotaHistorySample[],
+  nowMs: number,
+  sleep: SleepHours
+): PoolActivity {
+  const drains = pool.credentials.map((credential) => ({
+    authId: credential.authId,
+    drains: drainOf(credential, samples).filter((drain) => drain.atMs <= nowMs),
+  }));
+
+  const byHour = new Array<number>(24).fill(0);
+  const days = new Set<string>();
+  drains.forEach((entry) =>
+    entry.drains.forEach(({ atMs, delta }) => {
+      const date = new Date(atMs);
+      byHour[date.getHours()] += delta;
+      days.add(`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`);
+    })
+  );
+  const total = byHour.reduce((sum, value) => sum + value, 0);
+  const learnedWeight = total > 0 ? days.size / (days.size + PROFILE_PRIOR_DAYS) : 0;
+  const blended = baselineProfile(sleep).map(
+    (prior, hour) =>
+      (1 - learnedWeight) * prior + (total > 0 ? (learnedWeight * byHour[hour] * 24) / total : 0)
+  );
+  const mean = blended.reduce((sum, value) => sum + value, 0) / 24;
+
+  // History is only recorded on change, so coverage runs from the oldest sample of any credential.
+  const oldest = samples.reduce((min, sample) => Math.min(min, sample.atMs), Infinity);
+  const coveredFrom = Math.max(nowMs - RATE_SPAN_MS, oldest);
+  const covered = nowMs - coveredFrom;
+  const rates = new Map<string, number>();
+  if (covered >= MIN_RATE_COVERAGE_MS) {
+    drains.forEach((entry) => {
+      const used = entry.drains
+        .filter((drain) => drain.atMs > coveredFrom)
+        .reduce((sum, drain) => sum + drain.delta, 0);
+      rates.set(entry.authId, used / covered);
+    });
+  }
+
+  return { profile: blended.map((value) => value / mean), learnedDays: days.size, rates };
+}
+
+/** Hours of the day quiet enough to draw as night. */
+export const nightHours = (profile: number[]): boolean[] =>
+  profile.map((weight) => weight < NIGHT_WEIGHT);
+
+/** Start of the local clock hour holding t (zones with whole-hour DST shifts). */
+const localHourStart = (t: number): number => {
+  const date = new Date(t);
+  return t - (date.getMinutes() * 60 + date.getSeconds()) * 1000 - date.getMilliseconds();
+};
+
+/** Splits [fromMs, toMs) into local clock hours, merging neighbours that share a key. */
+function localHourRuns<K>(
+  fromMs: number,
+  toMs: number,
+  keyOf: (hour: number) => K
+): { startMs: number; endMs: number; key: K }[] {
+  const runs: { startMs: number; endMs: number; key: K }[] = [];
+  let cursor = fromMs;
+  do {
+    const endMs = Math.min(toMs, localHourStart(cursor) + HOUR_MS);
+    const key = keyOf(new Date(cursor).getHours());
+    const last = runs[runs.length - 1];
+    if (last && last.key === key) last.endMs = endMs;
+    else runs.push({ startMs: cursor, endMs, key });
+    cursor = endMs;
+  } while (cursor < toMs);
+  return runs;
+}
+
+/** Night stretches within [fromMs, toMs]. */
+export const nightBands = (
+  night: boolean[],
+  fromMs: number,
+  toMs: number
+): { startMs: number; endMs: number }[] =>
+  toMs > fromMs
+    ? localHourRuns(fromMs, toMs, (hour) => night[hour])
+        .filter((run) => run.key)
+        .map(({ startMs, endMs }) => ({ startMs, endMs }))
+    : [];
+
+interface ActivityClock {
+  /** Activity-weighted milliseconds from the clock's start to t. */
+  at: (t: number) => number;
+  /** Earliest instant where at() reaches target; Infinity beyond the clock's end. */
+  reach: (target: number) => number;
+  /** Instants where the weight changes. */
+  bends: number[];
+}
+
+/** Piecewise-constant activity over [fromMs, toMs], one weight per local hour. */
+function activityClock(profile: number[], fromMs: number, toMs: number): ActivityClock {
+  const runs = localHourRuns(fromMs, toMs, (hour) => profile[hour]);
+  const cumulative: number[] = [0];
+  runs.forEach((run) => {
+    cumulative.push(cumulative[cumulative.length - 1] + (run.endMs - run.startMs) * run.key);
+  });
+  /** Index of the last run starting at or before t. */
+  const runAt = (t: number) => {
+    let low = 0;
+    let high = runs.length - 1;
+    while (low < high) {
+      const middle = (low + high + 1) >> 1;
+      if (runs[middle].startMs <= t) low = middle;
+      else high = middle - 1;
+    }
+    return low;
+  };
+  return {
+    at: (t) => {
+      const index = runAt(t);
+      return cumulative[index] + (t - runs[index].startMs) * runs[index].key;
+    },
+    reach: (target) => {
+      if (target <= 0) return fromMs;
+      // First run whose end reaches the target; its weight is positive.
+      let low = 0;
+      let high = runs.length;
+      while (low < high) {
+        const middle = (low + high) >> 1;
+        if (cumulative[middle + 1] >= target) high = middle;
+        else low = middle + 1;
+      }
+      if (low === runs.length) return Infinity;
+      return runs[low].startMs + (target - cumulative[low]) / runs[low].key;
+    },
+    bends: runs.slice(1).map((run) => run.startMs),
+  };
 }
 
 /** Scales a pooled series to percent of the pool, so pools of different sizes share one axis. */

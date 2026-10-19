@@ -2,11 +2,16 @@ import { describe, expect, test } from 'bun:test';
 import type { AuthFileItem } from '../src/types';
 import {
   DAY_MS,
+  DEFAULT_SLEEP_HOURS,
+  FLAT_ACTIVITY,
   HOUR_MS,
+  baselineProfile,
   buildPools,
   credentialNow,
   drainBuckets,
   drainEdges,
+  learnPoolActivity,
+  nightHours,
   poolHistory,
   projectPool,
   readPoolCredential,
@@ -231,6 +236,69 @@ describe('history', () => {
     } finally {
       process.env.TZ = previousTz;
     }
+  });
+});
+
+const withTimeZone = (zone: string, run: () => void) => {
+  const previousTz = process.env.TZ;
+  process.env.TZ = zone;
+  try {
+    run();
+  } finally {
+    process.env.TZ = previousTz;
+  }
+};
+
+describe('sleep-aware activity', () => {
+  test('without history the profile is the sleep baseline and pace falls back to the window', () => {
+    const activity = learnPoolActivity(pool(credential()), [], NOW, DEFAULT_SLEEP_HOURS);
+    expect(activity.profile).toEqual(baselineProfile(DEFAULT_SLEEP_HOURS));
+    expect(activity.profile.slice(0, 8)).toEqual(new Array(8).fill(0));
+    expect(activity.profile[12]).toBe(1.5);
+    expect(activity.rates.size).toBe(0);
+  });
+
+  test('two weeks of night-owl use outweigh the baseline and set the daily rate', () => {
+    withTimeZone('UTC', () => {
+      const midnight = Date.UTC(2026, 9, 17);
+      // 3% at 02:00 every night for 14 nights (one reset id keeps every delta).
+      const samples = Array.from({ length: 15 }, (_, day) =>
+        sample({
+          atMs: midnight - (14 - day) * DAY_MS + 2 * HOUR_MS,
+          usedPercent: day * 3,
+          resetAtMs: midnight + DAY_MS,
+        })
+      );
+      const c = credential({ resetAtMs: midnight + DAY_MS });
+      const activity = learnPoolActivity(pool(c), samples, NOW, DEFAULT_SLEEP_HOURS);
+      expect(activity.learnedDays).toBe(14);
+      const night = nightHours(activity.profile);
+      expect(night[2]).toBe(false);
+      expect(activity.profile[2]).toBeGreaterThan(activity.profile[12] * 10);
+      const mean = activity.profile.reduce((sum, value) => sum + value, 0) / 24;
+      expect(mean).toBeCloseTo(1);
+      // The trailing seven days hold seven 3% deltas.
+      expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(3);
+    });
+  });
+
+  test('projection is flat while asleep and keeps the daily total', () => {
+    withTimeZone('UTC', () => {
+      const midnight = Date.UTC(2026, 9, 17);
+      const c = credential({ usedPercent: 0, resetAtMs: midnight + 5 * DAY_MS });
+      const activity = {
+        ...FLAT_ACTIVITY,
+        profile: baselineProfile(DEFAULT_SLEEP_HOURS),
+        rates: new Map([['a', 24 / DAY_MS]]),
+      };
+      const series = projectPool(pool(c), midnight, midnight + DAY_MS, activity);
+      expect(valueAt(series, midnight + 7.5 * HOUR_MS)).toBe(100);
+      expect(valueAt(series, midnight + 8 * HOUR_MS)).toBe(100);
+      expect(valueAt(series, midnight + 16 * HOUR_MS)).toBeCloseTo(88);
+      expect(valueAt(series, midnight + DAY_MS)).toBeCloseTo(76);
+      // "Per hour" stays the daily average.
+      expect(summarizePool(pool(c), midnight, activity).pacePerHour).toBeCloseTo(1);
+    });
   });
 });
 

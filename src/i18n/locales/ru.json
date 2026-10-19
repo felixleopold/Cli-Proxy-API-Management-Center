@@ -1623,7 +1623,13 @@
     "forecast_history_off": "История лимитов на этом сервере отключена, поэтому показан только прогноз от текущего состояния.",
     "forecast_history_error": "Не удалось загрузить историю лимитов, поэтому показан только прогноз.",
     "forecast_next_reset": "Следующий сброс +{{percent}}% · {{when}}",
-    "forecast_drain_empty": "За этот период расход лимита не зафиксирован."
+    "forecast_drain_empty": "За этот период расход лимита не зафиксирован.",
+    "forecast_legend_night": "Обычный сон",
+    "forecast_settings": "Настройки прогноза",
+    "forecast_sleep_label": "Часы сна",
+    "forecast_sleep_start": "Начало сна",
+    "forecast_sleep_end": "Конец сна",
+    "forecast_sleep_hint": "Пока истории недостаточно, прогноз считает, что в эти часы лимит не расходуется."
   },
   "plugin_management": {
     "title": "Управление плагинами",

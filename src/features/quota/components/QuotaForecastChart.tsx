@@ -7,7 +7,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DAY_MS, HOUR_MS, valueAt, type SeriesPoint } from '../quotaForecastModel';
+import { DAY_MS, HOUR_MS, nightBands, valueAt, type SeriesPoint } from '../quotaForecastModel';
 import styles from './QuotaForecast.module.scss';
 
 const PLOT_HEIGHT = 196;
@@ -295,6 +295,8 @@ export interface RemainingChartProps {
   yMax: number;
   /** Area washes only read well under a single line. */
   fillArea: boolean;
+  /** Quiet local hours of the day, shaded over the projection. */
+  night: boolean[];
   formatValue: (v: number) => string;
   ariaLabel: string;
   /** Tooltip names for a lone line, which has no series name to show. */
@@ -310,6 +312,7 @@ export function RemainingChart({
   nowMs,
   yMax,
   fillArea,
+  night,
   formatValue,
   ariaLabel,
   remainingLabel,
@@ -327,6 +330,10 @@ export function RemainingChart({
   );
   const { hoverMs, setHoverMs, focusProps } = useScrub(fromMs, toMs, nowMs);
   const single = lines.length === 1;
+  const bands = useMemo(
+    () => nightBands(night, Math.max(fromMs, nowMs), toMs),
+    [night, fromMs, nowMs, toMs]
+  );
 
   const toPixels = (points: SeriesPoint[]) =>
     points.map((point) => ({ x: frame.x(point.t), y: frame.y(point.v) }));
@@ -371,6 +378,19 @@ export function RemainingChart({
           xTicks={xTicks}
           formatTick={formats.tick}
         />
+
+        <g aria-hidden="true">
+          {bands.map((band) => (
+            <rect
+              key={band.startMs}
+              className={styles.nightBand}
+              x={frame.x(band.startMs)}
+              y={MARGIN.top}
+              width={frame.x(band.endMs) - frame.x(band.startMs)}
+              height={PLOT_HEIGHT}
+            />
+          ))}
+        </g>
 
         {lines.map((line) => {
           const history = toPixels(line.history);
