@@ -250,6 +250,7 @@
 .keyLine,
 .keyArea,
 .keyDashed,
+.keyRange,
 .keyBar,
 .keyBand,
 .keyTick {
@@ -279,6 +280,13 @@
   width: 14px;
   height: 0;
   border-top: 2px dashed var(--series);
+}
+
+.keyRange {
+  width: 14px;
+  height: 10px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--series) 20%, transparent);
 }
 
 .keyBar {
@@ -456,6 +464,12 @@
   stroke: var(--amber-color);
   stroke-width: 2;
   stroke-linecap: round;
+}
+
+/* Likely range around the projection: a flat wash of the row color. */
+.rangeBand {
+  fill: currentColor;
+  opacity: 0.13;
 }
 
 /* Quiet hours: a wash of the text color reads on both themes. */

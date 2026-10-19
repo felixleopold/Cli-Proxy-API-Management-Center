@@ -1631,6 +1631,7 @@
     "forecast_tab_drain": "消耗速率",
     "forecast_legend_remaining": "剩餘",
     "forecast_legend_projected": "預測",
+    "forecast_legend_range": "可能範圍",
     "forecast_share_per_hour": "每小時消耗的額度池占比",
     "forecast_share_per_day": "每天消耗的額度池占比",
     "forecast_used_per_hour": "每小時消耗額度",
@@ -1649,6 +1650,8 @@
     "forecast_history_error": "額度歷史載入失敗，僅顯示預測。",
     "forecast_next_reset": "下次重置 +{{percent}}% · {{when}}",
     "forecast_runs_out": "預計耗盡 {{when}}",
+    "forecast_runs_out_range": "預計在 {{from}} 至 {{to}} 之間耗盡",
+    "forecast_runs_out_soonest": "最早可能於 {{when}} 耗盡",
     "forecast_runs_out_credit": "可用 {{count}} 次主動重設，最早 {{when}} 過期",
     "forecast_reset_credits": "{{count}} 次主動重設",
     "forecast_drain_empty": "此期間沒有記錄到額度消耗。",
@@ -1659,7 +1662,7 @@
     "forecast_sleep_start": "睡眠開始",
     "forecast_sleep_end": "睡眠結束",
     "forecast_sleep_hint": "在累積足夠的歷史記錄之前，預測假定這些時段內不消耗額度。",
-    "forecast_pace_hint": "速率取每個憑證最近 7 天的日均用量；若最近 24 小時更高，則取後者，因此預測會偏向更早耗盡。歷史不足一天時，使用迄今實測用量（僅計活躍時段）；不足 3 小時時，使用目前視窗的平均值。"
+    "forecast_pace_hint": "速率取每個憑證最近 7 天的日均用量；若最近 24 小時更高，則取後者，因此預測會偏向更早耗盡。歷史不足一天時，使用迄今實測用量（僅計活躍時段）；不足 3 小時時，使用目前視窗的平均值。憑證剩餘不足 15% 時的用量不計入，因為那是節省使用而非真實需求。陰影範圍從繁忙速率（最近 6 小時或繁忙的一天）到清閒日的速率。"
   },
   "plugin_management": {
     "title": "插件管理",

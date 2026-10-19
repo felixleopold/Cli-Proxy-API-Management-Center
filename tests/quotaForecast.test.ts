@@ -11,7 +11,8 @@ import {
   creditsNear,
   drainBuckets,
   drainEdges,
-  learnPoolActivity,
+  learnActivity,
+  nightBands,
   nightHours,
   poolHistory,
   poolResetCredits,
@@ -21,7 +22,11 @@ import {
   summarizePool,
   valueAt,
 } from '../src/features/quota/quotaForecastModel';
-import type { PoolCredential, ProviderPool } from '../src/features/quota/quotaForecastModel';
+import type {
+  LedgerCost,
+  PoolCredential,
+  ProviderPool,
+} from '../src/features/quota/quotaForecastModel';
 import {
   normalizeQuotaHistorySamples,
   type QuotaHistorySample,
@@ -261,34 +266,34 @@ const withTimeZone = (zone: string, run: () => void) => {
 
 describe('sleep-aware activity', () => {
   test('without history the profile is the sleep baseline and pace falls back to the window', () => {
-    const activity = learnPoolActivity(pool(credential()), [], NOW, DEFAULT_SLEEP_HOURS);
+    const activity = learnActivity([pool(credential())], [], NOW, DEFAULT_SLEEP_HOURS);
     expect(activity.profile).toEqual(baselineProfile(DEFAULT_SLEEP_HOURS));
     expect(activity.profile.slice(0, 8)).toEqual(new Array(8).fill(0));
     expect(activity.profile[12]).toBe(1.5);
     expect(activity.rates.size).toBe(0);
   });
 
-  test('two weeks of night-owl use outweigh the baseline and set the daily rate', () => {
+  test('two weeks of night-owl use move the sleep stretch and set the daily rate', () => {
     withTimeZone('UTC', () => {
-      const midnight = Date.UTC(2026, 9, 17);
-      // 3% at 02:00 every night for 14 nights (one reset id keeps every delta).
-      const samples = Array.from({ length: 15 }, (_, day) =>
-        sample({
-          atMs: midnight - (14 - day) * DAY_MS + 2 * HOUR_MS,
-          usedPercent: day * 3,
-          resetAtMs: midnight + DAY_MS,
-        })
-      );
-      const c = credential({ resetAtMs: midnight + DAY_MS });
-      const activity = learnPoolActivity(pool(c), samples, NOW, DEFAULT_SLEEP_HOURS);
-      expect(activity.learnedDays).toBe(14);
-      const night = nightHours(activity.profile);
+      // 0.25% in every hour from 12:00 to 04:00 for two weeks: asleep 04:00–12:00.
+      const start = Date.UTC(2026, 9, 3);
+      const samples: QuotaHistorySample[] = [];
+      for (let t = start + HOUR_MS / 2; t <= NOW; t += HOUR_MS) {
+        const hour = new Date(t).getUTCHours();
+        if (hour >= 4 && hour < 12) continue;
+        samples.push(sample({ atMs: t, usedPercent: samples.length * 0.25 }));
+      }
+      const activity = learnActivity([pool(credential())], samples, NOW, DEFAULT_SLEEP_HOURS);
+      expect(activity.sleep).toEqual({ startHour: 4, endHour: 12 });
+      const night = nightHours(activity.sleep);
       expect(night[2]).toBe(false);
-      expect(activity.profile[2]).toBeGreaterThan(activity.profile[12] * 10);
+      expect(night[10]).toBe(true);
+      expect(activity.profile[10]).toBe(0);
+      expect(activity.profile[2]).toBeGreaterThan(0.5);
       const mean = activity.profile.reduce((sum, value) => sum + value, 0) / 24;
       expect(mean).toBeCloseTo(1);
-      // The trailing seven days hold seven 3% deltas.
-      expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(3);
+      // The trailing seven days hold sixteen 0.25% deltas a day.
+      expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(4);
     });
   });
 
@@ -307,8 +312,8 @@ describe('sleep-aware activity', () => {
       ...steps('a', [0, 1, 1, 1, 1, 1, 1, 10]),
       ...steps('b', [0, 2, 2, 2, 2, 2, 3, 1]),
     ];
-    const activity = learnPoolActivity(
-      pool(credential(), credential({ authId: 'b' })),
+    const activity = learnActivity(
+      [pool(credential(), credential({ authId: 'b' }))],
       samples,
       NOW,
       DEFAULT_SLEEP_HOURS
@@ -326,7 +331,7 @@ describe('sleep-aware activity', () => {
       sample({ authId: 'b', atMs: NOW - WEEK_MS, usedPercent: 0 }),
       sample({ authId: 'b', atMs: NOW - DAY_MS, usedPercent: 7 }),
     ];
-    const activity = learnPoolActivity(pool(a, b), samples, NOW, DEFAULT_SLEEP_HOURS);
+    const activity = learnActivity([pool(a, b)], samples, NOW, DEFAULT_SLEEP_HOURS);
     expect(activity.rates.has('a')).toBe(false);
     expect((activity.rates.get('b') ?? 0) * DAY_MS).toBeCloseTo(1);
   });
@@ -338,8 +343,8 @@ describe('sleep-aware activity', () => {
         sample({ atMs: NOW - 6 * HOUR_MS, usedPercent: 0 }),
         sample({ atMs: NOW, usedPercent: 12 }),
       ];
-      const activity = learnPoolActivity(
-        pool(credential({ usedPercent: 12 })),
+      const activity = learnActivity(
+        [pool(credential({ usedPercent: 12 }))],
         samples,
         NOW,
         DEFAULT_SLEEP_HOURS
@@ -362,8 +367,8 @@ describe('sleep-aware activity', () => {
         sample({ atMs: midnight + HOUR_MS, usedPercent: 0 }),
         sample({ atMs: nowMs, usedPercent: 12 }),
       ];
-      const activity = learnPoolActivity(
-        pool(credential({ usedPercent: 12 })),
+      const activity = learnActivity(
+        [pool(credential({ usedPercent: 12 }))],
         samples,
         nowMs,
         DEFAULT_SLEEP_HOURS
@@ -385,7 +390,7 @@ describe('sleep-aware activity', () => {
         resetAtMs: NOW - (13 - index) * period + period,
       })
     );
-    const activity = learnPoolActivity(pool(c), samples, NOW, DEFAULT_SLEEP_HOURS);
+    const activity = learnActivity([pool(c)], samples, NOW, DEFAULT_SLEEP_HOURS);
     // 13 new windows counted from zero over 65 covered hours, but five of them land in
     // the last day: 100% a day is faster, so it wins.
     expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(100);
@@ -483,4 +488,198 @@ test('the tooltip names only manual resets drawn on the chart', () => {
   const tolerance = HOUR_MS;
   const credits = [toMs - HOUR_MS / 2, toMs + HOUR_MS / 2];
   expect(creditsNear(credits, toMs, tolerance, NOW, toMs)).toEqual([toMs - HOUR_MS / 2]);
+});
+
+/** Cumulative 0.1% samples at half past each active UTC hour, from Oct 3 to NOW. */
+const hourlyUse = (authId: string, activeHours: number[]): QuotaHistorySample[] => {
+  const samples: QuotaHistorySample[] = [];
+  for (let t = Date.UTC(2026, 9, 3) + HOUR_MS / 2; t <= NOW; t += HOUR_MS) {
+    if (!activeHours.includes(new Date(t).getUTCHours())) continue;
+    samples.push(sample({ authId, atMs: t, usedPercent: samples.length * 0.1 }));
+  }
+  return samples;
+};
+
+describe('likely range and shared sleep', () => {
+  test('busy and quiet edges bracket the projection and widen with time', () => {
+    withTimeZone('UTC', () => {
+      // One change a day of 2..10%, nine measurable days.
+      const perDay = [0, 2, 4, 6, 8, 10, 2, 4, 6, 4];
+      const samples = perDay.map((_, day) =>
+        sample({
+          atMs: NOW - (10 - day) * DAY_MS + 2 * HOUR_MS,
+          usedPercent: perDay.slice(0, day + 1).reduce((sum, value) => sum + value, 0),
+          resetAtMs: NOW + 6 * DAY_MS,
+        })
+      );
+      const c = credential({ usedPercent: 50, resetAtMs: NOW + 6 * DAY_MS });
+      const activity = learnActivity([pool(c)], samples, NOW, DEFAULT_SLEEP_HOURS);
+      const expected = activity.rates.get('a') ?? 0;
+      const range = activity.ranges.get('a');
+      expect(range?.busy).toBeGreaterThan(expected);
+      expect(range?.quiet).toBeLessThan(expected);
+
+      const end = NOW + 3 * DAY_MS;
+      const [low, mid, high] = (['busy', 'expected', 'quiet'] as const).map((scenario) =>
+        projectPool(pool(c), NOW, end, activity, scenario)
+      );
+      const spread = (t: number) => (valueAt(high, t) ?? 0) - (valueAt(low, t) ?? 0);
+      for (const t of [NOW + DAY_MS, NOW + 2 * DAY_MS]) {
+        expect(valueAt(high, t)).toBeGreaterThan(valueAt(mid, t) ?? 0);
+        expect(valueAt(mid, t)).toBeGreaterThan(valueAt(low, t) ?? 0);
+      }
+      expect(valueAt(low, NOW)).toBe(50);
+      expect(valueAt(high, NOW)).toBe(50);
+      expect(spread(NOW + 2 * DAY_MS)).toBeGreaterThan(spread(NOW + DAY_MS));
+    });
+  });
+
+  test('without a measured rate the range is the window pace ±40%', () => {
+    // 0.5% an hour so far, as in the summary test.
+    const c = credential({ usedPercent: 48, resetAtMs: NOW + 3 * DAY_MS });
+    const at = (scenario: 'busy' | 'quiet') =>
+      valueAt(projectPool(pool(c), NOW, NOW + DAY_MS, FLAT_ACTIVITY, scenario), NOW + 10 * HOUR_MS);
+    expect(at('busy')).toBeCloseTo(52 - 7);
+    expect(at('quiet')).toBeCloseTo(52 - 3);
+  });
+
+  test('pace leaves out drain and time spent under 15% remaining', () => {
+    // 15% a day for five days, 12% more, then rationed at 87–88% for the last day.
+    const used = [0, 15, 30, 45, 60, 75, 87];
+    const samples = [
+      ...used.map((usedPercent, day) => sample({ atMs: NOW - (7 - day) * DAY_MS, usedPercent })),
+      sample({ atMs: NOW - HOUR_MS, usedPercent: 88 }),
+    ];
+    const activity = learnActivity(
+      [pool(credential({ usedPercent: 88 }))],
+      samples,
+      NOW,
+      DEFAULT_SLEEP_HOURS
+    );
+    // 87% over six unrationed days, not 88% over seven.
+    expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(87 / 6);
+  });
+
+  test('every provider shares one continuous sleep stretch', () => {
+    withTimeZone('UTC', () => {
+      // Claude by day, Codex in the evening and once at 02:00; nobody at 13–14.
+      const samples = [
+        ...hourlyUse('a', [9, 10, 11, 12, 15, 16]),
+        ...hourlyUse('b', [2, 17, 18, 19, 20, 21, 22, 23]),
+      ];
+      const codex = { ...pool(credential({ authId: 'b' })), provider: 'codex' as const };
+      const activity = learnActivity(
+        [pool(credential()), codex],
+        samples,
+        NOW,
+        DEFAULT_SLEEP_HOURS
+      );
+      // The 02:00 hour is merged in; the quiet 13–14 is daytime, so it is no sleep.
+      expect(activity.sleep).toEqual({ startHour: 0, endHour: 9 });
+      expect(activity.profile[2]).toBe(0);
+      expect(activity.profile[13]).toBeGreaterThan(0);
+      const midnight = Date.UTC(2026, 9, 18);
+      expect(nightBands(nightHours(activity.sleep), midnight, midnight + DAY_MS)).toEqual([
+        { startMs: midnight, endMs: midnight + 9 * HOUR_MS },
+      ]);
+    });
+  });
+
+  test('a credential without live signals joins its pool from its latest history reading', () => {
+    const live = file('codex', {
+      'X-Codex-Secondary-Used-Percent': '10',
+      'X-Codex-Secondary-Window-Minutes': '10080',
+      'X-Codex-Secondary-Reset-At': unix(NOW + DAY_MS),
+    });
+    const quiet = file('codex', {}, { id: 'codex-2', quota: undefined });
+    const history = [
+      sample({ authId: 'codex-2', provider: 'codex', atMs: NOW - 2 * HOUR_MS, usedPercent: 30 }),
+      sample({ authId: 'codex-2', provider: 'codex', atMs: NOW - HOUR_MS, usedPercent: 40 }),
+      sample({
+        authId: 'codex-2',
+        provider: 'codex',
+        atMs: NOW,
+        window: 'session',
+        windowMinutes: 300,
+        usedPercent: 90,
+      }),
+    ];
+    expect(buildPools([live, quiet])[0].capacity).toBe(100);
+    const [codex] = buildPools([live, quiet], history);
+    expect(codex.capacity).toBe(200);
+    expect(codex.credentials[1]).toEqual({
+      authId: 'codex-2',
+      window: 'weekly',
+      periodMs: WEEK_MS,
+      usedPercent: 40,
+      resetAtMs: NOW + 3 * DAY_MS,
+      observedAtMs: NOW - HOUR_MS,
+    });
+  });
+});
+
+describe('usage ledger', () => {
+  /** One ledger row per active UTC hour from Oct 3 to NOW, at the cost that hour's day gives. */
+  const ledgerRows = (
+    provider: string,
+    activeHours: number[],
+    costOn: (hourMs: number) => number,
+    authId = ''
+  ): LedgerCost[] => {
+    const rows: LedgerCost[] = [];
+    for (let hourMs = Date.UTC(2026, 9, 3); hourMs < NOW; hourMs += HOUR_MS) {
+      if (activeHours.includes(new Date(hourMs).getUTCHours())) {
+        rows.push({ hourMs, provider, authId, costUsd: costOn(hourMs) });
+      }
+    }
+    return rows;
+  };
+
+  test('quota percent per dollar from drained hours sets the weekly rate', () => {
+    withTimeZone('UTC', () => {
+      const workHours = [9, 10, 11, 12, 13, 14, 15, 16];
+      // Oct 3–9: 0.5% per working hour, recorded at the end of each hour, against $2 an hour.
+      const samples = [sample({ atMs: Date.UTC(2026, 9, 3, 9), usedPercent: 0 })];
+      for (let day = 3; day <= 9; day += 1) {
+        workHours.forEach((hour) =>
+          samples.push(
+            sample({
+              atMs: Date.UTC(2026, 9, day, hour + 1),
+              usedPercent: samples.length * 0.5,
+            })
+          )
+        );
+      }
+      // No drain recorded since; the ledger shows $4 an hour from Oct 10.
+      const ledger = [
+        ...ledgerRows('Claude', workHours, (hourMs) => (hourMs < Date.UTC(2026, 9, 10) ? 2 : 4)),
+        // API-key traffic drains no subscription quota.
+        ...ledgerRows('claude', workHours, () => 50, 'claude-api-key'),
+      ];
+      const c = credential({ usedPercent: 28 });
+      const activity = learnActivity([pool(c)], samples, NOW, DEFAULT_SLEEP_HOURS, ledger);
+      // 28% over $112 is 0.25% a dollar; the last week cost $224: 56% over seven days.
+      expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(8);
+      expect((activity.ranges.get('a')?.busy ?? 0) * DAY_MS).toBeGreaterThanOrEqual(8);
+
+      // Without a ledger the history rate stands: nothing drained in the last week.
+      const withoutLedger = learnActivity([pool(c)], samples, NOW, DEFAULT_SLEEP_HOURS);
+      expect(withoutLedger.rates.get('a')).toBe(0);
+    });
+  });
+
+  test('ledger cost of every forecast provider learns the shared sleep stretch', () => {
+    withTimeZone('UTC', () => {
+      const allDay = Array.from({ length: 24 }, (_, hour) => hour);
+      const ledger = [
+        ...ledgerRows('claude', [0, 8, 9, 10, 11, 12, 13, 14], () => 1),
+        ...ledgerRows('codex', [15, 16, 17, 18, 19, 20, 21, 22, 23], () => 1),
+        // Other providers do not count toward the forecast's day.
+        ...ledgerRows('gemini', allDay, () => 1),
+      ];
+      const activity = learnActivity([], [], NOW, DEFAULT_SLEEP_HOURS, ledger);
+      expect(activity.sleep).toEqual({ startHour: 1, endHour: 8 });
+      expect(learnActivity([], [], NOW, DEFAULT_SLEEP_HOURS).sleep).toEqual(DEFAULT_SLEEP_HOURS);
+    });
+  });
 });

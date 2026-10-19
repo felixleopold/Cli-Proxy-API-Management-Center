@@ -1,7 +1,7 @@
 /**
  * SVG charts for the pooled quota forecast: remaining quota as one filled row
- * per provider on a shared time axis (solid history, dashed projection) and
- * drain-rate columns. Data comes in ready-made
+ * per provider on a shared time axis (solid history, dashed projection inside
+ * its likely range) and drain-rate columns. Data comes in ready-made
  * from quotaForecastModel.ts; this file only maps it to pixels and handles hover.
  */
 
@@ -324,8 +324,8 @@ export interface ForecastRow {
   capacity: number;
   history: SeriesPoint[];
   projection: SeriesPoint[];
-  /** Quiet local hours of the day, shaded over the projection. */
-  night: boolean[];
+  /** Likely range around the projection: low at a busy pace, high at a quiet one. */
+  range: { low: SeriesPoint[]; high: SeriesPoint[] };
   /** Expiry instants of manual resets not yet used, drawn as markers. */
   credits: number[];
   /** Facts about the row, e.g. the next reset. */
@@ -334,6 +334,8 @@ export interface ForecastRow {
 
 export interface RemainingChartProps {
   rows: ForecastRow[];
+  /** Sleep hours of the day, shaded over every row's projection alike. */
+  night: boolean[];
   fromMs: number;
   toMs: number;
   nowMs: number;
@@ -363,6 +365,15 @@ const areaPath = (points: { x: number; y: number }[], baseY: number) =>
     ? `${linePath(points)}L${points[points.length - 1].x},${baseY}L${points[0].x},${baseY}Z`
     : '';
 
+/** The band between two lines: along the upper one, back along the lower one. */
+const bandPath = (upper: { x: number; y: number }[], lower: { x: number; y: number }[]) =>
+  upper.length > 1 && lower.length > 1
+    ? `${linePath(upper)}${[...lower]
+        .reverse()
+        .map((point) => `L${point.x},${point.y}`)
+        .join('')}Z`
+    : '';
+
 const seriesAt = (row: ForecastRow, t: number, nowMs: number) =>
   valueAt(t > nowMs ? row.projection : row.history, t);
 
@@ -372,6 +383,7 @@ const seriesAt = (row: ForecastRow, t: number, nowMs: number) =>
  */
 export function RemainingChart({
   rows,
+  night,
   fromMs,
   toMs,
   nowMs,
@@ -392,8 +404,8 @@ export function RemainingChart({
     [fromMs, toMs, plotWidth]
   );
   const bands = useMemo(
-    () => rows.map((row) => nightBands(row.night, Math.max(fromMs, nowMs), toMs)),
-    [rows, fromMs, nowMs, toMs]
+    () => nightBands(night, Math.max(fromMs, nowMs), toMs),
+    [night, fromMs, nowMs, toMs]
   );
   const { hoverMs, setHoverMs, focusProps } = useScrub(fromMs, toMs, nowMs);
 
@@ -408,13 +420,19 @@ export function RemainingChart({
       const value = seriesAt(row, t, nowMs);
       if (value === null) return [];
       const projected = t > nowMs;
+      const low = projected ? valueAt(row.range.low, t) : null;
+      const high = projected ? valueAt(row.range.high, t) : null;
+      const name = single ? (projected ? projectedLabel : remainingLabel) : row.label;
       return [
         {
           key: row.key,
           color: row.color,
           dashed: projected,
           value: formatValue(value),
-          label: single ? (projected ? projectedLabel : remainingLabel) : row.label,
+          label:
+            low !== null && high !== null && formatValue(low) !== formatValue(high)
+              ? `${name} · ${formatValue(low)}–${formatValue(high)}`
+              : name,
         },
         ...creditsNear(row.credits, t, creditTolerance, fromMs, toMs).map((expiresAtMs, index) => ({
           key: `${row.key}-credit-${index}`,
@@ -449,6 +467,7 @@ export function RemainingChart({
           points.map((point) => ({ x: frame.x(point.t), y: frame.y(point.v) }));
         const history = toPixels(row.history);
         const projection = toPixels(row.projection);
+        const range = bandPath(toPixels(row.range.high), toPixels(row.range.low));
         const current = row.projection[0];
         const hoverValue = hoverMs === null ? null : seriesAt(row, hoverMs, nowMs);
         const nowX = frame.x(nowMs);
@@ -497,7 +516,7 @@ export function RemainingChart({
                 formatTick={formats.tick}
               />
 
-              {bands[index].map((band) => (
+              {bands.map((band) => (
                 <rect
                   key={band.startMs}
                   className={styles.nightBand}
@@ -540,6 +559,7 @@ export function RemainingChart({
 
               <path d={areaPath(history, frame.baseY)} fill={`url(#${fill})`} />
               <path d={areaPath(projection, frame.baseY)} fill={`url(#${fill}-p)`} />
+              <path className={styles.rangeBand} d={range} />
               {history.length > 1 && (
                 <path className={styles.line} d={linePath(history)} stroke="currentColor" />
               )}

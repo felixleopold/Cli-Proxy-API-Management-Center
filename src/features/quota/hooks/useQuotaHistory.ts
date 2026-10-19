@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { quotaHistoryApi, type QuotaHistorySample } from '@/services/api';
+import { quotaHistoryApi, usageLedgerApi, type QuotaHistorySample } from '@/services/api';
+import type { UsageLedgerBucket } from '@/types';
 import { DAY_MS } from '../quotaForecastModel';
 
 /**
@@ -10,12 +11,14 @@ const HISTORY_LOOKBACK_MS = 14 * DAY_MS;
 
 export type QuotaHistoryState =
   | { status: 'loading' }
-  | { status: 'ok'; samples: QuotaHistorySample[] }
+  /** `ledger` is null when the usage ledger is off (409) or failed: the forecast does without it. */
+  | { status: 'ok'; samples: QuotaHistorySample[]; ledger: UsageLedgerBucket[] | null }
   | { status: 'disabled' }
   | { status: 'error' };
 
 /**
- * Loads quota history whenever `reloadKey` changes (the credential list reloads).
+ * Loads quota history, and the usage ledger over the same span, whenever
+ * `reloadKey` changes (the credential list reloads).
  * A response for an older key never overwrites a newer one; while reloading,
  * the previous result stays on screen.
  */
@@ -26,9 +29,16 @@ export function useQuotaHistory(enabled: boolean, reloadKey: unknown): QuotaHist
     if (!enabled) return;
     let current = true;
     const nowMs = Date.now();
-    quotaHistoryApi.list(nowMs - HISTORY_LOOKBACK_MS, nowMs).then(
-      (result) => {
-        if (current) setState(result);
+    const fromMs = nowMs - HISTORY_LOOKBACK_MS;
+    Promise.all([
+      quotaHistoryApi.list(fromMs, nowMs),
+      usageLedgerApi.getLedger(fromMs, nowMs).then(
+        (ledger) => ledger.buckets,
+        () => null
+      ),
+    ]).then(
+      ([result, ledger]) => {
+        if (current) setState(result.status === 'ok' ? { ...result, ledger } : result);
       },
       () => {
         if (current) setState({ status: 'error' });

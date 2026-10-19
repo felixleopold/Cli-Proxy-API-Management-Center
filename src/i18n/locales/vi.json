@@ -1564,6 +1564,7 @@
     "forecast_tab_drain": "Tốc độ tiêu hao",
     "forecast_legend_remaining": "Còn lại",
     "forecast_legend_projected": "Dự báo",
+    "forecast_legend_range": "Khoảng có thể",
     "forecast_share_per_hour": "Tỷ lệ hạn mức gộp dùng mỗi giờ",
     "forecast_share_per_day": "Tỷ lệ hạn mức gộp dùng mỗi ngày",
     "forecast_used_per_hour": "Hạn mức dùng mỗi giờ",
@@ -1582,6 +1583,8 @@
     "forecast_history_error": "Không tải được lịch sử hạn mức, nên chỉ hiển thị dự báo.",
     "forecast_next_reset": "Lần đặt lại tới +{{percent}}% · {{when}}",
     "forecast_runs_out": "Hết vào {{when}}",
+    "forecast_runs_out_range": "Hết trong khoảng {{from}} đến {{to}}",
+    "forecast_runs_out_soonest": "Có thể hết sớm nhất vào {{when}}",
     "forecast_runs_out_credit_one": "Còn {{count}} lượt đặt lại thủ công, hết hạn {{when}}",
     "forecast_runs_out_credit_other": "Còn {{count}} lượt đặt lại thủ công, lượt đầu hết hạn {{when}}",
     "forecast_reset_credits_one": "{{count}} lượt đặt lại thủ công",
@@ -1594,7 +1597,7 @@
     "forecast_sleep_start": "Bắt đầu ngủ",
     "forecast_sleep_end": "Kết thúc ngủ",
     "forecast_sleep_hint": "Cho đến khi có đủ lịch sử, dự báo giả định không dùng hạn mức trong những giờ này.",
-    "forecast_pace_hint": "Tốc độ là mức dùng trung bình mỗi ngày của từng thông tin xác thực trong 7 ngày qua, hoặc trong 24 giờ qua nếu cao hơn, nên dự báo nghiêng về hết sớm hơn. Khi lịch sử chưa đủ một ngày, dùng mức đã đo được đến nay, chỉ tính giờ hoạt động; dưới 3 giờ thì dùng mức trung bình của cửa sổ hiện tại."
+    "forecast_pace_hint": "Tốc độ là mức dùng trung bình mỗi ngày của từng thông tin xác thực trong 7 ngày qua, hoặc trong 24 giờ qua nếu cao hơn, nên dự báo nghiêng về hết sớm hơn. Khi lịch sử chưa đủ một ngày, dùng mức đã đo được đến nay, chỉ tính giờ hoạt động; dưới 3 giờ thì dùng mức trung bình của cửa sổ hiện tại. Mức dùng khi thông tin xác thực còn dưới 15% bị bỏ qua, vì đó là dùng dè sẻn chứ không phải nhu cầu thật. Vùng tô bóng trải từ tốc độ bận rộn (6 giờ qua hoặc một ngày bận) đến tốc độ của một ngày nhàn rỗi."
   },
   "plugin_management": {
     "title": "Quản lý Plugin",
