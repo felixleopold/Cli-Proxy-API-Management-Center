@@ -20,6 +20,12 @@ Current base: upstream `v1.25.6`.
 - **Timeline legend explains the fill.** The current window's fill deliberately shows *used*
   quota, so its edge can be compared with the now line (past it means usage is ahead of pace),
   while the label shows remaining. A legend entry (`quota_management.windows_legend_used`) says so.
+- **Quota forecast** (`src/features/quota/quotaForecastModel.ts`, `components/QuotaForecast*`).
+  Per-provider pool chart of remaining quota with a projection to the next resets, drain history
+  and a horizon picker. The projection is sleep-aware: each credential's daily rate is its own
+  trailing-7-day drain (window pace below 24h of history), spread over a local hour-of-day profile
+  learned from drain and blended into a configurable sleep baseline. Tests:
+  `tests/quotaForecast.test.ts`.
 
 ## Sync from upstream
 

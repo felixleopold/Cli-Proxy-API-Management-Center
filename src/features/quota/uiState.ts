@@ -12,6 +12,9 @@ export type QuotaUiState = {
   sortMode?: QuotaSortMode;
   forecastCollapsed?: boolean;
   forecastHorizon?: ForecastHorizonDays;
+  /** Local hour the assumed sleep starts and ends. */
+  forecastSleepStart?: number;
+  forecastSleepEnd?: number;
 };
 
 const QUOTA_UI_STATE_KEY = 'quotaPage.uiState';
@@ -28,6 +31,9 @@ export const isQuotaSortMode = (value: unknown): value is QuotaSortMode =>
 const isForecastHorizon = (value: unknown): value is ForecastHorizonDays =>
   (FORECAST_HORIZON_DAYS as readonly unknown[]).includes(value);
 
+const isHour = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 23;
+
 export const readQuotaUiState = (): QuotaUiState | null => {
   if (typeof window === 'undefined') return null;
   try {
@@ -43,6 +49,8 @@ export const readQuotaUiState = (): QuotaUiState | null => {
       forecastHorizon: isForecastHorizon(parsed.forecastHorizon)
         ? parsed.forecastHorizon
         : undefined,
+      forecastSleepStart: isHour(parsed.forecastSleepStart) ? parsed.forecastSleepStart : undefined,
+      forecastSleepEnd: isHour(parsed.forecastSleepEnd) ? parsed.forecastSleepEnd : undefined,
     };
   } catch {
     return null;

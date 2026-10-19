@@ -1602,7 +1602,6 @@
     "forecast_tab_drain": "Drain rate",
     "forecast_legend_remaining": "Remaining",
     "forecast_legend_projected": "Projected",
-    "forecast_share_note": "Each line is a share of that provider's pool",
     "forecast_share_per_hour": "Share of each pool used per hour",
     "forecast_share_per_day": "Share of each pool used per day",
     "forecast_used_per_hour": "Quota used per hour",
@@ -1620,7 +1619,14 @@
     "forecast_history_off": "Quota history is off on this server, so only the projection from current state is shown.",
     "forecast_history_error": "Quota history couldn't be loaded, so only the projection is shown.",
     "forecast_next_reset": "Next reset +{{percent}}% · {{when}}",
-    "forecast_drain_empty": "No quota use recorded in this period."
+    "forecast_runs_out": "Runs out {{when}}",
+    "forecast_drain_empty": "No quota use recorded in this period.",
+    "forecast_legend_night": "Usual sleep",
+    "forecast_settings": "Forecast settings",
+    "forecast_sleep_label": "Sleep hours",
+    "forecast_sleep_start": "Sleep starts",
+    "forecast_sleep_end": "Sleep ends",
+    "forecast_sleep_hint": "Until enough history is learned, the forecast assumes no quota use during these hours."
   },
   "plugin_management": {
     "title": "Plugin Management",
