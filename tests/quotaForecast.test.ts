@@ -22,7 +22,11 @@ import {
   summarizePool,
   valueAt,
 } from '../src/features/quota/quotaForecastModel';
-import type { PoolCredential, ProviderPool } from '../src/features/quota/quotaForecastModel';
+import type {
+  LedgerCost,
+  PoolCredential,
+  ProviderPool,
+} from '../src/features/quota/quotaForecastModel';
 import {
   normalizeQuotaHistorySamples,
   type QuotaHistorySample,
@@ -610,6 +614,69 @@ describe('likely range and shared sleep', () => {
       usedPercent: 40,
       resetAtMs: NOW + 3 * DAY_MS,
       observedAtMs: NOW - HOUR_MS,
+    });
+  });
+});
+
+describe('usage ledger', () => {
+  /** One ledger row per active UTC hour from Oct 3 to NOW, at the cost that hour's day gives. */
+  const ledgerRows = (
+    provider: string,
+    activeHours: number[],
+    costOn: (hourMs: number) => number
+  ): LedgerCost[] => {
+    const rows: LedgerCost[] = [];
+    for (let hourMs = Date.UTC(2026, 9, 3); hourMs < NOW; hourMs += HOUR_MS) {
+      if (activeHours.includes(new Date(hourMs).getUTCHours())) {
+        rows.push({ hourMs, provider, costUsd: costOn(hourMs) });
+      }
+    }
+    return rows;
+  };
+
+  test('quota percent per dollar from drained hours sets the weekly rate', () => {
+    withTimeZone('UTC', () => {
+      const workHours = [9, 10, 11, 12, 13, 14, 15, 16];
+      // Oct 3–9: 0.5% per working hour, recorded at the end of each hour, against $2 an hour.
+      const samples = [sample({ atMs: Date.UTC(2026, 9, 3, 9), usedPercent: 0 })];
+      for (let day = 3; day <= 9; day += 1) {
+        workHours.forEach((hour) =>
+          samples.push(
+            sample({
+              atMs: Date.UTC(2026, 9, day, hour + 1),
+              usedPercent: samples.length * 0.5,
+            })
+          )
+        );
+      }
+      // No drain recorded since; the ledger shows $4 an hour from Oct 10.
+      const ledger = ledgerRows('Claude', workHours, (hourMs) =>
+        hourMs < Date.UTC(2026, 9, 10) ? 2 : 4
+      );
+      const c = credential({ usedPercent: 28 });
+      const activity = learnActivity([pool(c)], samples, NOW, DEFAULT_SLEEP_HOURS, ledger);
+      // 28% over $112 is 0.25% a dollar; the last week cost $224: 56% over seven days.
+      expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(8);
+      expect((activity.ranges.get('a')?.busy ?? 0) * DAY_MS).toBeGreaterThanOrEqual(8);
+
+      // Without a ledger the history rate stands: nothing drained in the last week.
+      const withoutLedger = learnActivity([pool(c)], samples, NOW, DEFAULT_SLEEP_HOURS);
+      expect(withoutLedger.rates.get('a')).toBe(0);
+    });
+  });
+
+  test('ledger cost of every forecast provider learns the shared sleep stretch', () => {
+    withTimeZone('UTC', () => {
+      const allDay = Array.from({ length: 24 }, (_, hour) => hour);
+      const ledger = [
+        ...ledgerRows('claude', [0, 8, 9, 10, 11, 12, 13, 14], () => 1),
+        ...ledgerRows('codex', [15, 16, 17, 18, 19, 20, 21, 22, 23], () => 1),
+        // Other providers do not count toward the forecast's day.
+        ...ledgerRows('gemini', allDay, () => 1),
+      ];
+      const activity = learnActivity([], [], NOW, DEFAULT_SLEEP_HOURS, ledger);
+      expect(activity.sleep).toEqual({ startHour: 1, endHour: 8 });
+      expect(learnActivity([], [], NOW, DEFAULT_SLEEP_HOURS).sleep).toEqual(DEFAULT_SLEEP_HOURS);
     });
   });
 });

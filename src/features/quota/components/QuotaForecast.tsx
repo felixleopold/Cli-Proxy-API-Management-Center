@@ -77,6 +77,7 @@ export function QuotaForecast({ files, tab, now: nowProp, resetCreditsFor }: Quo
 
   const history = useQuotaHistory(hasForecastCredentials(files), files);
   const samples = history.status === 'ok' ? history.samples : null;
+  const ledger = history.status === 'ok' ? history.ledger : null;
   // Credentials without live signals join from their latest history reading.
   const pools = useMemo(() => buildPools(files, samples ?? []), [files, samples]);
 
@@ -128,8 +129,8 @@ export function QuotaForecast({ files, tab, now: nowProp, resetCreditsFor }: Quo
 
   // Learned from every pool, not just the visible ones: one person sleeps once.
   const activity = useMemo(
-    () => learnActivity(pools, samples ?? [], nowMs, sleep),
-    [pools, samples, nowMs, sleep]
+    () => learnActivity(pools, samples ?? [], nowMs, sleep, ledger ?? []),
+    [pools, samples, nowMs, sleep, ledger]
   );
   const night = useMemo(() => nightHours(activity.sleep), [activity]);
   const summaries = useMemo(

@@ -8,7 +8,7 @@
  * tested without a browser; QuotaForecast.tsx is layout only.
  */
 
-import type { AuthFileItem } from '@/types';
+import type { AuthFileItem, UsageLedgerBucket } from '@/types';
 import type { QuotaHistorySample, QuotaHistoryWindow } from '@/services/api/quotaHistory';
 import { isRecord } from '@/utils/helpers';
 
@@ -577,6 +577,8 @@ const bucketIndex = (edges: number[], t: number): number => {
 const CENSORED_ABOVE_USED = 85;
 
 interface Drain {
+  /** The earlier sample: the drain happened somewhere in (fromMs, atMs]. */
+  fromMs: number;
   atMs: number;
   delta: number;
   /** Drawn from a window that was already rationed. */
@@ -597,7 +599,7 @@ const drainOf = (snapshots: Snapshot[]): Drain[] => {
     if (!newWindow && previous.resetAtMs - current.resetAtMs > SAME_RESET_TOLERANCE_MS) continue;
     const delta = current.usedPercent - (newWindow ? 0 : previous.usedPercent);
     const censored = !newWindow && previous.usedPercent > CENSORED_ABOVE_USED;
-    if (delta > 0) drains.push({ atMs: current.atMs, delta, censored });
+    if (delta > 0) drains.push({ fromMs: previous.atMs, atMs: current.atMs, delta, censored });
   }
   return drains;
 };
@@ -761,23 +763,62 @@ const percentile = (values: number[], q: number): number => {
   return sorted[low] + (sorted[Math.ceil(position)] - sorted[low]) * (position - low);
 };
 
+/** One usage ledger row: API-equivalent cost of a provider's requests in one hour. */
+export type LedgerCost = Pick<UsageLedgerBucket, 'hourMs' | 'provider' | 'costUsd'>;
+
+/** Calibration needs this much quota drain before ledger cost stands in for it. */
+const MIN_CALIBRATION_DRAIN = 10;
+
+interface Span {
+  startMs: number;
+  endMs: number;
+}
+
+/** Length of [startMs, endMs] inside [fromMs, toMs]. */
+const overlapMs = (startMs: number, endMs: number, fromMs: number, toMs: number) =>
+  Math.max(0, Math.min(endMs, toMs) - Math.max(startMs, fromMs));
+
+/** Length of [fromMs, toMs] outside every span, by the given measure. */
+const outside = (
+  fromMs: number,
+  toMs: number,
+  spans: Span[],
+  measure: (startMs: number, endMs: number) => number
+) =>
+  spans.reduce(
+    (sum, span) => {
+      const startMs = Math.max(span.startMs, fromMs);
+      const endMs = Math.min(span.endMs, toMs);
+      return endMs > startMs ? sum - measure(startMs, endMs) : sum;
+    },
+    measure(fromMs, toMs)
+  );
+
 /**
  * Learns when in the (local) day quota is used, from every pool together (one
- * person sleeps once), and how fast each credential drains. The hour-of-day
- * profile blends measured drain into the sleep baseline as more days are seen;
- * each delta counts at the local hour it was recorded, so DST days need no
- * special case. The learned sleep stretch weighs zero; other hours keep their
- * learned weight, so a quiet afternoon is slower, not asleep.
+ * person sleeps once), and how fast each credential drains.
+ *
+ * The hour-of-day profile comes from the usage ledger's cost when there is any,
+ * otherwise from quota drain, and blends into the sleep baseline as more days
+ * are seen; each amount counts at the local hour it was recorded, so DST days
+ * need no special case. The learned sleep stretch weighs zero; other hours keep
+ * their learned weight, so a quiet afternoon is slower, not asleep.
+ *
+ * A pool whose quota drain can be matched to enough ledger cost takes its
+ * weekly and daily rates from the ledger, converted at that ratio and split by
+ * each credential's share of the drain; the last-day rate stays history's.
  */
 export function learnActivity(
   pools: ProviderPool[],
   samples: QuotaHistorySample[],
   nowMs: number,
-  sleep: SleepHours
+  sleep: SleepHours,
+  ledger: LedgerCost[] = []
 ): PoolActivity {
-  const entries = pools
-    .flatMap((pool) => pool.credentials)
-    .map((credential) => {
+  const windowStartMs = nowMs - RANGE_DAYS * DAY_MS;
+  const groups = pools.map((pool) => ({
+    pool,
+    entries: pool.credentials.map((credential) => {
       const snapshots = samplesFor(credential, samples).filter(
         (snapshot) => snapshot.atMs <= nowMs
       );
@@ -787,18 +828,49 @@ export function learnActivity(
         drains: drainOf(snapshots),
         censored: censoredSpans(snapshots, nowMs),
       };
-    });
+    }),
+  }));
 
-  // Rationed drain still says when in the day quota gets used.
+  // Ledger cost per forecast provider and hour, within the window.
+  const ledgerRows = ledger.flatMap(({ hourMs, costUsd, provider: name }) => {
+    const provider = name.toLowerCase();
+    return isForecastProvider(provider) && hourMs >= windowStartMs && hourMs < nowMs
+      ? [{ hourMs, costUsd, provider }]
+      : [];
+  });
+  const ledgerFromMs = ledgerRows.reduce((min, row) => Math.min(min, row.hourMs), Infinity);
+  const costByHour = new Map<ForecastProvider, Map<number, number>>();
+  ledgerRows.forEach(({ hourMs, costUsd, provider }) => {
+    const hours = costByHour.get(provider) ?? new Map<number, number>();
+    hours.set(hourMs, (hours.get(hourMs) ?? 0) + costUsd);
+    costByHour.set(provider, hours);
+  });
+  /** The provider's ledger cost in [fromMs, toMs], hours taken pro rata. */
+  const costBetween = (provider: ForecastProvider, fromMs: number, toMs: number) =>
+    [...(costByHour.get(provider) ?? new Map<number, number>())].reduce(
+      (sum, [hourMs, cost]) =>
+        sum + (cost * overlapMs(hourMs, hourMs + HOUR_MS, fromMs, toMs)) / HOUR_MS,
+      0
+    );
+
+  // Dense ledger cost beats sparse drain for when in the day quota gets used.
+  // Rationed drain still says when, so it counts here.
+  const ledgerUse = ledgerRows.map((row) => ({ atMs: row.hourMs, amount: row.costUsd }));
+  const use = ledgerUse.some((point) => point.amount > 0)
+    ? ledgerUse
+    : groups.flatMap((group) =>
+        group.entries.flatMap((entry) =>
+          entry.drains.map((drain) => ({ atMs: drain.atMs, amount: drain.delta }))
+        )
+      );
   const byHour = new Array<number>(24).fill(0);
   const days = new Set<string>();
-  entries.forEach((entry) =>
-    entry.drains.forEach(({ atMs, delta }) => {
-      const date = new Date(atMs);
-      byHour[date.getHours()] += delta;
-      days.add(`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`);
-    })
-  );
+  use.forEach(({ atMs, amount }) => {
+    if (amount <= 0) return;
+    const date = new Date(atMs);
+    byHour[date.getHours()] += amount;
+    days.add(`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`);
+  });
   const total = byHour.reduce((sum, value) => sum + value, 0);
   const learnedWeight = total > 0 ? days.size / (days.size + PROFILE_PRIOR_DAYS) : 0;
   const blended = baselineProfile(sleep).map(
@@ -818,62 +890,153 @@ export function learnActivity(
 
   const clock = activityClock(
     profile,
-    Math.min(nowMs - RANGE_DAYS * DAY_MS, ...entries.map((entry) => entry.oldestMs)),
+    Math.min(
+      windowStartMs,
+      ...groups.flatMap((group) => group.entries.map((entry) => entry.oldestMs))
+    ),
     nowMs
   );
+  /**
+   * `used` over the time in (fromMs, toMs] outside the rationed spans. Under a
+   * day the time is weighted by the hour profile, which keeps a daytime-only
+   * span from counting the night; a span that is mostly night has too little
+   * active time to divide by.
+   */
+  const rateOver = (
+    fromMs: number,
+    toMs: number,
+    censored: Span[],
+    used: (fromMs: number, toMs: number) => number
+  ): number | null => {
+    const real = outside(fromMs, toMs, censored, (startMs, endMs) => endMs - startMs);
+    if (real < MIN_RATE_COVERAGE_MS) return null;
+    const active =
+      real < DAY_MS
+        ? outside(fromMs, toMs, censored, (startMs, endMs) => clock.at(endMs) - clock.at(startMs))
+        : real;
+    if (active < MIN_RATE_COVERAGE_MS) return null;
+    return used(fromMs, toMs) / active;
+  };
+  const pastDays = (fromMs: number) =>
+    Array.from({ length: RANGE_DAYS }, (_, index) => nowMs - (index + 1) * DAY_MS).filter(
+      (dayMs) => dayMs >= fromMs
+    );
+
   const rates = new Map<string, number>();
   const ranges = new Map<string, PaceRange>();
-  entries.forEach((entry) => {
-    /**
-     * Unrationed drain over unrationed time in (fromMs, toMs], within the
-     * credential's history. Under a day the time is weighted by the hour profile,
-     * which keeps a daytime-only span from counting the night; a span that is
-     * mostly night has too little active time to divide by.
-     */
-    const rateOver = (fromMs: number, toMs = nowMs): number | null => {
-      const from = Math.max(fromMs, entry.oldestMs);
-      const activeMs = (measure: (startMs: number, endMs: number) => number) =>
-        entry.censored.reduce(
-          (sum, span) => {
-            const startMs = Math.max(span.startMs, from);
-            const endMs = Math.min(span.endMs, toMs);
-            return endMs > startMs ? sum - measure(startMs, endMs) : sum;
-          },
-          measure(from, toMs)
+  groups.forEach(({ pool, entries }) => {
+    const ledgerPace = ledgerPaceOf(pool, entries);
+    const drained = entries.map((entry) =>
+      entry.drains.reduce((sum, drain) => sum + drain.delta, 0)
+    );
+    const totalDrained = drained.reduce((sum, value) => sum + value, 0);
+
+    entries.forEach((entry, index) => {
+      /** Unrationed drain per active millisecond in (fromMs, toMs], within the credential's history. */
+      const historyRate = (fromMs: number, toMs = nowMs) =>
+        rateOver(Math.max(fromMs, entry.oldestMs), toMs, entry.censored, (from, to) =>
+          entry.drains
+            .filter((drain) => !drain.censored && drain.atMs > from && drain.atMs <= to)
+            .reduce((sum, drain) => sum + drain.delta, 0)
         );
-      const real = activeMs((startMs, endMs) => endMs - startMs);
-      if (real < MIN_RATE_COVERAGE_MS) return null;
-      const active =
-        real < DAY_MS ? activeMs((startMs, endMs) => clock.at(endMs) - clock.at(startMs)) : real;
-      if (active < MIN_RATE_COVERAGE_MS) return null;
-      const used = entry.drains
-        .filter((drain) => !drain.censored && drain.atMs > from && drain.atMs <= toMs)
-        .reduce((sum, drain) => sum + drain.delta, 0);
-      return used / active;
-    };
+      const lastDay = historyRate(nowMs - RECENT_RATE_SPAN_MS) ?? 0;
+      // Credentials share the provider's ledger cost as they shared its drain.
+      const share = totalDrained > 0 ? drained[index] / totalDrained : 1 / entries.length;
 
-    // The faster of the week and the last day: the forecast errs toward running out sooner.
-    const week = rateOver(nowMs - RATE_SPAN_MS);
-    if (week === null) return;
-    const expected = Math.max(week, rateOver(nowMs - RECENT_RATE_SPAN_MS) ?? 0);
-    rates.set(entry.authId, expected);
-
-    const daily = Array.from({ length: RANGE_DAYS }, (_, index) => nowMs - (index + 1) * DAY_MS)
-      .filter((fromMs) => fromMs >= entry.oldestMs)
-      .flatMap((fromMs) => rateOver(fromMs, fromMs + DAY_MS) ?? []);
-    const measured = daily.length >= MIN_RANGE_DAYS;
-    ranges.set(entry.authId, {
-      busy: Math.max(
-        expected,
-        rateOver(nowMs - BUSY_SPAN_MS) ?? 0,
-        measured ? percentile(daily, BUSY_PERCENTILE) : expected * (1 + FALLBACK_SPREAD)
-      ),
-      quiet: Math.min(
-        expected,
-        measured ? percentile(daily, QUIET_PERCENTILE) : expected * (1 - FALLBACK_SPREAD)
-      ),
+      let expected: number;
+      let daily: number[];
+      if (ledgerPace) {
+        expected = Math.max(ledgerPace.week * share, lastDay);
+        daily = ledgerPace.daily.map((rate) => rate * share);
+      } else {
+        // The faster of the week and the last day: the forecast errs toward running out sooner.
+        const week = historyRate(nowMs - RATE_SPAN_MS);
+        if (week === null) return;
+        expected = Math.max(week, lastDay);
+        daily = pastDays(entry.oldestMs).flatMap(
+          (fromMs) => historyRate(fromMs, fromMs + DAY_MS) ?? []
+        );
+      }
+      rates.set(entry.authId, expected);
+      const measured = daily.length >= MIN_RANGE_DAYS;
+      ranges.set(entry.authId, {
+        busy: Math.max(
+          expected,
+          historyRate(nowMs - BUSY_SPAN_MS) ?? 0,
+          measured ? percentile(daily, BUSY_PERCENTILE) : expected * (1 + FALLBACK_SPREAD)
+        ),
+        quiet: Math.min(
+          expected,
+          measured ? percentile(daily, QUIET_PERCENTILE) : expected * (1 - FALLBACK_SPREAD)
+        ),
+      });
     });
   });
+
+  /**
+   * The pool's weekly and daily rates from ledger cost, percent per active
+   * millisecond, or null when its drain cannot be matched to enough cost.
+   * Quota percent per dollar is measured over the intervals the pool's drain
+   * was recorded in, leaving out time the pool as a whole was rationed. All
+   * drain counts there, since a rationed credential's drain is still quota
+   * spent; the same rationed time is then left out of the rates.
+   */
+  function ledgerPaceOf(
+    pool: ProviderPool,
+    entries: { drains: Drain[] }[]
+  ): { week: number; daily: number[] } | null {
+    if (!Number.isFinite(ledgerFromMs)) return null;
+    const drains = entries.flatMap((entry) => entry.drains);
+    // Each drain happened somewhere in (fromMs, atMs]; merged, those say when cost became drain.
+    const intervals: Span[] = [];
+    drains
+      .map(({ fromMs, atMs }) => ({ startMs: Math.max(fromMs, ledgerFromMs), endMs: atMs }))
+      .filter((span) => span.endMs > span.startMs)
+      .sort((left, right) => left.startMs - right.startMs)
+      .forEach((span) => {
+        const last = intervals[intervals.length - 1];
+        if (last && span.startMs <= last.endMs) last.endMs = Math.max(last.endMs, span.endMs);
+        else intervals.push({ ...span });
+      });
+    if (intervals.length === 0) return null;
+
+    const rationedBelow = (pool.capacity * (100 - CENSORED_ABOVE_USED)) / 100;
+    const history = poolHistory(pool, samples, intervals[0].startMs, nowMs);
+    const censored = history.flatMap((point, index) => {
+      const endMs = history[index + 1]?.t ?? nowMs;
+      return point.v < rationedBelow && endMs > point.t ? [{ startMs: point.t, endMs }] : [];
+    });
+    const cost = (fromMs: number, toMs: number) =>
+      outside(fromMs, toMs, censored, (from, to) => costBetween(pool.provider, from, to));
+
+    // A drain partly before the ledger or partly rationed counts pro rata.
+    const drain = drains.reduce((sum, { fromMs, atMs, delta }) => {
+      const inside = outside(
+        Math.max(fromMs, ledgerFromMs),
+        atMs,
+        censored,
+        (from, to) => to - from
+      );
+      return atMs > fromMs ? sum + (delta * Math.max(0, inside)) / (atMs - fromMs) : sum;
+    }, 0);
+    const spent = intervals.reduce((sum, span) => sum + cost(span.startMs, span.endMs), 0);
+    if (drain < MIN_CALIBRATION_DRAIN || spent <= 0) return null;
+    const percentPerDollar = drain / spent;
+
+    const ledgerRate = (fromMs: number, toMs = nowMs) =>
+      rateOver(
+        Math.max(fromMs, ledgerFromMs),
+        toMs,
+        censored,
+        (from, to) => percentPerDollar * cost(from, to)
+      );
+    const week = ledgerRate(nowMs - RATE_SPAN_MS);
+    if (week === null) return null;
+    return {
+      week,
+      daily: pastDays(ledgerFromMs).flatMap((fromMs) => ledgerRate(fromMs, fromMs + DAY_MS) ?? []),
+    };
+  }
 
   return { profile, sleep: stretch, learnedDays: days.size, rates, ranges };
 }
