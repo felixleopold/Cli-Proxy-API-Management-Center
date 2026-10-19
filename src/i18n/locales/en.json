@@ -1602,6 +1602,7 @@
     "forecast_tab_drain": "Drain rate",
     "forecast_legend_remaining": "Remaining",
     "forecast_legend_projected": "Projected",
+    "forecast_legend_range": "Likely range",
     "forecast_share_per_hour": "Share of each pool used per hour",
     "forecast_share_per_day": "Share of each pool used per day",
     "forecast_used_per_hour": "Quota used per hour",
@@ -1620,6 +1621,8 @@
     "forecast_history_error": "Quota history couldn't be loaded, so only the projection is shown.",
     "forecast_next_reset": "Next reset +{{percent}}% · {{when}}",
     "forecast_runs_out": "Runs out {{when}}",
+    "forecast_runs_out_range": "Runs out between {{from}} and {{to}}",
+    "forecast_runs_out_soonest": "Could run out as soon as {{when}}",
     "forecast_runs_out_credit_one": "{{count}} manual reset available, expires {{when}}",
     "forecast_runs_out_credit_other": "{{count}} manual resets available, first expires {{when}}",
     "forecast_reset_credits_one": "{{count}} manual reset",
@@ -1632,7 +1635,7 @@
     "forecast_sleep_start": "Sleep starts",
     "forecast_sleep_end": "Sleep ends",
     "forecast_sleep_hint": "Until enough history is learned, the forecast assumes no quota use during these hours.",
-    "forecast_pace_hint": "Pace is each credential's average use per day over the last 7 days, or over the last 24 hours when that is higher, so the forecast errs toward running out sooner. With less than a day of history it is the use measured so far, counting only active hours; under 3 hours it is the current window's average."
+    "forecast_pace_hint": "Pace is each credential's average use per day over the last 7 days, or over the last 24 hours when that is higher, so the forecast errs toward running out sooner. With less than a day of history it is the use measured so far, counting only active hours; under 3 hours it is the current window's average. Use while a credential had less than 15% left is ignored: that is rationing, not demand. The shaded range runs from a busy pace (the last 6 hours or a busy day) to a quiet day's pace."
   },
   "plugin_management": {
     "title": "Plugin Management",

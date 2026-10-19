@@ -25,7 +25,8 @@ import {
   buildPools,
   drainBuckets,
   drainEdges,
-  learnPoolActivity,
+  hasForecastCredentials,
+  learnActivity,
   nightHours,
   poolHistory,
   poolResetCredits,
@@ -74,9 +75,10 @@ export function QuotaForecast({ files, tab, now: nowProp, resetCreditsFor }: Quo
   const nowMs = nowProp ?? tick;
   const bodyId = useId();
 
-  const pools = useMemo(() => buildPools(files), [files]);
-  const history = useQuotaHistory(pools.length > 0, files);
+  const history = useQuotaHistory(hasForecastCredentials(files), files);
   const samples = history.status === 'ok' ? history.samples : null;
+  // Credentials without live signals join from their latest history reading.
+  const pools = useMemo(() => buildPools(files, samples ?? []), [files, samples]);
 
   const [collapsed, setCollapsed] = useState(() => readQuotaUiState()?.forecastCollapsed ?? false);
   const [horizon, setHorizon] = useState<ForecastHorizonDays>(
@@ -124,18 +126,20 @@ export function QuotaForecast({ files, tab, now: nowProp, resetCreditsFor }: Quo
   const formatPercent = useCallback((value: number) => `${numbers.percent(value)}%`, [numbers]);
   const formatRate = useCallback((value: number) => `${numbers.rate(value)}%`, [numbers]);
 
-  const activities = useMemo(
-    () => visible.map((pool) => learnPoolActivity(pool, samples ?? [], nowMs, sleep)),
-    [visible, samples, nowMs, sleep]
+  // Learned from every pool, not just the visible ones: one person sleeps once.
+  const activity = useMemo(
+    () => learnActivity(pools, samples ?? [], nowMs, sleep),
+    [pools, samples, nowMs, sleep]
   );
+  const night = useMemo(() => nightHours(activity.sleep), [activity]);
   const summaries = useMemo(
     () =>
-      visible.map((pool, index) => ({
+      visible.map((pool) => ({
         pool,
-        summary: summarizePool(pool, nowMs, activities[index]),
+        summary: summarizePool(pool, nowMs, activity),
         credits: resetCreditsFor ? poolResetCredits(pool, files, resetCreditsFor, nowMs) : [],
       })),
-    [visible, nowMs, activities, files, resetCreditsFor]
+    [visible, nowMs, activity, files, resetCreditsFor]
   );
 
   const historyDays = Math.min(horizon, MAX_HISTORY_DAYS);
@@ -144,19 +148,31 @@ export function QuotaForecast({ files, tab, now: nowProp, resetCreditsFor }: Quo
 
   const rows = useMemo<ForecastRow[]>(
     () =>
-      summaries.map(({ pool, summary, credits }, index) => {
-        const projection = projectPool(pool, nowMs, endMs, activities[index]);
-        const emptyAt = runsOutAt(projection);
+      summaries.map(({ pool, summary, credits }) => {
+        const range = {
+          low: projectPool(pool, nowMs, endMs, activity, 'busy'),
+          high: projectPool(pool, nowMs, endMs, activity, 'quiet'),
+        };
+        const soonest = runsOutAt(range.low);
+        const latest = runsOutAt(range.high);
         const facts = [
           summary.nextReset &&
             t('quota_management.forecast_next_reset', {
               percent: numbers.percent(summary.nextReset.restorePercent),
               when: numbers.when(summary.nextReset.atMs),
             }),
-          emptyAt !== null &&
-            t('quota_management.forecast_runs_out', { when: numbers.when(emptyAt) }),
+          // A quiet pace may outlast the view or a reset; then only the soonest is known.
+          soonest !== null &&
+            (latest === null
+              ? t('quota_management.forecast_runs_out_soonest', { when: numbers.when(soonest) })
+              : numbers.when(soonest) === numbers.when(latest)
+                ? t('quota_management.forecast_runs_out', { when: numbers.when(soonest) })
+                : t('quota_management.forecast_runs_out_range', {
+                    from: numbers.when(soonest),
+                    to: numbers.when(latest),
+                  })),
           // Manual resets are redeemed by hand, so the projection ignores them; say one could extend it.
-          emptyAt !== null &&
+          soonest !== null &&
             credits.length > 0 &&
             t('quota_management.forecast_runs_out_credit', {
               count: credits.length,
@@ -169,13 +185,13 @@ export function QuotaForecast({ files, tab, now: nowProp, resetCreditsFor }: Quo
           color: SERIES_COLOR[pool.provider],
           capacity: pool.capacity,
           history: samples ? poolHistory(pool, samples, startMs, nowMs) : [],
-          projection,
-          night: nightHours(activities[index].profile),
+          projection: projectPool(pool, nowMs, endMs, activity),
+          range,
           credits,
           facts: facts.filter(Boolean).join(' · '),
         };
       }),
-    [summaries, samples, startMs, nowMs, endMs, activities, numbers, t]
+    [summaries, samples, startMs, nowMs, endMs, activity, numbers, t]
   );
 
   const drain = useMemo(() => {
@@ -214,7 +230,7 @@ export function QuotaForecast({ files, tab, now: nowProp, resetCreditsFor }: Quo
     value: String(hour),
     label: numbers.hour(hour),
   }));
-  const hasNight = rows.some((row) => row.night.some(Boolean));
+  const hasNight = night.some(Boolean);
   const hasCreditMarker = rows.some((row) =>
     row.credits.some((expiresAtMs) => expiresAtMs <= endMs)
   );
@@ -231,7 +247,10 @@ export function QuotaForecast({ files, tab, now: nowProp, resetCreditsFor }: Quo
         ? t('quota_management.forecast_history_error')
         : null;
 
-  const legendKey = (variant: 'area' | 'dashed' | 'bar' | 'band' | 'tick', color: string) => (
+  const legendKey = (
+    variant: 'area' | 'dashed' | 'range' | 'bar' | 'band' | 'tick',
+    color: string
+  ) => (
     <span
       className={
         variant === 'tick'
@@ -240,9 +259,11 @@ export function QuotaForecast({ files, tab, now: nowProp, resetCreditsFor }: Quo
             ? styles.keyBand
             : variant === 'bar'
               ? styles.keyBar
-              : variant === 'dashed'
-                ? styles.keyDashed
-                : styles.keyArea
+              : variant === 'range'
+                ? styles.keyRange
+                : variant === 'dashed'
+                  ? styles.keyDashed
+                  : styles.keyArea
       }
       style={{ '--series': color } as CSSProperties}
       aria-hidden="true"
@@ -379,6 +400,10 @@ export function QuotaForecast({ files, tab, now: nowProp, resetCreditsFor }: Quo
                       {legendKey('dashed', keyColor)}
                       {t('quota_management.forecast_legend_projected')}
                     </span>
+                    <span className={styles.legendItem}>
+                      {legendKey('range', keyColor)}
+                      {t('quota_management.forecast_legend_range')}
+                    </span>
                   </>
                 )}
                 {view === 'remaining' && hasNight && (
@@ -448,6 +473,7 @@ export function QuotaForecast({ files, tab, now: nowProp, resetCreditsFor }: Quo
             {view === 'remaining' ? (
               <RemainingChart
                 rows={rows}
+                night={night}
                 fromMs={startMs}
                 toMs={endMs}
                 nowMs={nowMs}

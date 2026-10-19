@@ -1602,6 +1602,7 @@
     "forecast_tab_drain": "소진 속도",
     "forecast_legend_remaining": "남음",
     "forecast_legend_projected": "예측",
+    "forecast_legend_range": "예상 범위",
     "forecast_share_per_hour": "시간당 사용된 풀 비율",
     "forecast_share_per_day": "일별 사용된 풀 비율",
     "forecast_used_per_hour": "시간당 사용량",
@@ -1620,6 +1621,8 @@
     "forecast_history_error": "할당량 기록을 불러오지 못해 예측만 표시합니다.",
     "forecast_next_reset": "다음 재설정 +{{percent}}% · {{when}}",
     "forecast_runs_out": "소진 예상 {{when}}",
+    "forecast_runs_out_range": "{{from}}~{{to}} 사이 소진 예상",
+    "forecast_runs_out_soonest": "이르면 {{when}} 소진 가능",
     "forecast_runs_out_credit_one": "수동 초기화 {{count}}회 사용 가능, {{when}} 만료",
     "forecast_runs_out_credit_other": "수동 초기화 {{count}}회 사용 가능, 첫 만료 {{when}}",
     "forecast_reset_credits_one": "수동 초기화 {{count}}회",
@@ -1632,7 +1635,7 @@
     "forecast_sleep_start": "수면 시작",
     "forecast_sleep_end": "수면 종료",
     "forecast_sleep_hint": "기록이 충분히 쌓일 때까지 이 시간에는 할당량을 사용하지 않는 것으로 예측합니다.",
-    "forecast_pace_hint": "속도는 각 인증 정보의 최근 7일 하루 평균 사용량이며, 최근 24시간이 더 높으면 그 값을 씁니다. 그래서 예측은 더 일찍 소진되는 쪽으로 기웁니다. 기록이 하루 미만이면 활동 시간만 따져 지금까지 측정된 사용량을 쓰고, 3시간 미만이면 현재 창의 평균을 씁니다."
+    "forecast_pace_hint": "속도는 각 인증 정보의 최근 7일 하루 평균 사용량이며, 최근 24시간이 더 높으면 그 값을 씁니다. 그래서 예측은 더 일찍 소진되는 쪽으로 기웁니다. 기록이 하루 미만이면 활동 시간만 따져 지금까지 측정된 사용량을 쓰고, 3시간 미만이면 현재 창의 평균을 씁니다. 남은 양이 15% 미만일 때의 사용량은 실제 수요가 아니라 아껴 쓴 결과이므로 제외합니다. 음영 범위는 바쁜 속도(최근 6시간 또는 바쁜 날)부터 한가한 날의 속도까지입니다."
   },
   "plugin_management": {
     "title": "플러그인 관리",
