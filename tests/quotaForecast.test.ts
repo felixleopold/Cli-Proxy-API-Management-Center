@@ -330,6 +330,27 @@ describe('sleep-aware activity', () => {
     expect((activity.rates.get('b') ?? 0) * DAY_MS).toBeCloseTo(1);
   });
 
+  test('under a day of history the rate is the drain so far over its active hours', () => {
+    withTimeZone('UTC', () => {
+      // 12% used over the six hours to noon, a stretch the sleep baseline partly discounts.
+      const samples = [
+        sample({ atMs: NOW - 6 * HOUR_MS, usedPercent: 0 }),
+        sample({ atMs: NOW, usedPercent: 12 }),
+      ];
+      const activity = learnPoolActivity(
+        pool(credential({ usedPercent: 12 })),
+        samples,
+        NOW,
+        DEFAULT_SLEEP_HOURS
+      );
+      const activeMs = [6, 7, 8, 9, 10, 11].reduce(
+        (sum, hour) => sum + activity.profile[hour] * HOUR_MS,
+        0
+      );
+      expect((activity.rates.get('a') ?? 0) * activeMs).toBeCloseTo(12);
+    });
+  });
+
   test('a session window sampled once per window still learns its drain', () => {
     const period = 5 * HOUR_MS;
     const c = credential({ window: 'session', periodMs: period, resetAtMs: NOW + period });

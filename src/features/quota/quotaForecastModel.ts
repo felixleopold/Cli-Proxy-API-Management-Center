@@ -560,7 +560,7 @@ const RATE_SPAN_MS = 7 * DAY_MS;
  */
 const RECENT_RATE_SPAN_MS = DAY_MS;
 /** Rates need at least this much history; less keeps the window pace. */
-const MIN_RATE_COVERAGE_MS = RECENT_RATE_SPAN_MS;
+const MIN_RATE_COVERAGE_MS = 3 * HOUR_MS;
 
 export interface PoolActivity {
   /** Weight of each local hour of the day, mean 1: it only moves usage within the day. */
@@ -569,7 +569,8 @@ export interface PoolActivity {
   learnedDays: number;
   /**
    * Measured drain per credential, percent per millisecond: the trailing week's
-   * average, or the last day's when that is faster.
+   * average, or the last day's when that is faster. Under a day of history it is
+   * the drain so far over its activity-weighted time.
    */
   rates: ReadonlyMap<string, number>;
 }
@@ -628,8 +629,9 @@ export function learnPoolActivity(
       (1 - learnedWeight) * prior + (total > 0 ? (learnedWeight * byHour[hour] * 24) / total : 0)
   );
   const mean = blended.reduce((sum, value) => sum + value, 0) / 24;
+  const profile = blended.map((value) => value / mean);
 
-  // Each credential's rate covers its own history; shorter than a day keeps the window pace.
+  // Each credential's rate covers its own history; under three hours keeps the window pace.
   // The faster of the week and the last day: the forecast errs toward running out sooner.
   const rates = new Map<string, number>();
   drains.forEach((entry) => {
@@ -640,6 +642,12 @@ export function learnPoolActivity(
       entry.drains
         .filter((drain) => drain.atMs > fromMs)
         .reduce((sum, drain) => sum + drain.delta, 0);
+    if (covered < RECENT_RATE_SPAN_MS) {
+      // Weighting by the hour profile keeps a daytime-only span from counting the night.
+      const weighted = activityClock(profile, coveredFrom, nowMs).at(nowMs);
+      if (weighted > 0) rates.set(entry.authId, usedSince(coveredFrom) / weighted);
+      return;
+    }
     rates.set(
       entry.authId,
       Math.max(
@@ -649,7 +657,7 @@ export function learnPoolActivity(
     );
   });
 
-  return { profile: blended.map((value) => value / mean), learnedDays: days.size, rates };
+  return { profile, learnedDays: days.size, rates };
 }
 
 /** Hours of the day quiet enough to draw as night. */

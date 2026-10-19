@@ -1632,7 +1632,7 @@
     "forecast_sleep_start": "Sleep starts",
     "forecast_sleep_end": "Sleep ends",
     "forecast_sleep_hint": "Until enough history is learned, the forecast assumes no quota use during these hours.",
-    "forecast_pace_hint": "Pace is each credential's average use per day over the last 7 days, or over the last 24 hours when that is higher, so the forecast errs toward running out sooner. With less than a day of history it is the current window's average so far."
+    "forecast_pace_hint": "Pace is each credential's average use per day over the last 7 days, or over the last 24 hours when that is higher, so the forecast errs toward running out sooner. With less than a day of history it is the use measured so far, counting only active hours; under 3 hours it is the current window's average."
   },
   "plugin_management": {
     "title": "Plugin Management",
