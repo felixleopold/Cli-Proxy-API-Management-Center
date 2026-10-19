@@ -476,17 +476,18 @@ interface Drain {
 }
 
 /**
- * Measured drain of one credential: positive increments between consecutive
- * samples of the same window (same reset), timed at the later sample.
+ * Measured drain of one credential's snapshots: positive increments between
+ * consecutive samples, timed at the later sample. A sample in a later window
+ * counts from that window's known zero.
  */
-const drainOf = (credential: PoolCredential, samples: QuotaHistorySample[]): Drain[] => {
-  const snapshots = samplesFor(credential, samples);
+const drainOf = (snapshots: Snapshot[]): Drain[] => {
   const drains: Drain[] = [];
   for (let index = 1; index < snapshots.length; index += 1) {
     const previous = snapshots[index - 1];
     const current = snapshots[index];
-    if (Math.abs(current.resetAtMs - previous.resetAtMs) > SAME_RESET_TOLERANCE_MS) continue;
-    const delta = current.usedPercent - previous.usedPercent;
+    const newWindow = current.resetAtMs - previous.resetAtMs > SAME_RESET_TOLERANCE_MS;
+    if (!newWindow && previous.resetAtMs - current.resetAtMs > SAME_RESET_TOLERANCE_MS) continue;
+    const delta = current.usedPercent - (newWindow ? 0 : previous.usedPercent);
     if (delta > 0) drains.push({ atMs: current.atMs, delta });
   }
   return drains;
@@ -503,7 +504,7 @@ export function drainBuckets(
 ): number[] {
   const buckets = new Array<number>(Math.max(0, edges.length - 1)).fill(0);
   pool.credentials.forEach((credential) => {
-    drainOf(credential, samples).forEach(({ atMs, delta }) => {
+    drainOf(samplesFor(credential, samples)).forEach(({ atMs, delta }) => {
       const bucket = bucketIndex(edges, atMs);
       if (bucket !== -1) buckets[bucket] += delta;
     });
@@ -568,10 +569,14 @@ export function learnPoolActivity(
   nowMs: number,
   sleep: SleepHours
 ): PoolActivity {
-  const drains = pool.credentials.map((credential) => ({
-    authId: credential.authId,
-    drains: drainOf(credential, samples).filter((drain) => drain.atMs <= nowMs),
-  }));
+  const drains = pool.credentials.map((credential) => {
+    const snapshots = samplesFor(credential, samples).filter((snapshot) => snapshot.atMs <= nowMs);
+    return {
+      authId: credential.authId,
+      oldestMs: snapshots.length > 0 ? snapshots[0].atMs : nowMs,
+      drains: drainOf(snapshots),
+    };
+  });
 
   const byHour = new Array<number>(24).fill(0);
   const days = new Set<string>();
@@ -590,19 +595,17 @@ export function learnPoolActivity(
   );
   const mean = blended.reduce((sum, value) => sum + value, 0) / 24;
 
-  // History is only recorded on change, so coverage runs from the oldest sample of any credential.
-  const oldest = samples.reduce((min, sample) => Math.min(min, sample.atMs), Infinity);
-  const coveredFrom = Math.max(nowMs - RATE_SPAN_MS, oldest);
-  const covered = nowMs - coveredFrom;
+  // Each credential's rate covers its own history; shorter than a day keeps the window pace.
   const rates = new Map<string, number>();
-  if (covered >= MIN_RATE_COVERAGE_MS) {
-    drains.forEach((entry) => {
-      const used = entry.drains
-        .filter((drain) => drain.atMs > coveredFrom)
-        .reduce((sum, drain) => sum + drain.delta, 0);
-      rates.set(entry.authId, used / covered);
-    });
-  }
+  drains.forEach((entry) => {
+    const coveredFrom = Math.max(nowMs - RATE_SPAN_MS, entry.oldestMs);
+    const covered = nowMs - coveredFrom;
+    if (covered < MIN_RATE_COVERAGE_MS) return;
+    const used = entry.drains
+      .filter((drain) => drain.atMs > coveredFrom)
+      .reduce((sum, drain) => sum + drain.delta, 0);
+    rates.set(entry.authId, used / covered);
+  });
 
   return { profile: blended.map((value) => value / mean), learnedDays: days.size, rates };
 }

@@ -167,14 +167,14 @@ describe('history', () => {
     const reset = NOW + 3 * DAY_MS;
     const samples = [
       sample({ atMs: NOW - 3 * HOUR_MS, usedPercent: 10, resetAtMs: reset - WEEK_MS }),
-      // New window: the drop to 2% is a reset, not negative drain.
+      // New window: the drop to 2% is a reset, and those 2% count from its zero.
       sample({ atMs: NOW - 2.5 * HOUR_MS, usedPercent: 2, resetAtMs: reset }),
       sample({ atMs: NOW - 2.2 * HOUR_MS, usedPercent: 5, resetAtMs: reset }),
       sample({ atMs: NOW - 0.5 * HOUR_MS, usedPercent: 9, resetAtMs: reset }),
       sample({ authId: 'other', atMs: NOW - HOUR_MS, usedPercent: 99 }),
     ];
     const edges = [NOW - 3 * HOUR_MS, NOW - 2 * HOUR_MS, NOW - HOUR_MS, NOW];
-    expect(drainBuckets(pool(c), samples, edges)).toEqual([3, 0, 4]);
+    expect(drainBuckets(pool(c), samples, edges)).toEqual([5, 0, 4]);
   });
 
   test('two session windows of one credential are kept apart by duration', () => {
@@ -280,6 +280,38 @@ describe('sleep-aware activity', () => {
       // The trailing seven days hold seven 3% deltas.
       expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(3);
     });
+  });
+
+  test('a short-lived credential keeps its window pace beside an older one', () => {
+    const a = credential({ usedPercent: 2 });
+    const b = credential({ authId: 'b' });
+    const samples = [
+      sample({ atMs: NOW - 2 * HOUR_MS, usedPercent: 0 }),
+      sample({ atMs: NOW, usedPercent: 2 }),
+      sample({ authId: 'b', atMs: NOW - WEEK_MS, usedPercent: 0 }),
+      sample({ authId: 'b', atMs: NOW - DAY_MS, usedPercent: 7 }),
+    ];
+    const activity = learnPoolActivity(pool(a, b), samples, NOW, DEFAULT_SLEEP_HOURS);
+    expect(activity.rates.has('a')).toBe(false);
+    expect((activity.rates.get('b') ?? 0) * DAY_MS).toBeCloseTo(1);
+  });
+
+  test('a session window sampled once per window still learns its drain', () => {
+    const period = 5 * HOUR_MS;
+    const c = credential({ window: 'session', periodMs: period, resetAtMs: NOW + period });
+    // 20% recorded once in each of 14 consecutive five-hour windows (70 hours).
+    const samples = Array.from({ length: 14 }, (_, index) =>
+      sample({
+        atMs: NOW - (13 - index) * period,
+        window: 'session',
+        windowMinutes: 300,
+        usedPercent: 20,
+        resetAtMs: NOW - (13 - index) * period + period,
+      })
+    );
+    const activity = learnPoolActivity(pool(c), samples, NOW, DEFAULT_SLEEP_HOURS);
+    // 13 new windows counted from zero over 65 covered hours.
+    expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo((13 * 20 * 24) / 65);
   });
 
   test('projection is flat while asleep and keeps the daily total', () => {
