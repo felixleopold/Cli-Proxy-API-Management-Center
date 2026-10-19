@@ -155,6 +155,12 @@ export function QuotaPage() {
     [quotaByType]
   );
 
+  // Manual resets only reach the store once a Codex card's quota has loaded.
+  const resetCreditsFor = useCallback(
+    (file: AuthFileItem) => codexQuota[getQuotaCacheKey(file)]?.rateLimitResetCredits,
+    [codexQuota]
+  );
+
   /* ---------- 归类 / 过滤 / 排序 / 分页 ---------- */
 
   // 只在「最快恢复优先」下订阅分钟时钟。默认序下不门控的话，pageItems 每分钟
@@ -337,7 +343,7 @@ export function QuotaPage() {
         </div>
 
         {/* Pooled across every credential of the provider, independent of search and paging. */}
-        <QuotaForecast files={files} tab={tab} />
+        <QuotaForecast files={files} tab={tab} resetCreditsFor={resetCreditsFor} />
 
         <div className={styles.toolbar}>
           <div className={styles.search}>

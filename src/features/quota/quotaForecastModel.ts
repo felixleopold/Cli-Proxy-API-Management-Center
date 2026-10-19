@@ -186,6 +186,32 @@ export function buildPools(files: AuthFileItem[]): ProviderPool[] {
   });
 }
 
+/** A Codex manual reset as the quota card reports it. */
+export interface ResetCreditLike {
+  status?: string;
+  expiresAt?: string;
+}
+
+/**
+ * Expiry instants of the pool's unused, unexpired manual resets, soonest first.
+ * They are redeemed by hand, so the projection never assumes one is used.
+ */
+export function poolResetCredits(
+  pool: ProviderPool,
+  files: AuthFileItem[],
+  creditsOf: (file: AuthFileItem) => readonly ResetCreditLike[] | undefined,
+  nowMs: number
+): number[] {
+  const ids = new Set(pool.credentials.map((credential) => credential.authId));
+  return files
+    .filter((file) => typeof file.id === 'string' && ids.has(file.id))
+    .flatMap((file) => creditsOf(file) ?? [])
+    .filter((credit) => credit.status === 'available')
+    .map((credit) => Date.parse(credit.expiresAt ?? ''))
+    .filter((expiresAtMs) => expiresAtMs > nowMs)
+    .sort((left, right) => left - right);
+}
+
 /* ---------- Current state and projection ---------- */
 
 interface CredentialNow {
@@ -528,15 +554,23 @@ const PROFILE_PRIOR_DAYS = 7;
 const NIGHT_WEIGHT = 0.25;
 /** Daily rate is the drain measured over this trailing span... */
 const RATE_SPAN_MS = 7 * DAY_MS;
-/** ...once history covers at least this much of it. */
-const MIN_RATE_COVERAGE_MS = DAY_MS;
+/**
+ * ...or over the last day when that is faster, so a busier spell shortens the
+ * forecast at once. A whole day keeps the hour-of-day profile out of it.
+ */
+const RECENT_RATE_SPAN_MS = DAY_MS;
+/** Rates need at least this much history; less keeps the window pace. */
+const MIN_RATE_COVERAGE_MS = RECENT_RATE_SPAN_MS;
 
 export interface PoolActivity {
   /** Weight of each local hour of the day, mean 1: it only moves usage within the day. */
   profile: number[];
   /** Distinct local days with measured drain. */
   learnedDays: number;
-  /** Measured daily-average drain per credential, percent per millisecond. */
+  /**
+   * Measured drain per credential, percent per millisecond: the trailing week's
+   * average, or the last day's when that is faster.
+   */
   rates: ReadonlyMap<string, number>;
 }
 
@@ -596,15 +630,23 @@ export function learnPoolActivity(
   const mean = blended.reduce((sum, value) => sum + value, 0) / 24;
 
   // Each credential's rate covers its own history; shorter than a day keeps the window pace.
+  // The faster of the week and the last day: the forecast errs toward running out sooner.
   const rates = new Map<string, number>();
   drains.forEach((entry) => {
     const coveredFrom = Math.max(nowMs - RATE_SPAN_MS, entry.oldestMs);
     const covered = nowMs - coveredFrom;
     if (covered < MIN_RATE_COVERAGE_MS) return;
-    const used = entry.drains
-      .filter((drain) => drain.atMs > coveredFrom)
-      .reduce((sum, drain) => sum + drain.delta, 0);
-    rates.set(entry.authId, used / covered);
+    const usedSince = (fromMs: number) =>
+      entry.drains
+        .filter((drain) => drain.atMs > fromMs)
+        .reduce((sum, drain) => sum + drain.delta, 0);
+    rates.set(
+      entry.authId,
+      Math.max(
+        usedSince(coveredFrom) / covered,
+        usedSince(nowMs - RECENT_RATE_SPAN_MS) / RECENT_RATE_SPAN_MS
+      )
+    );
   });
 
   return { profile: blended.map((value) => value / mean), learnedDays: days.size, rates };

@@ -23,9 +23,10 @@ Current base: upstream `v1.25.6`.
 - **Quota forecast** (`src/features/quota/quotaForecastModel.ts`, `components/QuotaForecast*`).
   Per-provider pool chart of remaining quota with a projection to the next resets, drain history
   and a horizon picker. The projection is sleep-aware: each credential's daily rate is its own
-  trailing-7-day drain (window pace below 24h of history), spread over a local hour-of-day profile
-  learned from drain and blended into a configurable sleep baseline. Tests:
-  `tests/quotaForecast.test.ts`.
+  trailing-7-day drain or its last-24h drain, whichever is higher (window pace below 24h of
+  history), spread over a local hour-of-day profile learned from drain and blended into a
+  configurable sleep baseline. Unused Codex manual resets show as amber expiry markers and a count,
+  but the projection never assumes one is redeemed. Tests: `tests/quotaForecast.test.ts`.
 
 ## Sync from upstream
 
