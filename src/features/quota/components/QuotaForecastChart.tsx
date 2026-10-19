@@ -1,13 +1,14 @@
 /**
- * SVG charts for the pooled quota forecast: a remaining-quota line (solid
- * history, dashed projection) and drain-rate columns. Data comes in ready-made
+ * SVG charts for the pooled quota forecast: remaining quota as one filled row
+ * per provider on a shared time axis (solid history, dashed projection) and
+ * drain-rate columns. Data comes in ready-made
  * from quotaForecastModel.ts; this file only maps it to pixels and handles hover.
  */
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DAY_MS, HOUR_MS, valueAt, type SeriesPoint } from '../quotaForecastModel';
+import { DAY_MS, HOUR_MS, nightBands, valueAt, type SeriesPoint } from '../quotaForecastModel';
 import styles from './QuotaForecast.module.scss';
 
 const PLOT_HEIGHT = 196;
@@ -114,19 +115,31 @@ const linePath = (points: { x: number; y: number }[]) =>
 interface Frame {
   width: number;
   plotWidth: number;
+  /** Plot area top and bottom (the zero line) in pixels. */
+  top: number;
+  baseY: number;
   x: (t: number) => number;
   y: (v: number) => number;
   invertX: (px: number) => number;
 }
 
-const makeFrame = (width: number, fromMs: number, toMs: number, yMax: number): Frame => {
+const makeFrame = (
+  width: number,
+  fromMs: number,
+  toMs: number,
+  yMax: number,
+  top = MARGIN.top,
+  plotHeight = PLOT_HEIGHT
+): Frame => {
   const plotWidth = width - MARGIN.left - MARGIN.right;
   const span = Math.max(1, toMs - fromMs);
   return {
     width,
     plotWidth,
+    top,
+    baseY: top + plotHeight,
     x: (t) => MARGIN.left + ((t - fromMs) / span) * plotWidth,
-    y: (v) => MARGIN.top + PLOT_HEIGHT - (Math.min(v, yMax) / (yMax || 1)) * PLOT_HEIGHT,
+    y: (v) => top + plotHeight - (Math.min(v, yMax) / (yMax || 1)) * plotHeight,
     invertX: (px) =>
       fromMs + (Math.min(Math.max(px - MARGIN.left, 0), plotWidth) / plotWidth) * span,
   };
@@ -134,12 +147,15 @@ const makeFrame = (width: number, fromMs: number, toMs: number, yMax: number): F
 
 function Axes({
   frame,
+  height = HEIGHT,
   yTicks,
   formatValue,
   xTicks,
   formatTick,
 }: {
   frame: Frame;
+  /** Height of the SVG; x tick labels sit at its bottom. */
+  height?: number;
   yTicks: number[];
   formatValue: (v: number) => string;
   xTicks: number[];
@@ -167,7 +183,7 @@ function Axes({
           key={tick}
           className={styles.xTick}
           x={frame.x(tick)}
-          y={HEIGHT - 8}
+          y={height - 8}
           textAnchor={
             index === 0 && frame.x(tick) - MARGIN.left < 24
               ? 'start'
@@ -251,65 +267,90 @@ const useScrub = (fromMs: number, toMs: number, startAt: number) => {
 };
 
 function SrTable({ caption, head, rows }: { caption: string; head: string[]; rows: string[][] }) {
+  // Hidden by a wrapper: a table caption is laid out outside the table box, so
+  // Firefox does not clip it with the table itself.
   return (
-    <table className={styles.srOnly}>
-      <caption>{caption}</caption>
-      <thead>
-        <tr>
-          {head.map((cell) => (
-            <th key={cell} scope="col">
-              {cell}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row[0]}>
-            {row.map((cell, index) => (
-              <td key={index}>{cell}</td>
+    <div className={styles.srOnly}>
+      <table>
+        <caption>{caption}</caption>
+        <thead>
+          <tr>
+            {head.map((cell) => (
+              <th key={cell} scope="col">
+                {cell}
+              </th>
             ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row[0]}>
+              {row.map((cell, index) => (
+                <td key={index}>{cell}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
 /* ---------- Remaining quota ---------- */
 
-export interface ForecastLine {
+export interface ForecastRow {
   key: string;
   label: string;
   /** A CSS color, e.g. var(--fc-claude). */
   color: string;
+  /** Pool size in percent; the row's y axis runs from 0 to this. */
+  capacity: number;
   history: SeriesPoint[];
   projection: SeriesPoint[];
+  /** Quiet local hours of the day, shaded over the projection. */
+  night: boolean[];
+  /** Facts about the row, e.g. the next reset. */
+  facts: string;
 }
 
 export interface RemainingChartProps {
-  lines: ForecastLine[];
+  rows: ForecastRow[];
   fromMs: number;
   toMs: number;
   nowMs: number;
-  yMax: number;
-  /** Area washes only read well under a single line. */
-  fillArea: boolean;
   formatValue: (v: number) => string;
   ariaLabel: string;
-  /** Tooltip names for a lone line, which has no series name to show. */
+  /** Tooltip names for a lone row, which has no series name to show. */
   remainingLabel: string;
   projectedLabel: string;
   nowLabel: string;
 }
 
+/** Plot height of each row when providers are stacked. */
+const ROW_PLOT_HEIGHT = 108;
+const ROW_TOP = 10;
+const ROW_BOTTOM = 8;
+
+const fractionTicks = (max: number, parts: number) =>
+  Array.from({ length: parts + 1 }, (_, index) => (max * index) / parts);
+
+const areaPath = (points: { x: number; y: number }[], baseY: number) =>
+  points.length > 1
+    ? `${linePath(points)}L${points[points.length - 1].x},${baseY}L${points[0].x},${baseY}Z`
+    : '';
+
+const seriesAt = (row: ForecastRow, t: number, nowMs: number) =>
+  valueAt(t > nowMs ? row.projection : row.history, t);
+
+/**
+ * Remaining quota, one row per provider in its own absolute pool percent, all
+ * on one time axis with one "now". A lone provider gets a single taller row.
+ */
 export function RemainingChart({
-  lines,
+  rows,
   fromMs,
   toMs,
   nowMs,
-  yMax,
-  fillArea,
   formatValue,
   ariaLabel,
   remainingLabel,
@@ -319,84 +360,142 @@ export function RemainingChart({
   const [ref, width] = useElementWidth();
   const gradientId = useId();
   const formats = useTimeFormats();
-  const frame = makeFrame(width, fromMs, toMs, yMax);
-  const yTicks = useMemo(() => valueTicks(yMax), [yMax]);
+  const single = rows.length === 1;
+  const plotWidth = width - MARGIN.left - MARGIN.right;
   const xTicks = useMemo(
-    () => timeTicks(fromMs, toMs, Math.max(3, Math.floor(frame.plotWidth / 92))),
-    [fromMs, toMs, frame.plotWidth]
+    () => timeTicks(fromMs, toMs, Math.max(3, Math.floor(plotWidth / 92))),
+    [fromMs, toMs, plotWidth]
+  );
+  const bands = useMemo(
+    () => rows.map((row) => nightBands(row.night, Math.max(fromMs, nowMs), toMs)),
+    [rows, fromMs, nowMs, toMs]
   );
   const { hoverMs, setHoverMs, focusProps } = useScrub(fromMs, toMs, nowMs);
-  const single = lines.length === 1;
 
-  const toPixels = (points: SeriesPoint[]) =>
-    points.map((point) => ({ x: frame.x(point.t), y: frame.y(point.v) }));
-  const baseY = frame.y(0);
-
-  const onPointerMove = (event: PointerEvent<SVGRectElement>) => {
+  const onPointerMove = (frame: Frame) => (event: PointerEvent<SVGRectElement>) => {
     const bounds = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
     if (bounds) setHoverMs(frame.invertX(event.clientX - bounds.left));
   };
 
-  const rowsAt = (t: number): TooltipRow[] =>
-    lines.flatMap((line) => {
-      const projected = t > nowMs;
-      const value = valueAt(projected ? line.projection : line.history, t);
+  const tooltipRows = (t: number): TooltipRow[] =>
+    rows.flatMap((row) => {
+      const value = seriesAt(row, t, nowMs);
       if (value === null) return [];
+      const projected = t > nowMs;
       return [
         {
-          key: line.key,
-          color: line.color,
+          key: row.key,
+          color: row.color,
           dashed: projected,
           value: formatValue(value),
-          label: single ? (projected ? projectedLabel : remainingLabel) : line.label,
+          label: single ? (projected ? projectedLabel : remainingLabel) : row.label,
         },
       ];
     });
 
   const tableRows = xTicks.map((tick) => [
     formats.full(tick),
-    ...lines.map((line) => {
-      const value = valueAt(tick > nowMs ? line.projection : line.history, tick);
+    ...rows.map((row) => {
+      const value = seriesAt(row, tick, nowMs);
       return value === null ? '–' : formatValue(value);
     }),
   ]);
 
+  const hoverRows = hoverMs === null ? [] : tooltipRows(hoverMs);
+
   return (
     <div ref={ref} className={styles.chart} {...focusProps} aria-label={ariaLabel} role="group">
-      <svg width={width} height={HEIGHT} className={styles.svg} aria-hidden="true">
-        <Axes
-          frame={frame}
-          yTicks={yTicks}
-          formatValue={formatValue}
-          xTicks={xTicks}
-          formatTick={formats.tick}
-        />
+      {rows.map((row, index) => {
+        const first = index === 0;
+        const last = index === rows.length - 1;
+        const top = first ? MARGIN.top : ROW_TOP;
+        const plotHeight = single ? PLOT_HEIGHT : ROW_PLOT_HEIGHT;
+        const height = top + plotHeight + (last ? MARGIN.bottom : ROW_BOTTOM);
+        const frame = makeFrame(width, fromMs, toMs, row.capacity, top, plotHeight);
+        const toPixels = (points: SeriesPoint[]) =>
+          points.map((point) => ({ x: frame.x(point.t), y: frame.y(point.v) }));
+        const history = toPixels(row.history);
+        const projection = toPixels(row.projection);
+        const current = row.projection[0];
+        const hoverValue = hoverMs === null ? null : seriesAt(row, hoverMs, nowMs);
+        const nowX = frame.x(nowMs);
+        const fill = `${gradientId}-${row.key}`;
+        const facts = <span className={styles.rowFacts}>{row.facts}</span>;
+        return (
+          <div key={row.key} className={styles.row}>
+            {/* Stacked rows are named above their plot; a lone row keeps its facts below. */}
+            {!single && (
+              <div className={styles.rowHeader}>
+                <span className={styles.rowName}>
+                  <span
+                    className={styles.poolDot}
+                    style={{ '--series': row.color } as CSSProperties}
+                    aria-hidden="true"
+                  />
+                  {row.label}
+                </span>
+                {facts}
+              </div>
+            )}
+            <svg
+              width={width}
+              height={height}
+              className={styles.svg}
+              aria-hidden="true"
+              style={{ color: row.color }}
+            >
+              <defs>
+                <linearGradient id={fill} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="currentColor" stopOpacity={0.24} />
+                  <stop offset="100%" stopColor="currentColor" stopOpacity={0.04} />
+                </linearGradient>
+                <linearGradient id={`${fill}-p`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="currentColor" stopOpacity={0.12} />
+                  <stop offset="100%" stopColor="currentColor" stopOpacity={0.01} />
+                </linearGradient>
+              </defs>
 
-        {lines.map((line) => {
-          const history = toPixels(line.history);
-          const projection = toPixels(line.projection);
-          const area = (points: { x: number; y: number }[]) =>
-            points.length > 1
-              ? `${linePath(points)}L${points[points.length - 1].x},${baseY}L${points[0].x},${baseY}Z`
-              : '';
-          return (
-            <g key={line.key} style={{ color: line.color }}>
-              {fillArea && (
-                <>
-                  <defs>
-                    <linearGradient id={`${gradientId}-${line.key}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="currentColor" stopOpacity={0.2} />
-                      <stop offset="100%" stopColor="currentColor" stopOpacity={0.02} />
-                    </linearGradient>
-                    <linearGradient id={`${gradientId}-${line.key}-p`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="currentColor" stopOpacity={0.09} />
-                      <stop offset="100%" stopColor="currentColor" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <path d={area(history)} fill={`url(#${gradientId}-${line.key})`} />
-                  <path d={area(projection)} fill={`url(#${gradientId}-${line.key}-p)`} />
-                </>
+              <Axes
+                frame={frame}
+                height={height}
+                yTicks={fractionTicks(row.capacity, single ? 4 : 2)}
+                formatValue={formatValue}
+                xTicks={last ? xTicks : []}
+                formatTick={formats.tick}
+              />
+
+              {bands[index].map((band) => (
+                <rect
+                  key={band.startMs}
+                  className={styles.nightBand}
+                  x={frame.x(band.startMs)}
+                  y={frame.top}
+                  width={frame.x(band.endMs) - frame.x(band.startMs)}
+                  height={plotHeight}
+                />
+              ))}
+
+              {/* Under the data, so a reset that lands at now reads as a step in the fill. */}
+              <line
+                className={styles.nowLine}
+                x1={nowX}
+                x2={nowX}
+                y1={first ? frame.top - 6 : frame.top}
+                y2={frame.baseY}
+              />
+              {first && (
+                <text
+                  className={styles.nowLabel}
+                  x={nowX}
+                  y={frame.top - 11}
+                  textAnchor={nowX - MARGIN.left < 24 ? 'start' : 'middle'}
+                >
+                  {nowLabel}
+                </text>
               )}
+
+              <path d={areaPath(history, frame.baseY)} fill={`url(#${fill})`} />
+              <path d={areaPath(projection, frame.baseY)} fill={`url(#${fill}-p)`} />
               {history.length > 1 && (
                 <path className={styles.line} d={linePath(history)} stroke="currentColor" />
               )}
@@ -407,92 +506,58 @@ export function RemainingChart({
                   stroke="currentColor"
                 />
               )}
-            </g>
-          );
-        })}
-
-        <g aria-hidden="true">
-          <line
-            className={styles.nowLine}
-            x1={frame.x(nowMs)}
-            x2={frame.x(nowMs)}
-            y1={MARGIN.top - 6}
-            y2={baseY}
-          />
-          <text
-            className={styles.nowLabel}
-            x={frame.x(nowMs)}
-            y={MARGIN.top - 11}
-            textAnchor={frame.x(nowMs) - MARGIN.left < 24 ? 'start' : 'middle'}
-          >
-            {nowLabel}
-          </text>
-        </g>
-
-        {lines.map((line) => {
-          const current = line.projection[0];
-          return current ? (
-            <circle
-              key={line.key}
-              className={styles.dot}
-              cx={frame.x(current.t)}
-              cy={frame.y(current.v)}
-              r={4}
-              style={{ color: line.color }}
-            />
-          ) : null;
-        })}
-
-        {hoverMs !== null && (
-          <g aria-hidden="true">
-            <line
-              className={styles.crosshair}
-              x1={frame.x(hoverMs)}
-              x2={frame.x(hoverMs)}
-              y1={MARGIN.top}
-              y2={baseY}
-            />
-            {lines.map((line) => {
-              const value = valueAt(hoverMs > nowMs ? line.projection : line.history, hoverMs);
-              return value === null ? null : (
+              {current && (
                 <circle
-                  key={line.key}
+                  className={styles.dot}
+                  cx={frame.x(current.t)}
+                  cy={frame.y(current.v)}
+                  r={4}
+                />
+              )}
+
+              {hoverMs !== null && (
+                <line
+                  className={styles.crosshair}
+                  x1={frame.x(hoverMs)}
+                  x2={frame.x(hoverMs)}
+                  y1={frame.top}
+                  y2={frame.baseY}
+                />
+              )}
+              {hoverMs !== null && hoverValue !== null && (
+                <circle
                   className={styles.dot}
                   cx={frame.x(hoverMs)}
-                  cy={frame.y(value)}
+                  cy={frame.y(hoverValue)}
                   r={4}
-                  style={{ color: line.color }}
                 />
-              );
-            })}
-          </g>
-        )}
+              )}
 
-        <rect
-          className={styles.hitArea}
-          x={MARGIN.left}
-          y={MARGIN.top}
-          width={frame.plotWidth}
-          height={PLOT_HEIGHT}
-          onPointerMove={onPointerMove}
-          onPointerLeave={() => setHoverMs(null)}
-        />
-      </svg>
+              <rect
+                className={styles.hitArea}
+                x={MARGIN.left}
+                y={frame.top}
+                width={frame.plotWidth}
+                height={plotHeight}
+                onPointerMove={onPointerMove(frame)}
+                onPointerLeave={() => setHoverMs(null)}
+              />
+            </svg>
+            {single && row.facts && <div className={styles.rowFooter}>{facts}</div>}
+          </div>
+        );
+      })}
 
-      {hoverMs !== null && rowsAt(hoverMs).length > 0 && (
+      {hoverMs !== null && hoverRows.length > 0 && (
         <Tooltip
-          x={frame.x(hoverMs)}
+          x={MARGIN.left + ((hoverMs - fromMs) / Math.max(1, toMs - fromMs)) * plotWidth}
           width={width}
           title={formats.full(hoverMs)}
-          rows={rowsAt(hoverMs)}
+          rows={hoverRows}
         />
       )}
 
-      <SrTable
-        caption={ariaLabel}
-        head={['', ...lines.map((line) => line.label)]}
-        rows={tableRows}
-      />
+      <SrTable caption={ariaLabel} head={['', ...rows.map((row) => row.label)]} rows={tableRows} />
     </div>
   );
 }

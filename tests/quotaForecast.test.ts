@@ -2,13 +2,19 @@ import { describe, expect, test } from 'bun:test';
 import type { AuthFileItem } from '../src/types';
 import {
   DAY_MS,
+  DEFAULT_SLEEP_HOURS,
+  FLAT_ACTIVITY,
   HOUR_MS,
+  baselineProfile,
   buildPools,
   credentialNow,
   drainBuckets,
   drainEdges,
+  learnPoolActivity,
+  nightHours,
   poolHistory,
   projectPool,
+  runsOutAt,
   readPoolCredential,
   summarizePool,
   valueAt,
@@ -134,6 +140,13 @@ describe('current state and projection', () => {
     expect(valueAt(series, NOW + 6.5 * DAY_MS)).toBeCloseTo(75);
     expect(series.at(-1)?.t).toBe(NOW + 8 * DAY_MS);
   });
+
+  test('a pool that starts empty does not run out until a reset refills it', () => {
+    const c = credential({ periodMs: DAY_MS, usedPercent: 100, resetAtMs: NOW + 12 * HOUR_MS });
+    expect(runsOutAt(projectPool(pool(c), NOW, NOW + 11 * HOUR_MS))).toBeNull();
+    // Refilled at the reset, then drained at the window pace (100% per 12 hours).
+    expect(runsOutAt(projectPool(pool(c), NOW, NOW + 36 * HOUR_MS))).toBe(NOW + 24 * HOUR_MS);
+  });
 });
 
 describe('history', () => {
@@ -162,14 +175,14 @@ describe('history', () => {
     const reset = NOW + 3 * DAY_MS;
     const samples = [
       sample({ atMs: NOW - 3 * HOUR_MS, usedPercent: 10, resetAtMs: reset - WEEK_MS }),
-      // New window: the drop to 2% is a reset, not negative drain.
+      // New window: the drop to 2% is a reset, and those 2% count from its zero.
       sample({ atMs: NOW - 2.5 * HOUR_MS, usedPercent: 2, resetAtMs: reset }),
       sample({ atMs: NOW - 2.2 * HOUR_MS, usedPercent: 5, resetAtMs: reset }),
       sample({ atMs: NOW - 0.5 * HOUR_MS, usedPercent: 9, resetAtMs: reset }),
       sample({ authId: 'other', atMs: NOW - HOUR_MS, usedPercent: 99 }),
     ];
     const edges = [NOW - 3 * HOUR_MS, NOW - 2 * HOUR_MS, NOW - HOUR_MS, NOW];
-    expect(drainBuckets(pool(c), samples, edges)).toEqual([3, 0, 4]);
+    expect(drainBuckets(pool(c), samples, edges)).toEqual([5, 0, 4]);
   });
 
   test('two session windows of one credential are kept apart by duration', () => {
@@ -231,6 +244,101 @@ describe('history', () => {
     } finally {
       process.env.TZ = previousTz;
     }
+  });
+});
+
+const withTimeZone = (zone: string, run: () => void) => {
+  const previousTz = process.env.TZ;
+  process.env.TZ = zone;
+  try {
+    run();
+  } finally {
+    process.env.TZ = previousTz;
+  }
+};
+
+describe('sleep-aware activity', () => {
+  test('without history the profile is the sleep baseline and pace falls back to the window', () => {
+    const activity = learnPoolActivity(pool(credential()), [], NOW, DEFAULT_SLEEP_HOURS);
+    expect(activity.profile).toEqual(baselineProfile(DEFAULT_SLEEP_HOURS));
+    expect(activity.profile.slice(0, 8)).toEqual(new Array(8).fill(0));
+    expect(activity.profile[12]).toBe(1.5);
+    expect(activity.rates.size).toBe(0);
+  });
+
+  test('two weeks of night-owl use outweigh the baseline and set the daily rate', () => {
+    withTimeZone('UTC', () => {
+      const midnight = Date.UTC(2026, 9, 17);
+      // 3% at 02:00 every night for 14 nights (one reset id keeps every delta).
+      const samples = Array.from({ length: 15 }, (_, day) =>
+        sample({
+          atMs: midnight - (14 - day) * DAY_MS + 2 * HOUR_MS,
+          usedPercent: day * 3,
+          resetAtMs: midnight + DAY_MS,
+        })
+      );
+      const c = credential({ resetAtMs: midnight + DAY_MS });
+      const activity = learnPoolActivity(pool(c), samples, NOW, DEFAULT_SLEEP_HOURS);
+      expect(activity.learnedDays).toBe(14);
+      const night = nightHours(activity.profile);
+      expect(night[2]).toBe(false);
+      expect(activity.profile[2]).toBeGreaterThan(activity.profile[12] * 10);
+      const mean = activity.profile.reduce((sum, value) => sum + value, 0) / 24;
+      expect(mean).toBeCloseTo(1);
+      // The trailing seven days hold seven 3% deltas.
+      expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(3);
+    });
+  });
+
+  test('a short-lived credential keeps its window pace beside an older one', () => {
+    const a = credential({ usedPercent: 2 });
+    const b = credential({ authId: 'b' });
+    const samples = [
+      sample({ atMs: NOW - 2 * HOUR_MS, usedPercent: 0 }),
+      sample({ atMs: NOW, usedPercent: 2 }),
+      sample({ authId: 'b', atMs: NOW - WEEK_MS, usedPercent: 0 }),
+      sample({ authId: 'b', atMs: NOW - DAY_MS, usedPercent: 7 }),
+    ];
+    const activity = learnPoolActivity(pool(a, b), samples, NOW, DEFAULT_SLEEP_HOURS);
+    expect(activity.rates.has('a')).toBe(false);
+    expect((activity.rates.get('b') ?? 0) * DAY_MS).toBeCloseTo(1);
+  });
+
+  test('a session window sampled once per window still learns its drain', () => {
+    const period = 5 * HOUR_MS;
+    const c = credential({ window: 'session', periodMs: period, resetAtMs: NOW + period });
+    // 20% recorded once in each of 14 consecutive five-hour windows (70 hours).
+    const samples = Array.from({ length: 14 }, (_, index) =>
+      sample({
+        atMs: NOW - (13 - index) * period,
+        window: 'session',
+        windowMinutes: 300,
+        usedPercent: 20,
+        resetAtMs: NOW - (13 - index) * period + period,
+      })
+    );
+    const activity = learnPoolActivity(pool(c), samples, NOW, DEFAULT_SLEEP_HOURS);
+    // 13 new windows counted from zero over 65 covered hours.
+    expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo((13 * 20 * 24) / 65);
+  });
+
+  test('projection is flat while asleep and keeps the daily total', () => {
+    withTimeZone('UTC', () => {
+      const midnight = Date.UTC(2026, 9, 17);
+      const c = credential({ usedPercent: 0, resetAtMs: midnight + 5 * DAY_MS });
+      const activity = {
+        ...FLAT_ACTIVITY,
+        profile: baselineProfile(DEFAULT_SLEEP_HOURS),
+        rates: new Map([['a', 24 / DAY_MS]]),
+      };
+      const series = projectPool(pool(c), midnight, midnight + DAY_MS, activity);
+      expect(valueAt(series, midnight + 7.5 * HOUR_MS)).toBe(100);
+      expect(valueAt(series, midnight + 8 * HOUR_MS)).toBe(100);
+      expect(valueAt(series, midnight + 16 * HOUR_MS)).toBeCloseTo(88);
+      expect(valueAt(series, midnight + DAY_MS)).toBeCloseTo(76);
+      // "Per hour" stays the daily average.
+      expect(summarizePool(pool(c), midnight, activity).pacePerHour).toBeCloseTo(1);
+    });
   });
 });
 

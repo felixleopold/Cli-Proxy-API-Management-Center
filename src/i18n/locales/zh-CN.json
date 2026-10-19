@@ -1605,7 +1605,6 @@
     "forecast_tab_drain": "消耗速率",
     "forecast_legend_remaining": "剩余",
     "forecast_legend_projected": "预测",
-    "forecast_share_note": "每条线表示该提供商额度池的剩余占比",
     "forecast_share_per_hour": "每小时消耗的额度池占比",
     "forecast_share_per_day": "每天消耗的额度池占比",
     "forecast_used_per_hour": "每小时消耗额度",
@@ -1623,7 +1622,14 @@
     "forecast_history_off": "此服务器未开启额度历史，仅显示基于当前状态的预测。",
     "forecast_history_error": "额度历史加载失败，仅显示预测。",
     "forecast_next_reset": "下次重置 +{{percent}}% · {{when}}",
-    "forecast_drain_empty": "此期间没有记录到额度消耗。"
+    "forecast_runs_out": "预计耗尽 {{when}}",
+    "forecast_drain_empty": "此期间没有记录到额度消耗。",
+    "forecast_legend_night": "通常睡眠时段",
+    "forecast_settings": "预测设置",
+    "forecast_sleep_label": "睡眠时段",
+    "forecast_sleep_start": "睡眠开始",
+    "forecast_sleep_end": "睡眠结束",
+    "forecast_sleep_hint": "在积累足够的历史记录之前，预测假定这些时段内不消耗额度。"
   },
   "plugin_management": {
     "title": "插件管理",

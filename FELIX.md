@@ -33,6 +33,12 @@ Current base: upstream `v1.25.6`.
   label editor (fingerprint = first 12 hex of sha256 of the key). Series colors follow identity
   (users alphabetically, subscriptions by provider and name; `components/seriesSlots.module.scss`).
   Logic: `usageModel.ts`; tests: `tests/usageModel.test.ts`.
+- **Quota forecast** (`src/features/quota/quotaForecastModel.ts`, `components/QuotaForecast*`).
+  Per-provider pool chart of remaining quota with a projection to the next resets, drain history
+  and a horizon picker. The projection is sleep-aware: each credential's daily rate is its own
+  trailing-7-day drain (window pace below 24h of history), spread over a local hour-of-day profile
+  learned from drain and blended into a configurable sleep baseline. Tests:
+  `tests/quotaForecast.test.ts`.
 
 ## Sync from upstream
 
