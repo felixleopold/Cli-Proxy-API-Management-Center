@@ -28,12 +28,14 @@ import {
   learnPoolActivity,
   nightHours,
   poolHistory,
+  poolResetCredits,
   projectPool,
   runsOutAt,
   summarizePool,
   type DrainSpanDays,
   type ForecastHorizonDays,
   type ForecastProvider,
+  type ResetCreditLike,
   type SleepHours,
 } from '../quotaForecastModel';
 import { useQuotaHistory } from '../hooks/useQuotaHistory';
@@ -61,9 +63,11 @@ export interface QuotaForecastProps {
   tab: QuotaTabId;
   /** Injectable for tests/screenshots; defaults to the real clock. */
   now?: number;
+  /** Manual resets loaded for a credential's quota card, if any. */
+  resetCreditsFor?: (file: AuthFileItem) => readonly ResetCreditLike[] | undefined;
 }
 
-export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) {
+export function QuotaForecast({ files, tab, now: nowProp, resetCreditsFor }: QuotaForecastProps) {
   const { t, i18n } = useTranslation();
   const language = i18n.resolvedLanguage || i18n.language;
   const tick = useNow(nowProp === undefined);
@@ -129,8 +133,9 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
       visible.map((pool, index) => ({
         pool,
         summary: summarizePool(pool, nowMs, activities[index]),
+        credits: resetCreditsFor ? poolResetCredits(pool, files, resetCreditsFor, nowMs) : [],
       })),
-    [visible, nowMs, activities]
+    [visible, nowMs, activities, files, resetCreditsFor]
   );
 
   const historyDays = Math.min(horizon, MAX_HISTORY_DAYS);
@@ -139,7 +144,7 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
 
   const rows = useMemo<ForecastRow[]>(
     () =>
-      summaries.map(({ pool, summary }, index) => {
+      summaries.map(({ pool, summary, credits }, index) => {
         const projection = projectPool(pool, nowMs, endMs, activities[index]);
         const emptyAt = runsOutAt(projection);
         const facts = [
@@ -150,6 +155,13 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
             }),
           emptyAt !== null &&
             t('quota_management.forecast_runs_out', { when: numbers.when(emptyAt) }),
+          // Manual resets are redeemed by hand, so the projection ignores them; say one could extend it.
+          emptyAt !== null &&
+            credits.length > 0 &&
+            t('quota_management.forecast_runs_out_credit', {
+              count: credits.length,
+              when: numbers.when(credits[0]),
+            }),
         ];
         return {
           key: pool.provider,
@@ -159,6 +171,7 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
           history: samples ? poolHistory(pool, samples, startMs, nowMs) : [],
           projection,
           night: nightHours(activities[index].profile),
+          credits,
           facts: facts.filter(Boolean).join(' · '),
         };
       }),
@@ -202,6 +215,10 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
     label: numbers.hour(hour),
   }));
   const hasNight = rows.some((row) => row.night.some(Boolean));
+  const hasCreditMarker = rows.some((row) =>
+    row.credits.some((expiresAtMs) => expiresAtMs <= endMs)
+  );
+  const paceHint = t('quota_management.forecast_pace_hint');
   const keyColor = comparative ? 'var(--text-secondary)' : rows[0].color;
 
   const single = summaries[0];
@@ -214,21 +231,31 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
         ? t('quota_management.forecast_history_error')
         : null;
 
-  const legendKey = (variant: 'area' | 'dashed' | 'bar' | 'band', color: string) => (
+  const legendKey = (variant: 'area' | 'dashed' | 'bar' | 'band' | 'tick', color: string) => (
     <span
       className={
-        variant === 'band'
-          ? styles.keyBand
-          : variant === 'bar'
-            ? styles.keyBar
-            : variant === 'dashed'
-              ? styles.keyDashed
-              : styles.keyArea
+        variant === 'tick'
+          ? styles.keyTick
+          : variant === 'band'
+            ? styles.keyBand
+            : variant === 'bar'
+              ? styles.keyBar
+              : variant === 'dashed'
+                ? styles.keyDashed
+                : styles.keyArea
       }
       style={{ '--series': color } as CSSProperties}
       aria-hidden="true"
     />
   );
+
+  const creditCount = (credits: number[]) =>
+    credits.length > 0 && (
+      <span className={styles.credits}>
+        {legendKey('tick', 'var(--amber-color)')}
+        {t('quota_management.forecast_reset_credits', { count: credits.length })}
+      </span>
+    );
 
   const segmented = <T extends number>(
     options: readonly T[],
@@ -261,7 +288,7 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
       <header className={styles.summary}>
         {comparative ? (
           <div className={styles.pools}>
-            {summaries.map(({ pool, summary }) => (
+            {summaries.map(({ pool, summary, credits }) => (
               <span key={pool.provider} className={styles.poolSummary}>
                 <span
                   className={styles.poolDot}
@@ -275,11 +302,12 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
                     capacity: numbers.percent(summary.capacity),
                   })}
                 </span>
-                <span className={styles.pace}>
+                <span className={styles.pace} title={paceHint}>
                   {t('quota_management.forecast_pace_short', {
-                    pace: numbers.rate(summary.pacePerHour),
+                    pace: numbers.rate(summary.pacePerHour * 24),
                   })}
                 </span>
+                {creditCount(credits)}
               </span>
             ))}
           </div>
@@ -291,11 +319,12 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
                 capacity: numbers.percent(single.summary.capacity),
               })}
             </span>
-            <span className={styles.pace}>
+            <span className={styles.pace} title={paceHint}>
               {t('quota_management.forecast_pace', {
-                pace: numbers.rate(single.summary.pacePerHour),
+                pace: numbers.rate(single.summary.pacePerHour * 24),
               })}
             </span>
+            {creditCount(single.credits)}
           </div>
         )}
         <button
@@ -356,6 +385,12 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
                   <span className={styles.legendItem}>
                     {legendKey('band', 'var(--text-tertiary)')}
                     {t('quota_management.forecast_legend_night')}
+                  </span>
+                )}
+                {view === 'remaining' && hasCreditMarker && (
+                  <span className={styles.legendItem}>
+                    {legendKey('tick', 'var(--amber-color)')}
+                    {t('quota_management.forecast_legend_reset_credit')}
                   </span>
                 )}
                 {view === 'drain' &&
@@ -421,6 +456,7 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
                 remainingLabel={t('quota_management.forecast_legend_remaining')}
                 projectedLabel={t('quota_management.forecast_legend_projected')}
                 nowLabel={t('quota_management.forecast_now')}
+                creditLabel={t('quota_management.forecast_legend_reset_credit')}
               />
             ) : drain ? (
               <DrainChart
@@ -482,6 +518,7 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
                     <p className={styles.settingsHint}>
                       {t('quota_management.forecast_sleep_hint')}
                     </p>
+                    <p className={styles.settingsHint}>{paceHint}</p>
                   </div>
                 </details>
               )}

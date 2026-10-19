@@ -186,6 +186,54 @@ export function buildPools(files: AuthFileItem[]): ProviderPool[] {
   });
 }
 
+/** A Codex manual reset as the quota card reports it. */
+export interface ResetCreditLike {
+  id: string;
+  status?: string;
+  expiresAt?: string;
+}
+
+/**
+ * Expiry instants of the pool's unused, unexpired manual resets, soonest first.
+ * They are redeemed by hand, so the projection never assumes one is used.
+ */
+export function poolResetCredits(
+  pool: ProviderPool,
+  files: AuthFileItem[],
+  creditsOf: (file: AuthFileItem) => readonly ResetCreditLike[] | undefined,
+  nowMs: number
+): number[] {
+  const ids = new Set(pool.credentials.map((credential) => credential.authId));
+  // Auth files of one account report the same credits; count each id once.
+  // Credits without an id cannot be matched, so each one is kept.
+  const expiries = new Map(
+    files
+      .filter((file) => typeof file.id === 'string' && ids.has(file.id))
+      .flatMap((file) => creditsOf(file) ?? [])
+      .filter((credit) => credit.status === 'available')
+      .map((credit, index) => [credit.id || index, Date.parse(credit.expiresAt ?? '')])
+  );
+  return [...expiries.values()]
+    .filter((expiresAtMs) => expiresAtMs > nowMs)
+    .sort((left, right) => left - right);
+}
+
+/** Manual reset expiries drawn on a chart spanning [fromMs, toMs]. */
+export const creditsInView = (credits: number[], fromMs: number, toMs: number) =>
+  credits.filter((expiresAtMs) => expiresAtMs >= fromMs && expiresAtMs <= toMs);
+
+/** Drawn manual resets within toleranceMs of t, named in the tooltip there. */
+export const creditsNear = (
+  credits: number[],
+  t: number,
+  toleranceMs: number,
+  fromMs: number,
+  toMs: number
+) =>
+  creditsInView(credits, fromMs, toMs).filter(
+    (expiresAtMs) => Math.abs(expiresAtMs - t) <= toleranceMs
+  );
+
 /* ---------- Current state and projection ---------- */
 
 interface CredentialNow {
@@ -528,15 +576,24 @@ const PROFILE_PRIOR_DAYS = 7;
 const NIGHT_WEIGHT = 0.25;
 /** Daily rate is the drain measured over this trailing span... */
 const RATE_SPAN_MS = 7 * DAY_MS;
-/** ...once history covers at least this much of it. */
-const MIN_RATE_COVERAGE_MS = DAY_MS;
+/**
+ * ...or over the last day when that is faster, so a busier spell shortens the
+ * forecast at once. A whole day keeps the hour-of-day profile out of it.
+ */
+const RECENT_RATE_SPAN_MS = DAY_MS;
+/** Rates need at least this much history, and this much active time; less keeps the window pace. */
+const MIN_RATE_COVERAGE_MS = 3 * HOUR_MS;
 
 export interface PoolActivity {
   /** Weight of each local hour of the day, mean 1: it only moves usage within the day. */
   profile: number[];
   /** Distinct local days with measured drain. */
   learnedDays: number;
-  /** Measured daily-average drain per credential, percent per millisecond. */
+  /**
+   * Measured drain per credential, percent per millisecond: the trailing week's
+   * average, or the last day's when that is faster. Under a day of history it is
+   * the drain so far over its activity-weighted time.
+   */
   rates: ReadonlyMap<string, number>;
 }
 
@@ -594,20 +651,37 @@ export function learnPoolActivity(
       (1 - learnedWeight) * prior + (total > 0 ? (learnedWeight * byHour[hour] * 24) / total : 0)
   );
   const mean = blended.reduce((sum, value) => sum + value, 0) / 24;
+  const profile = blended.map((value) => value / mean);
 
-  // Each credential's rate covers its own history; shorter than a day keeps the window pace.
+  // Each credential's rate covers its own history; under three hours keeps the window pace.
+  // The faster of the week and the last day: the forecast errs toward running out sooner.
   const rates = new Map<string, number>();
   drains.forEach((entry) => {
     const coveredFrom = Math.max(nowMs - RATE_SPAN_MS, entry.oldestMs);
     const covered = nowMs - coveredFrom;
     if (covered < MIN_RATE_COVERAGE_MS) return;
-    const used = entry.drains
-      .filter((drain) => drain.atMs > coveredFrom)
-      .reduce((sum, drain) => sum + drain.delta, 0);
-    rates.set(entry.authId, used / covered);
+    const usedSince = (fromMs: number) =>
+      entry.drains
+        .filter((drain) => drain.atMs > fromMs)
+        .reduce((sum, drain) => sum + drain.delta, 0);
+    if (covered < RECENT_RATE_SPAN_MS) {
+      // Weighting by the hour profile keeps a daytime-only span from counting the night;
+      // a span that is mostly night has too little active time to divide by.
+      const weighted = activityClock(profile, coveredFrom, nowMs).at(nowMs);
+      if (weighted >= MIN_RATE_COVERAGE_MS)
+        rates.set(entry.authId, usedSince(coveredFrom) / weighted);
+      return;
+    }
+    rates.set(
+      entry.authId,
+      Math.max(
+        usedSince(coveredFrom) / covered,
+        usedSince(nowMs - RECENT_RATE_SPAN_MS) / RECENT_RATE_SPAN_MS
+      )
+    );
   });
 
-  return { profile: blended.map((value) => value / mean), learnedDays: days.size, rates };
+  return { profile, learnedDays: days.size, rates };
 }
 
 /** Hours of the day quiet enough to draw as night. */

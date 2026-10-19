@@ -103,6 +103,18 @@
   color: var(--text-tertiary);
 }
 
+.credits {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+
+  .hero & {
+    margin-left: 8px;
+  }
+}
+
 .collapse {
   flex: none;
   display: grid;
@@ -239,7 +251,8 @@
 .keyArea,
 .keyDashed,
 .keyBar,
-.keyBand {
+.keyBand,
+.keyTick {
   flex: none;
   display: inline-block;
 }
@@ -273,6 +286,15 @@
   height: 10px;
   border-radius: 2px 2px 0 0;
   background: var(--series);
+}
+
+/* Matches the timeline's manual reset tick. */
+.keyTick {
+  width: 2px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--series);
+  align-self: center;
 }
 
 .keyBand {
@@ -427,6 +449,13 @@
   &[data-active='1'] path {
     filter: brightness(1.12);
   }
+}
+
+/* A manual reset's expiry, in the timeline's amber. */
+.creditMarker {
+  stroke: var(--amber-color);
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
 /* Quiet hours: a wash of the text color reads on both themes. */
