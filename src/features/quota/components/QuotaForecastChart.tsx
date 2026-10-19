@@ -8,7 +8,15 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DAY_MS, HOUR_MS, nightBands, valueAt, type SeriesPoint } from '../quotaForecastModel';
+import {
+  DAY_MS,
+  HOUR_MS,
+  creditsInView,
+  creditsNear,
+  nightBands,
+  valueAt,
+  type SeriesPoint,
+} from '../quotaForecastModel';
 import styles from './QuotaForecast.module.scss';
 
 const PLOT_HEIGHT = 196;
@@ -408,15 +416,13 @@ export function RemainingChart({
           value: formatValue(value),
           label: single ? (projected ? projectedLabel : remainingLabel) : row.label,
         },
-        ...row.credits
-          .filter((expiresAtMs) => Math.abs(expiresAtMs - t) <= creditTolerance)
-          .map((expiresAtMs, index) => ({
-            key: `${row.key}-credit-${index}`,
-            color: 'var(--amber-color)',
-            tick: true,
-            value: formats.time(expiresAtMs),
-            label: creditLabel,
-          })),
+        ...creditsNear(row.credits, t, creditTolerance, fromMs, toMs).map((expiresAtMs, index) => ({
+          key: `${row.key}-credit-${index}`,
+          color: 'var(--amber-color)',
+          tick: true,
+          value: formats.time(expiresAtMs),
+          label: creditLabel,
+        })),
       ];
     });
 
@@ -521,18 +527,16 @@ export function RemainingChart({
                 </text>
               )}
 
-              {row.credits
-                .filter((expiresAtMs) => expiresAtMs >= fromMs && expiresAtMs <= toMs)
-                .map((expiresAtMs, creditIndex) => (
-                  <line
-                    key={`${expiresAtMs}-${creditIndex}`}
-                    className={styles.creditMarker}
-                    x1={frame.x(expiresAtMs)}
-                    x2={frame.x(expiresAtMs)}
-                    y1={frame.top + 1}
-                    y2={frame.baseY - 1}
-                  />
-                ))}
+              {creditsInView(row.credits, fromMs, toMs).map((expiresAtMs, creditIndex) => (
+                <line
+                  key={`${expiresAtMs}-${creditIndex}`}
+                  className={styles.creditMarker}
+                  x1={frame.x(expiresAtMs)}
+                  x2={frame.x(expiresAtMs)}
+                  y1={frame.top + 1}
+                  y2={frame.baseY - 1}
+                />
+              ))}
 
               <path d={areaPath(history, frame.baseY)} fill={`url(#${fill})`} />
               <path d={areaPath(projection, frame.baseY)} fill={`url(#${fill}-p)`} />

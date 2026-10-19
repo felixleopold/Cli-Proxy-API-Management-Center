@@ -188,6 +188,7 @@ export function buildPools(files: AuthFileItem[]): ProviderPool[] {
 
 /** A Codex manual reset as the quota card reports it. */
 export interface ResetCreditLike {
+  id: string;
   status?: string;
   expiresAt?: string;
 }
@@ -203,14 +204,34 @@ export function poolResetCredits(
   nowMs: number
 ): number[] {
   const ids = new Set(pool.credentials.map((credential) => credential.authId));
-  return files
-    .filter((file) => typeof file.id === 'string' && ids.has(file.id))
-    .flatMap((file) => creditsOf(file) ?? [])
-    .filter((credit) => credit.status === 'available')
-    .map((credit) => Date.parse(credit.expiresAt ?? ''))
+  // Auth files of one account report the same credits; count each id once.
+  const expiries = new Map(
+    files
+      .filter((file) => typeof file.id === 'string' && ids.has(file.id))
+      .flatMap((file) => creditsOf(file) ?? [])
+      .filter((credit) => credit.status === 'available')
+      .map((credit) => [credit.id, Date.parse(credit.expiresAt ?? '')])
+  );
+  return [...expiries.values()]
     .filter((expiresAtMs) => expiresAtMs > nowMs)
     .sort((left, right) => left - right);
 }
+
+/** Manual reset expiries drawn on a chart spanning [fromMs, toMs]. */
+export const creditsInView = (credits: number[], fromMs: number, toMs: number) =>
+  credits.filter((expiresAtMs) => expiresAtMs >= fromMs && expiresAtMs <= toMs);
+
+/** Drawn manual resets within toleranceMs of t, named in the tooltip there. */
+export const creditsNear = (
+  credits: number[],
+  t: number,
+  toleranceMs: number,
+  fromMs: number,
+  toMs: number
+) =>
+  creditsInView(credits, fromMs, toMs).filter(
+    (expiresAtMs) => Math.abs(expiresAtMs - t) <= toleranceMs
+  );
 
 /* ---------- Current state and projection ---------- */
 
@@ -559,7 +580,7 @@ const RATE_SPAN_MS = 7 * DAY_MS;
  * forecast at once. A whole day keeps the hour-of-day profile out of it.
  */
 const RECENT_RATE_SPAN_MS = DAY_MS;
-/** Rates need at least this much history; less keeps the window pace. */
+/** Rates need at least this much history, and this much active time; less keeps the window pace. */
 const MIN_RATE_COVERAGE_MS = 3 * HOUR_MS;
 
 export interface PoolActivity {
@@ -643,9 +664,11 @@ export function learnPoolActivity(
         .filter((drain) => drain.atMs > fromMs)
         .reduce((sum, drain) => sum + drain.delta, 0);
     if (covered < RECENT_RATE_SPAN_MS) {
-      // Weighting by the hour profile keeps a daytime-only span from counting the night.
+      // Weighting by the hour profile keeps a daytime-only span from counting the night;
+      // a span that is mostly night has too little active time to divide by.
       const weighted = activityClock(profile, coveredFrom, nowMs).at(nowMs);
-      if (weighted > 0) rates.set(entry.authId, usedSince(coveredFrom) / weighted);
+      if (weighted >= MIN_RATE_COVERAGE_MS)
+        rates.set(entry.authId, usedSince(coveredFrom) / weighted);
       return;
     }
     rates.set(
