@@ -443,6 +443,7 @@ test('manual resets: only unused, unexpired ones of the pool, each id once, soon
   const files = [
     file('codex', {}, { id: 'a' }),
     file('codex', {}, { id: 'b' }),
+    file('codex', {}, { id: 'c' }),
     file('codex', {}, { id: 'other' }),
   ];
   const at = (ms: number) => new Date(ms).toISOString();
@@ -458,11 +459,21 @@ test('manual resets: only unused, unexpired ones of the pool, each id once, soon
       { id: 'b2', status: 'available', expiresAt: 'not a date' },
       { id: 'a1', status: 'available', expiresAt: at(NOW + 3 * DAY_MS) },
     ],
+    // Credits without an id stay distinct.
+    c: [
+      { id: '', status: 'available', expiresAt: at(NOW + 2 * HOUR_MS) },
+      { id: '', status: 'available', expiresAt: at(NOW + 2 * DAY_MS) },
+    ],
     other: [{ id: 'o1', status: 'available', expiresAt: at(NOW + 2 * DAY_MS) }],
   };
-  const codex = { ...pool(credential(), credential({ authId: 'b' })), provider: 'codex' as const };
+  const codex = {
+    ...pool(credential(), credential({ authId: 'b' }), credential({ authId: 'c' })),
+    provider: 'codex' as const,
+  };
   expect(poolResetCredits(codex, files, (f) => credits[f.id as string], NOW)).toEqual([
+    NOW + 2 * HOUR_MS,
     NOW + DAY_MS,
+    NOW + 2 * DAY_MS,
     NOW + 3 * DAY_MS,
   ]);
 });

@@ -205,12 +205,13 @@ export function poolResetCredits(
 ): number[] {
   const ids = new Set(pool.credentials.map((credential) => credential.authId));
   // Auth files of one account report the same credits; count each id once.
+  // Credits without an id cannot be matched, so each one is kept.
   const expiries = new Map(
     files
       .filter((file) => typeof file.id === 'string' && ids.has(file.id))
       .flatMap((file) => creditsOf(file) ?? [])
       .filter((credit) => credit.status === 'available')
-      .map((credit) => [credit.id, Date.parse(credit.expiresAt ?? '')])
+      .map((credit, index) => [credit.id || index, Date.parse(credit.expiresAt ?? '')])
   );
   return [...expiries.values()]
     .filter((expiresAtMs) => expiresAtMs > nowMs)
