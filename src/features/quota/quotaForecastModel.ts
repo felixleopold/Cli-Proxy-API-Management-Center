@@ -604,6 +604,19 @@ const drainOf = (snapshots: Snapshot[]): Drain[] => {
   return drains;
 };
 
+/**
+ * Gaps between consecutive samples of one reset window, where any drain would
+ * have been seen. Unchanged readings count: their cost moved quota by less
+ * than the rounding, and leaving it out would inflate percent per dollar.
+ */
+const observedOf = (snapshots: Snapshot[]): Span[] =>
+  snapshots.slice(1).flatMap((current, index) => {
+    const previous = snapshots[index];
+    return previous.resetAtMs - current.resetAtMs > SAME_RESET_TOLERANCE_MS
+      ? []
+      : [{ startMs: previous.atMs, endMs: current.atMs }];
+  });
+
 /** Stretches up to nowMs spent rationed: from a rationed snapshot to the next one or its reset. */
 const censoredSpans = (snapshots: Snapshot[], nowMs: number) =>
   snapshots.flatMap((snapshot, index) => {
@@ -826,6 +839,7 @@ export function learnActivity(
         authId: credential.authId,
         oldestMs: snapshots.length > 0 ? snapshots[0].atMs : nowMs,
         drains: drainOf(snapshots),
+        observed: observedOf(snapshots),
         censored: censoredSpans(snapshots, nowMs),
       };
     }),
@@ -987,14 +1001,16 @@ export function learnActivity(
    */
   function ledgerPaceOf(
     pool: ProviderPool,
-    entries: { drains: Drain[] }[]
+    entries: { drains: Drain[]; observed: Span[] }[]
   ): { week: number; daily: number[] } | null {
     if (!Number.isFinite(ledgerFromMs)) return null;
     const drains = entries.flatMap((entry) => entry.drains);
-    // Each drain happened somewhere in (fromMs, atMs]; merged, those say when cost became drain.
+    if (drains.length === 0) return null;
+    // Merged, the observed gaps are when cost would have shown up as drain.
     const intervals: Span[] = [];
-    drains
-      .map(({ fromMs, atMs }) => ({ startMs: Math.max(fromMs, ledgerFromMs), endMs: atMs }))
+    entries
+      .flatMap((entry) => entry.observed)
+      .map(({ startMs, endMs }) => ({ startMs: Math.max(startMs, ledgerFromMs), endMs }))
       .filter((span) => span.endMs > span.startMs)
       .sort((left, right) => left.startMs - right.startMs)
       .forEach((span) => {

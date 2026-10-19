@@ -668,6 +668,31 @@ describe('usage ledger', () => {
     });
   });
 
+  test('unchanged readings keep their cost in the ledger calibration', () => {
+    withTimeZone('UTC', () => {
+      const workHours = [9, 10, 11, 12, 13, 14, 15, 16];
+      // Oct 3–9: hourly samples, but rounding shows 1% only every other working hour, against $2 an hour.
+      const samples = [sample({ atMs: Date.UTC(2026, 9, 3, 9), usedPercent: 0 })];
+      let used = 0;
+      for (let day = 3; day <= 9; day += 1) {
+        workHours.forEach((hour, index) => {
+          if (index % 2 === 1) used += 1;
+          samples.push(sample({ atMs: Date.UTC(2026, 9, day, hour + 1), usedPercent: used }));
+        });
+      }
+      const ledger = ledgerRows('Claude', workHours, () => 2);
+      const activity = learnActivity(
+        [pool(credential({ usedPercent: used }))],
+        samples,
+        NOW,
+        DEFAULT_SLEEP_HOURS,
+        ledger
+      );
+      // 28% over $112 is 0.25% a dollar, not 0.5% from only the hours the reading moved; $112 last week is 4% a day.
+      expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(4, 0);
+    });
+  });
+
   test('ledger cost of every forecast provider learns the shared sleep stretch', () => {
     withTimeZone('UTC', () => {
       const allDay = Array.from({ length: 24 }, (_, hour) => hour);
