@@ -8,11 +8,13 @@ import {
   baselineProfile,
   buildPools,
   credentialNow,
+  creditsNear,
   drainBuckets,
   drainEdges,
   learnPoolActivity,
   nightHours,
   poolHistory,
+  poolResetCredits,
   projectPool,
   runsOutAt,
   readPoolCredential,
@@ -290,6 +292,31 @@ describe('sleep-aware activity', () => {
     });
   });
 
+  test('a busier last day sets the rate; a quieter one keeps the weekly average', () => {
+    // 'a': 1% a day for six days, then 10% in the last day. 'b': 2% a day, 1% in the last.
+    const steps = (authId: string, perDay: number[]) =>
+      perDay.map((_, day) =>
+        sample({
+          authId,
+          atMs: NOW - (perDay.length - 1 - day) * DAY_MS + (day === 0 ? 0 : -HOUR_MS),
+          usedPercent: perDay.slice(0, day + 1).reduce((sum, value) => sum + value, 0),
+          resetAtMs: NOW + 3 * DAY_MS,
+        })
+      );
+    const samples = [
+      ...steps('a', [0, 1, 1, 1, 1, 1, 1, 10]),
+      ...steps('b', [0, 2, 2, 2, 2, 2, 3, 1]),
+    ];
+    const activity = learnPoolActivity(
+      pool(credential(), credential({ authId: 'b' })),
+      samples,
+      NOW,
+      DEFAULT_SLEEP_HOURS
+    );
+    expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(10);
+    expect((activity.rates.get('b') ?? 0) * DAY_MS).toBeCloseTo(14 / 7);
+  });
+
   test('a short-lived credential keeps its window pace beside an older one', () => {
     const a = credential({ usedPercent: 2 });
     const b = credential({ authId: 'b' });
@@ -302,6 +329,47 @@ describe('sleep-aware activity', () => {
     const activity = learnPoolActivity(pool(a, b), samples, NOW, DEFAULT_SLEEP_HOURS);
     expect(activity.rates.has('a')).toBe(false);
     expect((activity.rates.get('b') ?? 0) * DAY_MS).toBeCloseTo(1);
+  });
+
+  test('under a day of history the rate is the drain so far over its active hours', () => {
+    withTimeZone('UTC', () => {
+      // 12% used over the six hours to noon, a stretch the sleep baseline partly discounts.
+      const samples = [
+        sample({ atMs: NOW - 6 * HOUR_MS, usedPercent: 0 }),
+        sample({ atMs: NOW, usedPercent: 12 }),
+      ];
+      const activity = learnPoolActivity(
+        pool(credential({ usedPercent: 12 })),
+        samples,
+        NOW,
+        DEFAULT_SLEEP_HOURS
+      );
+      const activeMs = [6, 7, 8, 9, 10, 11].reduce(
+        (sum, hour) => sum + activity.profile[hour] * HOUR_MS,
+        0
+      );
+      expect((activity.rates.get('a') ?? 0) * activeMs).toBeCloseTo(12);
+    });
+  });
+
+  test('a short span that is mostly night keeps the window pace', () => {
+    withTimeZone('UTC', () => {
+      // 12% from 01:00 to 04:00, read a second after 04:00: the span is asleep but for that
+      // second, so dividing by its active time would claim thousands of percent a day.
+      const midnight = Date.UTC(2026, 9, 17);
+      const nowMs = midnight + 4 * HOUR_MS + 1000;
+      const samples = [
+        sample({ atMs: midnight + HOUR_MS, usedPercent: 0 }),
+        sample({ atMs: nowMs, usedPercent: 12 }),
+      ];
+      const activity = learnPoolActivity(
+        pool(credential({ usedPercent: 12 })),
+        samples,
+        nowMs,
+        DEFAULT_SLEEP_HOURS
+      );
+      expect(activity.rates.has('a')).toBe(false);
+    });
   });
 
   test('a session window sampled once per window still learns its drain', () => {
@@ -318,8 +386,9 @@ describe('sleep-aware activity', () => {
       })
     );
     const activity = learnPoolActivity(pool(c), samples, NOW, DEFAULT_SLEEP_HOURS);
-    // 13 new windows counted from zero over 65 covered hours.
-    expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo((13 * 20 * 24) / 65);
+    // 13 new windows counted from zero over 65 covered hours, but five of them land in
+    // the last day: 100% a day is faster, so it wins.
+    expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(100);
   });
 
   test('projection is flat while asleep and keeps the daily total', () => {
@@ -368,4 +437,50 @@ test('history normalization keeps well-formed samples, sorted by time', () => {
   });
   expect(samples.map((entry) => entry.authId)).toEqual(['a', 'b']);
   expect(samples[1]).toMatchObject({ provider: 'codex', usedPercent: 12.5 });
+});
+
+test('manual resets: only unused, unexpired ones of the pool, each id once, soonest first', () => {
+  const files = [
+    file('codex', {}, { id: 'a' }),
+    file('codex', {}, { id: 'b' }),
+    file('codex', {}, { id: 'c' }),
+    file('codex', {}, { id: 'other' }),
+  ];
+  const at = (ms: number) => new Date(ms).toISOString();
+  const credits: Record<string, { id: string; status: string; expiresAt: string }[]> = {
+    a: [
+      { id: 'a1', status: 'available', expiresAt: at(NOW + 3 * DAY_MS) },
+      { id: 'a2', status: 'redeemed', expiresAt: at(NOW + DAY_MS) },
+      { id: 'a3', status: 'available', expiresAt: at(NOW - HOUR_MS) },
+    ],
+    // Another auth file of the same account reports a1 again.
+    b: [
+      { id: 'b1', status: 'available', expiresAt: at(NOW + DAY_MS) },
+      { id: 'b2', status: 'available', expiresAt: 'not a date' },
+      { id: 'a1', status: 'available', expiresAt: at(NOW + 3 * DAY_MS) },
+    ],
+    // Credits without an id stay distinct.
+    c: [
+      { id: '', status: 'available', expiresAt: at(NOW + 2 * HOUR_MS) },
+      { id: '', status: 'available', expiresAt: at(NOW + 2 * DAY_MS) },
+    ],
+    other: [{ id: 'o1', status: 'available', expiresAt: at(NOW + 2 * DAY_MS) }],
+  };
+  const codex = {
+    ...pool(credential(), credential({ authId: 'b' }), credential({ authId: 'c' })),
+    provider: 'codex' as const,
+  };
+  expect(poolResetCredits(codex, files, (f) => credits[f.id as string], NOW)).toEqual([
+    NOW + 2 * HOUR_MS,
+    NOW + DAY_MS,
+    NOW + 2 * DAY_MS,
+    NOW + 3 * DAY_MS,
+  ]);
+});
+
+test('the tooltip names only manual resets drawn on the chart', () => {
+  const toMs = NOW + DAY_MS;
+  const tolerance = HOUR_MS;
+  const credits = [toMs - HOUR_MS / 2, toMs + HOUR_MS / 2];
+  expect(creditsNear(credits, toMs, tolerance, NOW, toMs)).toEqual([toMs - HOUR_MS / 2]);
 });

@@ -8,7 +8,15 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DAY_MS, HOUR_MS, nightBands, valueAt, type SeriesPoint } from '../quotaForecastModel';
+import {
+  DAY_MS,
+  HOUR_MS,
+  creditsInView,
+  creditsNear,
+  nightBands,
+  valueAt,
+  type SeriesPoint,
+} from '../quotaForecastModel';
 import styles from './QuotaForecast.module.scss';
 
 const PLOT_HEIGHT = 196;
@@ -204,6 +212,7 @@ interface TooltipRow {
   color: string;
   dashed?: boolean;
   bar?: boolean;
+  tick?: boolean;
   value: string;
   label: string;
 }
@@ -232,7 +241,15 @@ function Tooltip({
       {rows.map((row) => (
         <div key={row.key} className={styles.tooltipRow}>
           <span
-            className={row.bar ? styles.keyBar : row.dashed ? styles.keyDashed : styles.keyLine}
+            className={
+              row.tick
+                ? styles.keyTick
+                : row.bar
+                  ? styles.keyBar
+                  : row.dashed
+                    ? styles.keyDashed
+                    : styles.keyLine
+            }
             style={{ '--series': row.color } as CSSProperties}
           />
           <strong>{row.value}</strong>
@@ -309,6 +326,8 @@ export interface ForecastRow {
   projection: SeriesPoint[];
   /** Quiet local hours of the day, shaded over the projection. */
   night: boolean[];
+  /** Expiry instants of manual resets not yet used, drawn as markers. */
+  credits: number[];
   /** Facts about the row, e.g. the next reset. */
   facts: string;
 }
@@ -324,7 +343,12 @@ export interface RemainingChartProps {
   remainingLabel: string;
   projectedLabel: string;
   nowLabel: string;
+  /** Tooltip name of a manual reset marker. */
+  creditLabel: string;
 }
+
+/** Hovering this close to a manual reset marker names it in the tooltip. */
+const CREDIT_HOVER_PX = 6;
 
 /** Plot height of each row when providers are stacked. */
 const ROW_PLOT_HEIGHT = 108;
@@ -356,6 +380,7 @@ export function RemainingChart({
   remainingLabel,
   projectedLabel,
   nowLabel,
+  creditLabel,
 }: RemainingChartProps) {
   const [ref, width] = useElementWidth();
   const gradientId = useId();
@@ -377,6 +402,7 @@ export function RemainingChart({
     if (bounds) setHoverMs(frame.invertX(event.clientX - bounds.left));
   };
 
+  const creditTolerance = (CREDIT_HOVER_PX / Math.max(1, plotWidth)) * (toMs - fromMs);
   const tooltipRows = (t: number): TooltipRow[] =>
     rows.flatMap((row) => {
       const value = seriesAt(row, t, nowMs);
@@ -390,6 +416,13 @@ export function RemainingChart({
           value: formatValue(value),
           label: single ? (projected ? projectedLabel : remainingLabel) : row.label,
         },
+        ...creditsNear(row.credits, t, creditTolerance, fromMs, toMs).map((expiresAtMs, index) => ({
+          key: `${row.key}-credit-${index}`,
+          color: 'var(--amber-color)',
+          tick: true,
+          value: formats.time(expiresAtMs),
+          label: creditLabel,
+        })),
       ];
     });
 
@@ -493,6 +526,17 @@ export function RemainingChart({
                   {nowLabel}
                 </text>
               )}
+
+              {creditsInView(row.credits, fromMs, toMs).map((expiresAtMs, creditIndex) => (
+                <line
+                  key={`${expiresAtMs}-${creditIndex}`}
+                  className={styles.creditMarker}
+                  x1={frame.x(expiresAtMs)}
+                  x2={frame.x(expiresAtMs)}
+                  y1={frame.top + 1}
+                  y2={frame.baseY - 1}
+                />
+              ))}
 
               <path d={areaPath(history, frame.baseY)} fill={`url(#${fill})`} />
               <path d={areaPath(projection, frame.baseY)} fill={`url(#${fill}-p)`} />
