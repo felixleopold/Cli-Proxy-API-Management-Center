@@ -700,9 +700,13 @@ function activityClock(profile: number[], fromMs: number, toMs: number): Activit
   };
 }
 
-/** Scales a pooled series to percent of the pool, so pools of different sizes share one axis. */
-export const toPoolShare = (series: SeriesPoint[], capacity: number): SeriesPoint[] =>
-  capacity > 0 ? series.map((point) => ({ t: point.t, v: (point.v / capacity) * 100 })) : [];
+/**
+ * When a projection first drops into zero, or null if it never does. A pool
+ * that starts empty only runs out again after a reset refills it.
+ */
+export const runsOutAt = (series: SeriesPoint[]): number | null =>
+  series.find((point, index) => index > 0 && point.v <= 1e-9 && series[index - 1].v > 1e-9)?.t ??
+  null;
 
 /** Linear interpolation; at a jump the later value wins. Null outside the series. */
 export function valueAt(series: SeriesPoint[], t: number): number | null {
