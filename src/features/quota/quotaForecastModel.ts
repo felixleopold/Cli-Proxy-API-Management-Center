@@ -700,9 +700,13 @@ function activityClock(profile: number[], fromMs: number, toMs: number): Activit
   };
 }
 
-/** When a projection first runs dry after its start, or null if it never does. */
+/**
+ * When a projection first drops into zero, or null if it never does. A pool
+ * that starts empty only runs out again after a reset refills it.
+ */
 export const runsOutAt = (series: SeriesPoint[]): number | null =>
-  series.find((point, index) => index > 0 && point.v <= 1e-9 && point.t > series[0].t)?.t ?? null;
+  series.find((point, index) => index > 0 && point.v <= 1e-9 && series[index - 1].v > 1e-9)?.t ??
+  null;
 
 /** Linear interpolation; at a jump the later value wins. Null outside the series. */
 export function valueAt(series: SeriesPoint[], t: number): number | null {

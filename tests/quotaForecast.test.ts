@@ -14,6 +14,7 @@ import {
   nightHours,
   poolHistory,
   projectPool,
+  runsOutAt,
   readPoolCredential,
   summarizePool,
   valueAt,
@@ -138,6 +139,13 @@ describe('current state and projection', () => {
     expect(valueAt(series, NOW + 6 * DAY_MS)).toBe(100);
     expect(valueAt(series, NOW + 6.5 * DAY_MS)).toBeCloseTo(75);
     expect(series.at(-1)?.t).toBe(NOW + 8 * DAY_MS);
+  });
+
+  test('a pool that starts empty does not run out until a reset refills it', () => {
+    const c = credential({ periodMs: DAY_MS, usedPercent: 100, resetAtMs: NOW + 12 * HOUR_MS });
+    expect(runsOutAt(projectPool(pool(c), NOW, NOW + 11 * HOUR_MS))).toBeNull();
+    // Refilled at the reset, then drained at the window pace (100% per 12 hours).
+    expect(runsOutAt(projectPool(pool(c), NOW, NOW + 36 * HOUR_MS))).toBe(NOW + 24 * HOUR_MS);
   });
 });
 
