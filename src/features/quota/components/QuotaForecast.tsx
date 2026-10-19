@@ -3,9 +3,9 @@
  * all its credentials, where it is heading, and how fast it has been draining.
  *
  * QuotaTimeline answers "when does each credential come back"; this answers
- * "how much do I have, in total, over the next days". On the All tab pools are
- * not comparable in absolute percent (seven Claude credentials vs two Codex
- * ones), so each provider is drawn as a share of its own pool on one axis.
+ * "how much do I have, in total, over the next days". On the All tab each
+ * provider gets its own row in absolute pool percent (seven Claude credentials
+ * vs two Codex ones would not share one axis well), all on one time axis.
  */
 
 import { useCallback, useId, useMemo, useState } from 'react';
@@ -29,8 +29,8 @@ import {
   nightHours,
   poolHistory,
   projectPool,
+  runsOutAt,
   summarizePool,
-  toPoolShare,
   type DrainSpanDays,
   type ForecastHorizonDays,
   type ForecastProvider,
@@ -42,7 +42,7 @@ import {
   DrainChart,
   RemainingChart,
   type DrainSeries,
-  type ForecastLine,
+  type ForecastRow,
 } from './QuotaForecastChart';
 import styles from './QuotaForecast.module.scss';
 
@@ -124,18 +124,6 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
     () => visible.map((pool) => learnPoolActivity(pool, samples ?? [], nowMs, sleep)),
     [visible, samples, nowMs, sleep]
   );
-  // On the All tab a band is night only when every visible pool is quiet then.
-  const night = useMemo(
-    () =>
-      activities
-        .map((activity) => nightHours(activity.profile))
-        .reduce(
-          (all, hours) => all.map((quiet, hour) => quiet && hours[hour]),
-          new Array<boolean>(24).fill(true)
-        ),
-    [activities]
-  );
-
   const summaries = useMemo(
     () =>
       visible.map((pool, index) => ({
@@ -149,20 +137,32 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
   const startMs = samples ? nowMs - historyDays * DAY_MS : nowMs;
   const endMs = nowMs + horizon * DAY_MS;
 
-  const lines = useMemo<ForecastLine[]>(
+  const rows = useMemo<ForecastRow[]>(
     () =>
-      visible.map((pool, index) => {
-        const past = samples ? poolHistory(pool, samples, startMs, nowMs) : [];
-        const future = projectPool(pool, nowMs, endMs, activities[index]);
+      summaries.map(({ pool, summary }, index) => {
+        const projection = projectPool(pool, nowMs, endMs, activities[index]);
+        const emptyAt = runsOutAt(projection);
+        const facts = [
+          summary.nextReset &&
+            t('quota_management.forecast_next_reset', {
+              percent: numbers.percent(summary.nextReset.restorePercent),
+              when: numbers.when(summary.nextReset.atMs),
+            }),
+          emptyAt !== null &&
+            t('quota_management.forecast_runs_out', { when: numbers.when(emptyAt) }),
+        ];
         return {
           key: pool.provider,
           label: getTypeLabel(t, pool.provider),
           color: SERIES_COLOR[pool.provider],
-          history: comparative ? toPoolShare(past, pool.capacity) : past,
-          projection: comparative ? toPoolShare(future, pool.capacity) : future,
+          capacity: pool.capacity,
+          history: samples ? poolHistory(pool, samples, startMs, nowMs) : [],
+          projection,
+          night: nightHours(activities[index].profile),
+          facts: facts.filter(Boolean).join(' · '),
         };
       }),
-    [visible, samples, startMs, nowMs, endMs, comparative, activities, t]
+    [summaries, samples, startMs, nowMs, endMs, activities, numbers, t]
   );
 
   const drain = useMemo(() => {
@@ -201,7 +201,8 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
     value: String(hour),
     label: numbers.hour(hour),
   }));
-  const hasNight = night.some(Boolean);
+  const hasNight = rows.some((row) => row.night.some(Boolean));
+  const keyColor = comparative ? 'var(--text-secondary)' : rows[0].color;
 
   const single = summaries[0];
   const drainPace =
@@ -213,7 +214,7 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
         ? t('quota_management.forecast_history_error')
         : null;
 
-  const legendKey = (variant: 'line' | 'dashed' | 'bar' | 'band', color: string) => (
+  const legendKey = (variant: 'area' | 'dashed' | 'bar' | 'band', color: string) => (
     <span
       className={
         variant === 'band'
@@ -222,7 +223,7 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
             ? styles.keyBar
             : variant === 'dashed'
               ? styles.keyDashed
-              : styles.keyLine
+              : styles.keyArea
       }
       style={{ '--series': color } as CSSProperties}
       aria-hidden="true"
@@ -339,28 +340,15 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
           <div role="tabpanel" className={styles.panel}>
             <div className={styles.legendRow}>
               <div className={styles.legend}>
-                {view === 'remaining' && !comparative && (
+                {view === 'remaining' && (
                   <>
                     <span className={styles.legendItem}>
-                      {legendKey('line', lines[0].color)}
+                      {legendKey('area', keyColor)}
                       {t('quota_management.forecast_legend_remaining')}
                     </span>
                     <span className={styles.legendItem}>
-                      {legendKey('dashed', lines[0].color)}
+                      {legendKey('dashed', keyColor)}
                       {t('quota_management.forecast_legend_projected')}
-                    </span>
-                  </>
-                )}
-                {view === 'remaining' && comparative && (
-                  <>
-                    {lines.map((line) => (
-                      <span key={line.key} className={styles.legendItem}>
-                        {legendKey('line', line.color)}
-                        {line.label}
-                      </span>
-                    ))}
-                    <span className={styles.legendNote}>
-                      {t('quota_management.forecast_share_note')}
                     </span>
                   </>
                 )}
@@ -424,13 +412,10 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
 
             {view === 'remaining' ? (
               <RemainingChart
-                lines={lines}
+                rows={rows}
                 fromMs={startMs}
                 toMs={endMs}
                 nowMs={nowMs}
-                yMax={comparative ? 100 : single.summary.capacity}
-                fillArea={!comparative}
-                night={night}
                 formatValue={formatPercent}
                 ariaLabel={t('quota_management.forecast_aria_remaining', { count: horizon })}
                 remainingLabel={t('quota_management.forecast_legend_remaining')}
@@ -463,22 +448,6 @@ export function QuotaForecast({ files, tab, now: nowProp }: QuotaForecastProps) 
 
             <footer className={styles.footer}>
               <div className={styles.footerFacts}>
-                {view === 'remaining' &&
-                  summaries.map(({ pool, summary }) =>
-                    summary.nextReset ? (
-                      <span key={pool.provider}>
-                        {comparative && (
-                          <span className={styles.footerProvider}>
-                            {getTypeLabel(t, pool.provider)}
-                          </span>
-                        )}
-                        {t('quota_management.forecast_next_reset', {
-                          percent: numbers.percent(summary.nextReset.restorePercent),
-                          when: numbers.when(summary.nextReset.atMs),
-                        })}
-                      </span>
-                    ) : null
-                  )}
                 {view === 'drain' && drain?.empty && (
                   <span>{t('quota_management.forecast_drain_empty')}</span>
                 )}
