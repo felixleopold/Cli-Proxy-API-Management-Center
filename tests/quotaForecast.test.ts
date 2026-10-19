@@ -623,12 +623,13 @@ describe('usage ledger', () => {
   const ledgerRows = (
     provider: string,
     activeHours: number[],
-    costOn: (hourMs: number) => number
+    costOn: (hourMs: number) => number,
+    authId = ''
   ): LedgerCost[] => {
     const rows: LedgerCost[] = [];
     for (let hourMs = Date.UTC(2026, 9, 3); hourMs < NOW; hourMs += HOUR_MS) {
       if (activeHours.includes(new Date(hourMs).getUTCHours())) {
-        rows.push({ hourMs, provider, costUsd: costOn(hourMs) });
+        rows.push({ hourMs, provider, authId, costUsd: costOn(hourMs) });
       }
     }
     return rows;
@@ -650,9 +651,11 @@ describe('usage ledger', () => {
         );
       }
       // No drain recorded since; the ledger shows $4 an hour from Oct 10.
-      const ledger = ledgerRows('Claude', workHours, (hourMs) =>
-        hourMs < Date.UTC(2026, 9, 10) ? 2 : 4
-      );
+      const ledger = [
+        ...ledgerRows('Claude', workHours, (hourMs) => (hourMs < Date.UTC(2026, 9, 10) ? 2 : 4)),
+        // API-key traffic drains no subscription quota.
+        ...ledgerRows('claude', workHours, () => 50, 'claude-api-key'),
+      ];
       const c = credential({ usedPercent: 28 });
       const activity = learnActivity([pool(c)], samples, NOW, DEFAULT_SLEEP_HOURS, ledger);
       // 28% over $112 is 0.25% a dollar; the last week cost $224: 56% over seven days.

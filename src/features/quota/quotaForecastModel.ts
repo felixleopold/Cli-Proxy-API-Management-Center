@@ -764,7 +764,7 @@ const percentile = (values: number[], q: number): number => {
 };
 
 /** One usage ledger row: API-equivalent cost of a provider's requests in one hour. */
-export type LedgerCost = Pick<UsageLedgerBucket, 'hourMs' | 'provider' | 'costUsd'>;
+export type LedgerCost = Pick<UsageLedgerBucket, 'hourMs' | 'provider' | 'authId' | 'costUsd'>;
 
 /** Calibration needs this much quota drain before ledger cost stands in for it. */
 const MIN_CALIBRATION_DRAIN = 10;
@@ -832,15 +832,19 @@ export function learnActivity(
   }));
 
   // Ledger cost per forecast provider and hour, within the window.
-  const ledgerRows = ledger.flatMap(({ hourMs, costUsd, provider: name }) => {
+  const ledgerRows = ledger.flatMap(({ hourMs, costUsd, authId, provider: name }) => {
     const provider = name.toLowerCase();
     return isForecastProvider(provider) && hourMs >= windowStartMs && hourMs < nowMs
-      ? [{ hourMs, costUsd, provider }]
+      ? [{ hourMs, costUsd, authId, provider }]
       : [];
   });
+  // Pace counts only cost served by pooled subscriptions, or recorded before
+  // the ledger attributed credentials; API keys and removed accounts drain no quota.
+  const pooled = new Set(pools.flatMap((pool) => pool.credentials.map((c) => c.authId)));
   const ledgerFromMs = ledgerRows.reduce((min, row) => Math.min(min, row.hourMs), Infinity);
   const costByHour = new Map<ForecastProvider, Map<number, number>>();
-  ledgerRows.forEach(({ hourMs, costUsd, provider }) => {
+  ledgerRows.forEach(({ hourMs, costUsd, authId, provider }) => {
+    if (authId && !pooled.has(authId)) return;
     const hours = costByHour.get(provider) ?? new Map<number, number>();
     hours.set(hourMs, (hours.get(hourMs) ?? 0) + costUsd);
     costByHour.set(provider, hours);
