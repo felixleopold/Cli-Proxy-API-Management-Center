@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatPercent } from '@/utils/format';
 import { formatUsd, type SeriesSlot, type SubscriptionSummary } from '../usageModel';
@@ -28,6 +29,8 @@ export interface AccountSpendContext {
 interface AccountSpendProps {
   summary: SubscriptionSummary | null;
   context: AccountSpendContext;
+  /** The card's account name, which leads the spend button's accessible name. */
+  labelId: string;
 }
 
 /**
@@ -35,8 +38,9 @@ interface AccountSpendProps {
  * (or the history range without one), ≈ spend at 100% and the split by user.
  * With a window, the row swaps the spend history to that window.
  */
-export function AccountSpend({ summary, context }: AccountSpendProps) {
+export function AccountSpend({ summary, context, labelId }: AccountSpendProps) {
   const { t, i18n } = useTranslation();
+  const headId = useId();
   const locale = i18n.resolvedLanguage;
 
   if (context.status === 'loading') {
@@ -63,7 +67,7 @@ export function AccountSpend({ summary, context }: AccountSpendProps) {
 
   const content = (
     <>
-      <span className={styles.spendHead}>
+      <span id={headId} className={styles.spendHead}>
         <span className={styles.spendValue}>{formatUsd(summary.costUsd, locale)}</span>
         <span className={styles.spendLabel}>
           {window ? t('usage.sub_spend_window') : t('usage.sub_spend_range')}
@@ -120,6 +124,7 @@ export function AccountSpend({ summary, context }: AccountSpendProps) {
           type="button"
           className={styles.spendButton}
           aria-pressed={context.activeId === subscription.id}
+          aria-labelledby={`${labelId} ${headId}`}
           title={`${t('usage.sub_open')} · ${formatInstant(window.startMs)} – ${formatInstant(window.endMs)}`}
           onClick={() => context.onSelect(subscription.id)}
         >

@@ -9,7 +9,7 @@
  * - footer actions.
  */
 
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useId, useState, type CSSProperties, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { IconChevronRight, IconRefreshCw } from '@/components/ui/icons';
@@ -79,6 +79,8 @@ interface AccountCardHeaderProps {
   provider: string;
   resolvedTheme: ResolvedTheme;
   name: string;
+  /** Lets the spend row name its account. */
+  nameId: string;
   /** Renders the name in mono, when it is a file name. */
   mono?: boolean;
   /** The credential's file name, on hover. */
@@ -92,6 +94,7 @@ function AccountCardHeader({
   provider,
   resolvedTheme,
   name,
+  nameId,
   mono,
   title,
   plan,
@@ -119,7 +122,7 @@ function AccountCardHeader({
         )}
       </span>
       <span className={styles.identity}>
-        <span className={`${styles.name} ${mono ? styles.nameMono : ''}`} title={title}>
+        <span id={nameId} className={`${styles.name} ${mono ? styles.nameMono : ''}`} title={title}>
           {name}
         </span>
         <span className={styles.subline}>
@@ -174,16 +177,18 @@ export function SpendOnlyCard({
   resolvedTheme: ResolvedTheme;
 }) {
   const { subscription } = summary;
+  const nameId = useId();
   return (
     <article className={styles.card} data-active={spend.activeId === subscription.id || undefined}>
       <AccountCardHeader
         provider={subscription.provider}
         resolvedTheme={resolvedTheme}
         name={subscription.name || subscription.id}
+        nameId={nameId}
         title={subscription.id}
         resetMs={summary.window?.endMs ?? null}
       />
-      <AccountSpend summary={summary} context={spend} />
+      <AccountSpend summary={summary} context={spend} labelId={nameId} />
     </article>
   );
 }
@@ -220,6 +225,7 @@ export function QuotaCard(props: QuotaCardProps) {
   const adapter = QUOTA_ADAPTERS[entry.type];
   const file = entry.file;
   const identity = deriveAuthFileIdentity(file);
+  const nameId = useId();
 
   // 挂载时捕获一次延迟：后续 props 变 null 不影响本卡（React 19 禁渲染期读 ref）
   const [mountEntranceDelayMs] = useState<number | null>(entranceDelayMs ?? null);
@@ -262,6 +268,7 @@ export function QuotaCard(props: QuotaCardProps) {
         resolvedTheme={resolvedTheme}
         name={identity.primary || getQuotaDisplayName(file)}
         mono={identity.kind === 'fileName'}
+        nameId={nameId}
         title={getQuotaDisplayName(file)}
         plan={loaded ? planBadge(entry.type, quota, t, quotaClasses) : null}
         resetMs={summary?.window?.endMs ?? null}
@@ -277,6 +284,21 @@ export function QuotaCard(props: QuotaCardProps) {
             </span>
           </div>
         )}
+        {codexQuota &&
+          !hasCodexDetails(codexQuota) &&
+          (codexQuota.rateLimitResetCreditsAvailableCount ?? null) !== null && (
+            // Nothing to disclose: the known count stays visible as on the base card.
+            <div className={quotaClasses.codexPlan}>
+              <span className={quotaClasses.codexPlanItem}>
+                <span className={quotaClasses.codexPlanLabel}>
+                  {t('codex_quota.reset_credits_label')}
+                </span>
+                <span className={quotaClasses.codexPlanValue}>
+                  {codexQuota.rateLimitResetCreditsAvailableCount}
+                </span>
+              </span>
+            </div>
+          )}
         {entry.type === 'claude' && loaded && claudeReset.message && (
           <div role="status" className={quotaClasses.codexResetCreditsError}>
             {t(`claude_reset.${claudeReset.message}`)}
@@ -313,7 +335,7 @@ export function QuotaCard(props: QuotaCardProps) {
         )}
       </div>
 
-      <AccountSpend summary={summary} context={spend} />
+      <AccountSpend summary={summary} context={spend} labelId={nameId} />
 
       {codexQuota && hasCodexDetails(codexQuota) && (
         <AccountDetails count={codexQuota.rateLimitResetCreditsAvailableCount ?? null}>

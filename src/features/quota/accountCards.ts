@@ -6,6 +6,7 @@
  */
 
 import { parseSubscription, type SubscriptionSummary } from '@/features/usage/usageModel';
+import type { AuthFileItem } from '@/types';
 import type { QuotaFileEntry } from './logic';
 
 export interface AccountSpendPairing {
@@ -16,15 +17,18 @@ export interface AccountSpendPairing {
 
 /**
  * `entries` are all quota cards before search and paging, so a card hidden by
- * either never turns its spend into a second, spend-only card.
+ * either never turns its spend into a second, spend-only card. `files` gives
+ * spend-only cards their file name for search, as quota cards search it.
  */
 export function pairAccountSpend(
   entries: readonly QuotaFileEntry[],
   summaries: readonly SubscriptionSummary[],
-  search: string
+  search: string,
+  files: readonly AuthFileItem[]
 ): AccountSpendPairing {
   const byId = new Map(summaries.map((summary) => [summary.subscription.id, summary]));
   const claimed = new Set(entries.map((entry) => parseSubscription(entry.file).id));
+  const fileNames = new Map(files.map((file) => [parseSubscription(file).id, file.name]));
   const query = search.trim().toLowerCase();
   return {
     spendFor: (entry) => byId.get(parseSubscription(entry.file).id) ?? null,
@@ -32,7 +36,9 @@ export function pairAccountSpend(
       ({ subscription }) =>
         !claimed.has(subscription.id) &&
         (!query ||
-          [subscription.name, subscription.id].some((value) => value.toLowerCase().includes(query)))
+          [subscription.name, subscription.id, fileNames.get(subscription.id) ?? ''].some((value) =>
+            value.toLowerCase().includes(query)
+          ))
     ),
   };
 }

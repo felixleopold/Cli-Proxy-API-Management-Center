@@ -336,7 +336,7 @@ export function UsageQuotaPage() {
   const quotaTab = isQuotaTabId(tab) && tab !== 'all' ? tab : null;
 
   const renderAccounts = (spend: AccountSpendContext) => {
-    const { spendFor, spendOnly } = pairAccountSpend(entries, spend.summaries, search);
+    const { spendFor, spendOnly } = pairAccountSpend(entries, spend.summaries, search, files);
     // Credentials without quota support follow the quota cards, on the last page.
     const spendOnlyCards =
       spend.status === 'unavailable' || currentPage !== totalPages ? [] : spendOnly;

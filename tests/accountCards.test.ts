@@ -17,23 +17,26 @@ const summary = (id: string, provider: string, name: string): SubscriptionSummar
   estimateUsd: null,
 });
 
-const entries = classifyQuotaFiles([
+const files = [
   // The ledger's auth_id is Auth.ID when the gateway reports one, else the file name.
   file('claude-alice.json', 'claude', { id: 'auth-alice', email: 'alice@example.com' }),
   file('codex-carol.json', 'codex', { email: 'carol@example.com' }),
   file('codex-dave.json', 'codex', { email: 'dave@example.com' }),
-]);
+  file('gemini-work.json', 'gemini', { id: 'opaque-auth-id', email: 'gina@example.com' }),
+];
+const entries = classifyQuotaFiles(files);
 
 const summaries = [
   summary('codex-carol.json', 'codex', 'carol@example.com'),
   summary('gemini-erin.json', 'gemini', 'erin@example.com'),
   summary('auth-alice', 'claude', 'alice@example.com'),
   summary('vertex-frank.json', 'vertex', 'frank@example.com'),
+  summary('opaque-auth-id', 'gemini', 'gina@example.com'),
 ];
 
 describe('account card pairing', () => {
   test('pairs each quota card with its spend by auth id, falling back to the file name', () => {
-    const { spendFor } = pairAccountSpend(entries, summaries, '');
+    const { spendFor } = pairAccountSpend(entries, summaries, '', files);
     expect(entries.map((entry) => spendFor(entry)?.subscription.name ?? null)).toEqual([
       'alice@example.com',
       'carol@example.com',
@@ -42,16 +45,22 @@ describe('account card pairing', () => {
   });
 
   test('gives spend without a quota card its own card, in summary order', () => {
-    const { spendOnly } = pairAccountSpend(entries, summaries, '');
+    const { spendOnly } = pairAccountSpend(entries, summaries, '', files);
     expect(spendOnly.map((item) => item.subscription.id)).toEqual([
       'gemini-erin.json',
       'vertex-frank.json',
+      'opaque-auth-id',
     ]);
   });
 
   test('searches spend-only cards, and never turns a hidden quota card into one', () => {
-    const { spendOnly } = pairAccountSpend(entries, summaries, 'ERIN');
+    const { spendOnly } = pairAccountSpend(entries, summaries, 'ERIN', files);
     expect(spendOnly.map((item) => item.subscription.id)).toEqual(['gemini-erin.json']);
-    expect(pairAccountSpend(entries, summaries, 'carol').spendOnly).toEqual([]);
+    expect(pairAccountSpend(entries, summaries, 'carol', files).spendOnly).toEqual([]);
+  });
+
+  test('finds a spend-only card by its file name when its auth id is opaque', () => {
+    const { spendOnly } = pairAccountSpend(entries, summaries, 'gemini-work', files);
+    expect(spendOnly.map((item) => item.subscription.id)).toEqual(['opaque-auth-id']);
   });
 });
