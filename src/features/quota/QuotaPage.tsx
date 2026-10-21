@@ -25,6 +25,7 @@ import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
 import { QuotaHeader } from './components/QuotaHeader';
 import { QuotaCard } from './components/QuotaCard';
+import { QuotaForecast } from './components/QuotaForecast';
 import { QuotaTimeline } from './components/QuotaTimeline';
 import {
   CARD_ENTRANCE_BUDGET_MS,
@@ -152,6 +153,12 @@ export function QuotaPage() {
     (entry: QuotaFileEntry): QuotaCardState | undefined =>
       quotaByType[entry.type][getQuotaCacheKey(entry.file)],
     [quotaByType]
+  );
+
+  // Manual resets only reach the store once a Codex card's quota has loaded.
+  const resetCreditsFor = useCallback(
+    (file: AuthFileItem) => codexQuota[getQuotaCacheKey(file)]?.rateLimitResetCredits,
+    [codexQuota]
   );
 
   /* ---------- 归类 / 过滤 / 排序 / 分页 ---------- */
@@ -334,6 +341,9 @@ export function QuotaPage() {
             onChange={handleTabChange}
           />
         </div>
+
+        {/* Pooled across every credential of the provider, independent of search and paging. */}
+        <QuotaForecast files={files} tab={tab} resetCreditsFor={resetCreditsFor} />
 
         <div className={styles.toolbar}>
           <div className={styles.search}>
