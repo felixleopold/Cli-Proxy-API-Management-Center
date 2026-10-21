@@ -264,6 +264,18 @@ const withTimeZone = (zone: string, run: () => void) => {
   }
 };
 
+/** The pace weight: a 3-day half-life back from NOW. */
+const decay = (t: number) => 2 ** ((t - NOW) / (3 * DAY_MS));
+
+/** Activity-weighted time over whole UTC hours in [fromMs, toMs), each decayed at its midpoint. */
+const decayedActiveMs = (profile: number[], fromMs: number, toMs: number) => {
+  let sum = 0;
+  for (let t = fromMs; t < toMs; t += HOUR_MS) {
+    sum += profile[new Date(t).getUTCHours()] * HOUR_MS * decay(t + HOUR_MS / 2);
+  }
+  return sum;
+};
+
 describe('sleep-aware activity', () => {
   test('without history the profile is the sleep baseline and pace falls back to the window', () => {
     const activity = learnActivity([pool(credential())], [], NOW, DEFAULT_SLEEP_HOURS);
@@ -273,9 +285,9 @@ describe('sleep-aware activity', () => {
     expect(activity.rates.size).toBe(0);
   });
 
-  test('two weeks of night-owl use move the sleep stretch and set the daily rate', () => {
+  test('learned night-owl sleep is clipped to the baseline', () => {
     withTimeZone('UTC', () => {
-      // 0.25% in every hour from 12:00 to 04:00 for two weeks: asleep 04:00–12:00.
+      // 0.25% in every hour from 12:00 to 04:00 for two weeks: quiet 04:00–12:00.
       const start = Date.UTC(2026, 9, 3);
       const samples: QuotaHistorySample[] = [];
       for (let t = start + HOUR_MS / 2; t <= NOW; t += HOUR_MS) {
@@ -284,42 +296,39 @@ describe('sleep-aware activity', () => {
         samples.push(sample({ atMs: t, usedPercent: samples.length * 0.25 }));
       }
       const activity = learnActivity([pool(credential())], samples, NOW, DEFAULT_SLEEP_HOURS);
-      expect(activity.sleep).toEqual({ startHour: 4, endHour: 12 });
+      // Sleep starts later, but never runs past the baseline's 08:00.
+      expect(activity.sleep).toEqual({ startHour: 4, endHour: 8 });
       const night = nightHours(activity.sleep);
       expect(night[2]).toBe(false);
-      expect(night[10]).toBe(true);
-      expect(activity.profile[10]).toBe(0);
+      expect(night[6]).toBe(true);
+      expect(night[10]).toBe(false);
+      expect(activity.profile[6]).toBe(0);
+      // A quiet morning is slower, not asleep.
+      expect(activity.profile[10]).toBeGreaterThan(0);
       expect(activity.profile[2]).toBeGreaterThan(0.5);
       const mean = activity.profile.reduce((sum, value) => sum + value, 0) / 24;
       expect(mean).toBeCloseTo(1);
-      // The trailing seven days hold sixteen 0.25% deltas a day.
-      expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(4);
+      // Sixteen 0.25% deltas a day.
+      expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(4, 0);
     });
   });
 
-  test('a busier last day sets the rate; a quieter one keeps the weekly average', () => {
-    // 'a': 1% a day for six days, then 10% in the last day. 'b': 2% a day, 1% in the last.
-    const steps = (authId: string, perDay: number[]) =>
-      perDay.map((_, day) =>
+  test('a one-day spike raises the pace without setting it', () => {
+    withTimeZone('UTC', () => {
+      // 1% a day for six days, then 10% in the last day.
+      const perDay = [0, 1, 1, 1, 1, 1, 1, 10];
+      const samples = perDay.map((_, day) =>
         sample({
-          authId,
           atMs: NOW - (perDay.length - 1 - day) * DAY_MS + (day === 0 ? 0 : -HOUR_MS),
           usedPercent: perDay.slice(0, day + 1).reduce((sum, value) => sum + value, 0),
-          resetAtMs: NOW + 3 * DAY_MS,
         })
       );
-    const samples = [
-      ...steps('a', [0, 1, 1, 1, 1, 1, 1, 10]),
-      ...steps('b', [0, 2, 2, 2, 2, 2, 3, 1]),
-    ];
-    const activity = learnActivity(
-      [pool(credential(), credential({ authId: 'b' }))],
-      samples,
-      NOW,
-      DEFAULT_SLEEP_HOURS
-    );
-    expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(10);
-    expect((activity.rates.get('b') ?? 0) * DAY_MS).toBeCloseTo(14 / 7);
+      const activity = learnActivity([pool(credential())], samples, NOW, DEFAULT_SLEEP_HOURS);
+      const perDayRate = (activity.rates.get('a') ?? 0) * DAY_MS;
+      // Above the steady 1%, well below the spike's 10% a max() rule would take.
+      expect(perDayRate).toBeGreaterThan(2);
+      expect(perDayRate).toBeLessThan(5);
+    });
   });
 
   test('a short-lived credential keeps its window pace beside an older one', () => {
@@ -333,7 +342,8 @@ describe('sleep-aware activity', () => {
     ];
     const activity = learnActivity([pool(a, b)], samples, NOW, DEFAULT_SLEEP_HOURS);
     expect(activity.rates.has('a')).toBe(false);
-    expect((activity.rates.get('b') ?? 0) * DAY_MS).toBeCloseTo(1);
+    // 7% in a week, recorded a day ago: recent use outweighs the plain 1% a day.
+    expect((activity.rates.get('b') ?? 0) * DAY_MS).toBeGreaterThan(1);
   });
 
   test('under a day of history the rate is the drain so far over its active hours', () => {
@@ -349,10 +359,7 @@ describe('sleep-aware activity', () => {
         NOW,
         DEFAULT_SLEEP_HOURS
       );
-      const activeMs = [6, 7, 8, 9, 10, 11].reduce(
-        (sum, hour) => sum + activity.profile[hour] * HOUR_MS,
-        0
-      );
+      const activeMs = decayedActiveMs(activity.profile, NOW - 6 * HOUR_MS, NOW);
       expect((activity.rates.get('a') ?? 0) * activeMs).toBeCloseTo(12);
     });
   });
@@ -378,22 +385,25 @@ describe('sleep-aware activity', () => {
   });
 
   test('a session window sampled once per window still learns its drain', () => {
-    const period = 5 * HOUR_MS;
-    const c = credential({ window: 'session', periodMs: period, resetAtMs: NOW + period });
-    // 20% recorded once in each of 14 consecutive five-hour windows (70 hours).
-    const samples = Array.from({ length: 14 }, (_, index) =>
-      sample({
-        atMs: NOW - (13 - index) * period,
-        window: 'session',
-        windowMinutes: 300,
-        usedPercent: 20,
-        resetAtMs: NOW - (13 - index) * period + period,
-      })
-    );
-    const activity = learnActivity([pool(c)], samples, NOW, DEFAULT_SLEEP_HOURS);
-    // 13 new windows counted from zero over 65 covered hours, but five of them land in
-    // the last day: 100% a day is faster, so it wins.
-    expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(100);
+    withTimeZone('UTC', () => {
+      const period = 5 * HOUR_MS;
+      const c = credential({ window: 'session', periodMs: period, resetAtMs: NOW + period });
+      // 20% recorded once in each of 14 consecutive five-hour windows (70 hours).
+      const samples = Array.from({ length: 14 }, (_, index) =>
+        sample({
+          atMs: NOW - (13 - index) * period,
+          window: 'session',
+          windowMinutes: 300,
+          usedPercent: 20,
+          resetAtMs: NOW - (13 - index) * period + period,
+        })
+      );
+      const activity = learnActivity([pool(c)], samples, NOW, DEFAULT_SLEEP_HOURS);
+      // 13 new windows, each counted from zero, over the 65 covered hours.
+      const used = samples.slice(1).reduce((sum, { atMs }) => sum + 20 * decay(atMs), 0);
+      const activeMs = decayedActiveMs(activity.profile, NOW - 13 * period, NOW);
+      expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo((used / activeMs) * DAY_MS);
+    });
   });
 
   test('projection is flat while asleep and keeps the daily total', () => {
@@ -544,20 +554,29 @@ describe('likely range and shared sleep', () => {
   });
 
   test('pace leaves out drain and time spent under 15% remaining', () => {
-    // 15% a day for five days, 12% more, then rationed at 87–88% for the last day.
-    const used = [0, 15, 30, 45, 60, 75, 87];
-    const samples = [
-      ...used.map((usedPercent, day) => sample({ atMs: NOW - (7 - day) * DAY_MS, usedPercent })),
-      sample({ atMs: NOW - HOUR_MS, usedPercent: 88 }),
-    ];
-    const activity = learnActivity(
-      [pool(credential({ usedPercent: 88 }))],
-      samples,
-      NOW,
-      DEFAULT_SLEEP_HOURS
-    );
-    // 87% over six unrationed days, not 88% over seven.
-    expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(87 / 6);
+    withTimeZone('UTC', () => {
+      // 15% a day for five days, 12% more, then rationed at 87–88% for the last day.
+      const used = [0, 15, 30, 45, 60, 75, 87];
+      const samples = [
+        ...used.map((usedPercent, day) => sample({ atMs: NOW - (7 - day) * DAY_MS, usedPercent })),
+        sample({ atMs: NOW - HOUR_MS, usedPercent: 88 }),
+      ];
+      const activity = learnActivity(
+        [pool(credential({ usedPercent: 88 }))],
+        samples,
+        NOW,
+        DEFAULT_SLEEP_HOURS
+      );
+      // 87% over six unrationed days, not 88% over seven.
+      const drained = used
+        .slice(1)
+        .reduce(
+          (sum, value, day) => sum + (value - used[day]) * decay(NOW - (6 - day) * DAY_MS),
+          0
+        );
+      const activeMs = decayedActiveMs(activity.profile, NOW - 7 * DAY_MS, NOW - DAY_MS);
+      expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo((drained / activeMs) * DAY_MS);
+    });
   });
 
   test('every provider shares one continuous sleep stretch', () => {
@@ -574,14 +593,29 @@ describe('likely range and shared sleep', () => {
         NOW,
         DEFAULT_SLEEP_HOURS
       );
-      // The 02:00 hour is merged in; the quiet 13–14 is daytime, so it is no sleep.
-      expect(activity.sleep).toEqual({ startHour: 0, endHour: 9 });
+      // The 02:00 hour is merged in; the quiet 08:00 and 13–14 are past the baseline, so no sleep.
+      expect(activity.sleep).toEqual({ startHour: 0, endHour: 8 });
       expect(activity.profile[2]).toBe(0);
       expect(activity.profile[13]).toBeGreaterThan(0);
       const midnight = Date.UTC(2026, 9, 18);
       expect(nightBands(nightHours(activity.sleep), midnight, midnight + DAY_MS)).toEqual([
-        { startMs: midnight, endMs: midnight + 9 * HOUR_MS },
+        { startMs: midnight, endMs: midnight + 8 * HOUR_MS },
       ]);
+    });
+  });
+
+  test('use through every night leaves no sleep hours once learned', () => {
+    withTimeZone('UTC', () => {
+      const allDay = Array.from({ length: 24 }, (_, hour) => hour);
+      const activity = learnActivity(
+        [pool(credential())],
+        hourlyUse('a', allDay),
+        NOW,
+        DEFAULT_SLEEP_HOURS
+      );
+      expect(nightHours(activity.sleep).some(Boolean)).toBe(false);
+      expect(nightBands(nightHours(activity.sleep), NOW, NOW + DAY_MS)).toEqual([]);
+      expect(activity.profile[3]).toBeGreaterThan(0);
     });
   });
 
@@ -658,13 +692,52 @@ describe('usage ledger', () => {
       ];
       const c = credential({ usedPercent: 28 });
       const activity = learnActivity([pool(c)], samples, NOW, DEFAULT_SLEEP_HOURS, ledger);
-      // 28% over $112 is 0.25% a dollar; the last week cost $224: 56% over seven days.
-      expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(8);
-      expect((activity.ranges.get('a')?.busy ?? 0) * DAY_MS).toBeGreaterThanOrEqual(8);
+      // 28% over $112 is 0.25% a dollar: 4% a day before Oct 10, 8% since. Recent days weigh more.
+      const perDayRate = (activity.rates.get('a') ?? 0) * DAY_MS;
+      expect(perDayRate).toBeGreaterThan(6);
+      expect(perDayRate).toBeLessThan(8);
+      expect((activity.ranges.get('a')?.busy ?? 0) * DAY_MS).toBeGreaterThanOrEqual(perDayRate);
 
-      // Without a ledger the history rate stands: nothing drained in the last week.
+      // Without a ledger the history rate stands: only drain over a week old, decayed.
       const withoutLedger = learnActivity([pool(c)], samples, NOW, DEFAULT_SLEEP_HOURS);
-      expect(withoutLedger.rates.get('a')).toBe(0);
+      expect((withoutLedger.rates.get('a') ?? 0) * DAY_MS).toBeLessThan(1);
+    });
+  });
+
+  test('each credential paces by its own attributed ledger cost', () => {
+    withTimeZone('UTC', () => {
+      const workHours = [9, 10, 11, 12, 13, 14, 15, 16];
+      // 'a' drains 80% on Oct 4–8 at $1 an hour; 'b' drains 80% on Oct 15–16 at $2.50 an hour.
+      const spell = (authId: string, days: number[], perHour: number, costUsd: number) => {
+        const samples = [sample({ authId, atMs: Date.UTC(2026, 9, days[0], 9), usedPercent: 0 })];
+        const ledger: LedgerCost[] = [];
+        days.forEach((day) =>
+          workHours.forEach((hour) => {
+            const hourMs = Date.UTC(2026, 9, day, hour);
+            ledger.push({ hourMs, provider: 'claude', authId, costUsd });
+            samples.push(
+              sample({ authId, atMs: hourMs + HOUR_MS, usedPercent: samples.length * perHour })
+            );
+          })
+        );
+        return { samples, ledger };
+      };
+      const a = spell('a', [4, 5, 6, 7, 8], 2, 1);
+      const b = spell('b', [15, 16], 5, 2.5);
+      const activity = learnActivity(
+        [pool(credential({ usedPercent: 80 }), credential({ authId: 'b', usedPercent: 80 }))],
+        [...a.samples, ...b.samples],
+        NOW,
+        DEFAULT_SLEEP_HOURS,
+        [...a.ledger, ...b.ledger]
+      );
+      // Equal drain, but 'b' spent recently: the rates follow each one's decayed cost.
+      const decayedCost = (rows: LedgerCost[]) =>
+        rows.reduce((sum, row) => sum + row.costUsd * decay(row.hourMs + HOUR_MS / 2), 0);
+      const rateA = (activity.rates.get('a') ?? 0) * DAY_MS;
+      const rateB = (activity.rates.get('b') ?? 0) * DAY_MS;
+      expect(rateA).toBeGreaterThan(0);
+      expect(rateB / rateA).toBeCloseTo(decayedCost(b.ledger) / decayedCost(a.ledger));
     });
   });
 
@@ -705,6 +778,11 @@ describe('usage ledger', () => {
       const activity = learnActivity([], [], NOW, DEFAULT_SLEEP_HOURS, ledger);
       expect(activity.sleep).toEqual({ startHour: 1, endHour: 8 });
       expect(learnActivity([], [], NOW, DEFAULT_SLEEP_HOURS).sleep).toEqual(DEFAULT_SLEEP_HOURS);
+      // Office hours leave 17:00–09:00 quiet; that 16-hour run clips to the baseline.
+      const officeHours = ledgerRows('claude', [9, 10, 11, 12, 13, 14, 15, 16], () => 1);
+      expect(learnActivity([], [], NOW, DEFAULT_SLEEP_HOURS, officeHours).sleep).toEqual(
+        DEFAULT_SLEEP_HOURS
+      );
     });
   });
 });
