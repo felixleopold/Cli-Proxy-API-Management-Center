@@ -1,0 +1,51 @@
+/* Categorical series colors: muted earth tones for the warm-paper theme, one hue per
+ * slot in a fixed order. Validated with the dataviz checker against the card surfaces
+ * (#f2f0ea, #ffffff; dark #1c1a17): lightness band and chroma floor pass, worst adjacent
+ * CVD ΔE 11.1 light / 10.7 dark, normal-vision ΔE ≥ 21.8. Light ochre sits below 3:1,
+ * so every value is also written as text (legend, tooltip, table). */
+
+.slot0 {
+  --series: #008a9b; /* petrol */
+}
+.slot1 {
+  --series: #ce704a; /* terracotta */
+}
+.slot2 {
+  --series: #5073b5; /* slate */
+}
+.slot3 {
+  --series: #cda045; /* ochre */
+}
+.slot4 {
+  --series: #7b60ae; /* violet */
+}
+.slot5 {
+  --series: #6d8c40; /* moss */
+}
+.slot6 {
+  --series: #a55584; /* plum */
+}
+.slotOther {
+  --series: var(--text-tertiary);
+}
+.slotNone {
+  --series: var(--text-quaternary);
+}
+
+:global([data-theme='dark']) {
+  .slot0 {
+    --series: #009bac;
+  }
+  .slot2 {
+    --series: #6488cc;
+  }
+  .slot3 {
+    --series: #b88c2e;
+  }
+  .slot4 {
+    --series: #8f75c5;
+  }
+  .slot6 {
+    --series: #b86797;
+  }
+}

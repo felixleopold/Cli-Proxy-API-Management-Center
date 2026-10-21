@@ -641,9 +641,9 @@ export function MainLayout() {
       labelKey: 'nav_groups.observe',
       items: [
         {
-          path: '/quota',
-          labelKey: 'nav.quota_management',
-          metaKey: 'nav_meta.quota_management',
+          path: '/usage-quota',
+          labelKey: 'nav.usage_quota',
+          metaKey: 'nav_meta.usage_quota',
           icon: sidebarIcons.quota,
         },
         {

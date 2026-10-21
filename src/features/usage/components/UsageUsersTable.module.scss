@@ -1,0 +1,190 @@
+@use '../../../styles/mixins' as *;
+
+.scroller {
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+
+  th,
+  td {
+    padding: 9px $spacing-sm;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    text-align: left;
+    vertical-align: middle;
+  }
+
+  thead th {
+    padding-top: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+  }
+
+  tbody th[scope='row'] {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+}
+
+.num,
+.spend {
+  text-align: right !important;
+  white-space: nowrap;
+}
+
+.spend {
+  font-family: $font-mono;
+  font-weight: 600;
+  color: var(--text-primary) !important;
+}
+
+.shareCol {
+  width: 22%;
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--text-tertiary) !important;
+}
+
+.expander {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 2px 4px 2px 0;
+  border: 0;
+  border-radius: $radius-sm;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  &[aria-expanded='true'] .chevron {
+    transform: rotate(0deg);
+  }
+}
+
+.chevron {
+  flex: none;
+  color: var(--text-tertiary);
+  transform: rotate(-90deg);
+  transition: transform var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+  background: var(--series);
+}
+
+.userRow th[scope='row'] {
+  font-weight: 600;
+}
+
+.userName {
+  color: var(--text-primary);
+}
+
+.unassigned {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.meta {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.deviceRow {
+  background: color-mix(in srgb, var(--bg-tertiary) 40%, transparent);
+
+  th[scope='row'] {
+    padding-left: 30px;
+  }
+}
+
+.modelRow {
+  background: color-mix(in srgb, var(--bg-tertiary) 70%, transparent);
+  font-size: 12px;
+
+  th[scope='row'] {
+    padding-left: 60px;
+  }
+}
+
+.modelCell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.modelName {
+  font-family: $font-mono;
+  font-size: 12px;
+}
+
+.fingerprint {
+  font-family: $font-mono;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+
+.share {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+}
+
+.shareTrack {
+  position: relative;
+  flex: 1;
+  min-width: 60px;
+  height: 6px;
+  border-radius: $radius-full;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+}
+
+.shareFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: $radius-full;
+  background: var(--series);
+}
+
+.empty {
+  margin: 0;
+  padding: $spacing-lg 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
