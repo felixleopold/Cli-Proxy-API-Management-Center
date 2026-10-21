@@ -147,12 +147,13 @@ function AccountCardHeader({
 }
 
 /** Account details behind a native disclosure: keyboard operable and announced as expandable. */
+/** Labelled with the manual reset count when there is at least one, else "Details". */
 function AccountDetails({ count, children }: { count: number | null; children: ReactNode }) {
   const { t } = useTranslation();
   return (
     <details className={styles.details}>
       <summary className={styles.detailsSummary}>
-        {count === null
+        {count === null || count <= 0
           ? t('quota_management.details_more')
           : t('quota_management.details_resets', { count })}
         <IconChevronRight size={13} aria-hidden="true" className={styles.detailsChevron} />
@@ -267,6 +268,15 @@ export function QuotaCard(props: QuotaCardProps) {
       />
 
       <div className={styles.body}>
+        {entry.type === 'claude' && loaded && claudeGrants.length === 0 && (
+          // Without grants to disclose, the count stays visible as on the base card.
+          <div className={quotaClasses.codexPlan}>
+            <span className={quotaClasses.codexPlanItem}>
+              <span className={quotaClasses.codexPlanLabel}>{t('claude_reset.remaining')}</span>
+              <span className={quotaClasses.codexPlanValue}>{claudeReset.count ?? '--'}</span>
+            </span>
+          </div>
+        )}
         {entry.type === 'claude' && loaded && claudeReset.message && (
           <div role="status" className={quotaClasses.codexResetCreditsError}>
             {t(`claude_reset.${claudeReset.message}`)}
