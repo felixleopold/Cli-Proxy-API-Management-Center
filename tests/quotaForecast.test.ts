@@ -402,7 +402,7 @@ describe('sleep-aware activity', () => {
       // 13 new windows, each counted from zero, over the 65 covered hours.
       const used = samples.slice(1).reduce((sum, { atMs }) => sum + 20 * decay(atMs), 0);
       const activeMs = decayedActiveMs(activity.profile, NOW - 13 * period, NOW);
-      expect(activity.rates.get('a')).toBeCloseTo(used / activeMs);
+      expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo((used / activeMs) * DAY_MS);
     });
   });
 
@@ -575,7 +575,7 @@ describe('likely range and shared sleep', () => {
           0
         );
       const activeMs = decayedActiveMs(activity.profile, NOW - 7 * DAY_MS, NOW - DAY_MS);
-      expect(activity.rates.get('a')).toBeCloseTo(drained / activeMs);
+      expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo((drained / activeMs) * DAY_MS);
     });
   });
 
