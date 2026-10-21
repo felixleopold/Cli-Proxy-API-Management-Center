@@ -5,16 +5,20 @@ import {
   assignSlots,
   buildClientRows,
   buildTimeBuckets,
+  OWN_ACCOUNT_AUTH_ID,
   clientKeyFingerprint,
+  credentialKind,
   currentUsedPercent,
   filterBuckets,
   floorToUnit,
+  ledgerNeedsReload,
   parseSubscription,
   quotaWindowSpan,
   resolveSelection,
   rollupUsers,
   stackByTime,
   summarizeSubscription,
+  withHistoryWindow,
   type Subscription,
 } from '../src/features/usage/usageModel';
 import { normalizeUsageLedger } from '../src/services/api/usageLedger';
@@ -119,6 +123,38 @@ describe('quota signals', () => {
 
   test('credentials without signals have no window', () => {
     expect(parseSubscription({ name: 'gemini.json', type: 'gemini' }).quota).toBeNull();
+  });
+});
+
+describe('quota history fallback', () => {
+  test('a credential without live signals takes its newest weekly history window', () => {
+    const restarted = { ...claude, observedAtMs: null, quota: null };
+    const sample = { authId: 'claude-a', provider: 'claude', usedPercent: 30 };
+    const filled = withHistoryWindow(restarted, [
+      {
+        ...sample,
+        atMs: NOW - 3 * DAY,
+        window: 'weekly',
+        windowMinutes: 7 * 24 * 60,
+        resetAtMs: NOW - 2 * DAY,
+      },
+      {
+        ...sample,
+        atMs: NOW - HOUR,
+        window: 'session',
+        windowMinutes: 5 * 60,
+        resetAtMs: NOW + HOUR,
+      },
+    ]);
+    expect(filled.fromHistory).toBe(true);
+    expect(filled.observedAtMs).toBe(NOW - 3 * DAY);
+    // The stale reset rolls forward into the window containing now.
+    expect(quotaWindowSpan(filled.quota!, NOW)).toEqual({
+      startMs: NOW - 2 * DAY,
+      endMs: NOW + 5 * DAY,
+    });
+    // A live window wins over history.
+    expect(withHistoryWindow(claude, [])).toBe(claude);
   });
 });
 
@@ -228,6 +264,27 @@ describe('selection', () => {
     );
     const all = filterBuckets(buckets, { ...window, provider: 'claude', authId: null });
     expect(all.map((item) => item.costUsd)).toEqual([2, 3, 5]);
+  });
+});
+
+describe('ledger snapshot', () => {
+  test('reloads once the clock passes the hour the snapshot ends in', () => {
+    const loaded = { startMs: NOW - 14 * DAY, endMs: NOW + 50 * 60_000 };
+    expect(ledgerNeedsReload(loaded, NOW - 7 * DAY, NOW + 59 * 60_000)).toBe(false);
+    // A window that reset at the hour would otherwise miss everything after it.
+    expect(ledgerNeedsReload(loaded, NOW - 7 * DAY, NOW + HOUR + 60_000)).toBe(true);
+    expect(ledgerNeedsReload(loaded, NOW - 30 * DAY, NOW)).toBe(true);
+    expect(ledgerNeedsReload(null, NOW - 7 * DAY, NOW)).toBe(true);
+  });
+});
+
+describe('serving credentials', () => {
+  test('pre-tracking and imported personal usage are not removed credentials', () => {
+    const known = new Set(['claude-a']);
+    expect(credentialKind('', known)).toBe('pre_tracking');
+    expect(credentialKind(OWN_ACCOUNT_AUTH_ID, known)).toBe('own_account');
+    expect(credentialKind('claude-a', known)).toBe('subscription');
+    expect(credentialKind('claude-gone', known)).toBe('removed');
   });
 });
 

@@ -5,8 +5,7 @@ import { AuthFilesPage } from '@/features/authFiles/AuthFilesPage';
 import { AuthFilesOAuthExcludedEditPage } from '@/pages/AuthFilesOAuthExcludedEditPage';
 import { AuthFilesOAuthModelAliasEditPage } from '@/pages/AuthFilesOAuthModelAliasEditPage';
 import { OAuthPage } from '@/pages/OAuthPage';
-import { QuotaPage } from '@/features/quota/QuotaPage';
-import { UsagePage } from '@/features/usage/UsagePage';
+import { UsageQuotaPage } from '@/features/quota/UsageQuotaPage';
 import { PluginResourcePage } from '@/features/plugins/PluginResourcePage';
 import { PluginsPage } from '@/features/plugins/PluginsPage';
 import { PluginStorePage } from '@/features/plugins/PluginStorePage';
@@ -28,8 +27,9 @@ const createMainRoutes = (supportsPlugin: boolean) => [
   { path: '/auth-files/oauth-excluded', element: <AuthFilesOAuthExcludedEditPage /> },
   { path: '/auth-files/oauth-model-alias', element: <AuthFilesOAuthModelAliasEditPage /> },
   { path: '/oauth', element: <OAuthPage /> },
-  { path: '/quota', element: <QuotaPage /> },
-  { path: '/usage', element: <UsagePage /> },
+  { path: '/usage-quota', element: <UsageQuotaPage /> },
+  { path: '/quota', element: <Navigate to="/usage-quota" replace /> },
+  { path: '/usage', element: <Navigate to="/usage-quota" replace /> },
   ...(supportsPlugin
     ? [
         { path: '/plugin-pages/:pluginId/:menuIndex', element: <PluginResourcePage /> },

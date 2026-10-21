@@ -5,7 +5,8 @@ const tabsStyles = readFileSync(
   'src/features/authFiles/components/ProviderTabs.module.scss',
   'utf8'
 );
-const quotaStyles = readFileSync('src/features/quota/QuotaPage.module.scss', 'utf8');
+const quotaStyles = readFileSync('src/features/quota/UsageQuotaPage.module.scss', 'utf8');
+const sectionStyles = readFileSync('src/features/usage/UsageSections.module.scss', 'utf8');
 
 describe('provider filter overflow', () => {
   test('constrains the strip and preserves native horizontal scrolling', () => {
@@ -24,7 +25,7 @@ describe('provider filter overflow', () => {
   });
 
   test('allocates remaining quota toolbar width without shrinking the sort control', () => {
-    expect(quotaStyles).toMatch(/> :first-child\s*\{\s*flex: 1 1 auto;\s*min-width: 0;/);
+    expect(sectionStyles).toMatch(/> :first-child\s*\{\s*flex: 1 1 auto;\s*min-width: 0;/);
     expect(quotaStyles).toMatch(/\.sort\s*\{\s*flex: 0 0 auto;/);
   });
 });

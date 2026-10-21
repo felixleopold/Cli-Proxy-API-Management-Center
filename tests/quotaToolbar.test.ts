@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
-const source = readFileSync('src/features/quota/QuotaPage.tsx', 'utf8');
-const styles = readFileSync('src/features/quota/QuotaPage.module.scss', 'utf8');
+const source = readFileSync('src/features/quota/UsageQuotaPage.tsx', 'utf8');
+const styles = readFileSync('src/features/quota/UsageQuotaPage.module.scss', 'utf8');
+const sections = readFileSync('src/features/usage/UsageSections.tsx', 'utf8');
 
 describe('quota toolbar presentation contracts', () => {
   test('uses a named, explicit clear action and restores input focus', () => {
@@ -11,7 +12,7 @@ describe('quota toolbar presentation contracts', () => {
     expect(source).toContain('{search && (');
     expect(source).toContain("aria-label={t('quota_management.search_clear')}");
     expect(source).toContain(
-      "handleSearchChange('');\n                  searchInputRef.current?.focus();"
+      "handleSearchChange('');\n                searchInputRef.current?.focus();"
     );
     expect(source).toContain('<IconX size={14} aria-hidden="true" />');
     expect(styles).toMatch(/&::-webkit-search-cancel-button,[\s\S]*?appearance: none;/);
@@ -21,7 +22,10 @@ describe('quota toolbar presentation contracts', () => {
     const toolbarStart = source.indexOf('<div className={styles.toolbar}>');
     const searchStart = source.indexOf('<div className={styles.search}>');
     const sortStart = source.indexOf('<div className={styles.sort}>');
-    expect(toolbarStart).toBeGreaterThan(source.indexOf('<ProviderTabs'));
+    // Provider navigation is the page-wide tab row; the toolbar sits in the quota details slot.
+    expect(source).not.toContain('<ProviderTabs');
+    expect(sections.indexOf('{quotaDetails}')).toBeGreaterThan(sections.indexOf('<ProviderTabs'));
+    expect(toolbarStart).toBeGreaterThan(source.indexOf('const quotaDetails = ('));
     expect(searchStart).toBeGreaterThan(toolbarStart);
     expect(sortStart).toBeGreaterThan(searchStart);
     expect(styles).toMatch(/\.toolbar\s*\{[^}]*flex-wrap: wrap;/);
