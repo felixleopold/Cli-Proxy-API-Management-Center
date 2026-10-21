@@ -1635,7 +1635,7 @@
     "forecast_sleep_start": "Sleep starts",
     "forecast_sleep_end": "Sleep ends",
     "forecast_sleep_hint": "Until enough history is learned, the forecast assumes no quota use during these hours.",
-    "forecast_pace_hint": "Pace is each credential's average use per day over the last 7 days, or over the last 24 hours when that is higher, so the forecast errs toward running out sooner. With less than a day of history it is the use measured so far, counting only active hours; under 3 hours it is the current window's average. Use while a credential had less than 15% left is ignored: that is rationing, not demand. The shaded range runs from a busy pace (the last 6 hours or a busy day) to a quiet day's pace."
+    "forecast_pace_hint": "Pace is each credential's recent use per active hour, averaged over the last 14 days with recent days weighing more (a day 3 days ago counts half as much as today). With under 3 hours of active history it is the current window's average. Use while a credential had less than 15% left is ignored: that is rationing, not demand. The shaded range runs from a busy day's pace to a quiet day's pace."
   },
   "plugin_management": {
     "title": "Plugin Management",
