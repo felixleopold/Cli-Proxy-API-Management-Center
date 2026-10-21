@@ -222,7 +222,7 @@ export function buildPools(
   });
 }
 
-/** A Codex manual reset as the quota card reports it. */
+/** A manual reset as a quota card or the gateway reports it. */
 export interface ResetCreditLike {
   id: string;
   status?: string;
@@ -230,8 +230,29 @@ export interface ResetCreditLike {
 }
 
 /**
+ * Reset credits the gateway caches for quota-aware routing (Codex manual resets and
+ * Claude reset grants), listed with each credential as `quota_planning.reset_credits`.
+ */
+export function gatewayResetCredits(file: AuthFileItem): ResetCreditLike[] {
+  const planning = file.quota_planning;
+  if (!isRecord(planning) || !Array.isArray(planning.reset_credits)) return [];
+  return planning.reset_credits.flatMap((credit) =>
+    isRecord(credit) && typeof credit.expires_at === 'string'
+      ? [
+          {
+            id: typeof credit.id === 'string' ? credit.id : '',
+            status: 'available',
+            expiresAt: credit.expires_at,
+          },
+        ]
+      : []
+  );
+}
+
+/**
  * Expiry instants of the pool's unused, unexpired manual resets, soonest first.
- * They are redeemed by hand, so the projection never assumes one is used.
+ * The gateway redeems one shortly before it expires only when that pays off, so the
+ * projection never assumes one is used.
  */
 export function poolResetCredits(
   pool: ProviderPool,

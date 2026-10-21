@@ -46,7 +46,7 @@ import {
   sortQuotaEntries,
   type QuotaFileEntry,
 } from './logic';
-import { hasForecastCredentials } from './quotaForecastModel';
+import { gatewayResetCredits, hasForecastCredentials } from './quotaForecastModel';
 import { nextRecoveryMs } from './resetSchedule';
 import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from './providers';
 import type { QuotaProviderType } from './providers/types';
@@ -156,9 +156,15 @@ export function UsageQuotaPage() {
     [quotaByType]
   );
 
-  // Manual resets only reach the store once a Codex card's quota has loaded.
+  // A Codex card whose credits loaded has the freshest manual resets; otherwise the
+  // gateway's cache is used, which also covers Claude reset grants.
   const resetCreditsFor = useCallback(
-    (file: AuthFileItem) => codexQuota[getQuotaCacheKey(file)]?.rateLimitResetCredits,
+    (file: AuthFileItem) => {
+      const card = codexQuota[getQuotaCacheKey(file)];
+      return card?.status === 'success' && !card.rateLimitResetCreditsError
+        ? card.rateLimitResetCredits
+        : gatewayResetCredits(file);
+    },
     [codexQuota]
   );
 
