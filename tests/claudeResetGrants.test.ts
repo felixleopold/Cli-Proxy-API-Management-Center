@@ -345,6 +345,7 @@ test('Claude card uses Codex count and action styles and shared confirmation, no
   const card = await Bun.file('src/features/quota/components/QuotaCard.tsx').text();
   const hook = await Bun.file('src/features/quota/providers/claude/ClaudeResetGrants.tsx').text();
   expect(card).toContain('quotaClasses.codexPlanValue}>{claudeReset.count');
+  expect(card).toContain('<AccountDetails count={claudeReset.count}>');
   expect(card).toContain('disabled={claudeReset.blocked}');
   expect(card).toContain('onClick={claudeReset.confirm}');
   expect(hook).toContain('showConfirmation({');

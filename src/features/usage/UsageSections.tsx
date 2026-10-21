@@ -1,10 +1,11 @@
 /**
- * The usage half of the Usage & quota page, in span order: current quota
- * windows (the pooled forecast plus each subscription's spend in its own
- * current window), then spend history (a 24h/7d/30d/90d range, or one
- * subscription's window, for the KPIs, chart and users table), then the quota
- * details slot and the client key → device/user labels. Each section states
- * the span its numbers cover. Logic lives in usageModel.ts.
+ * The usage half of the Usage & quota page: the account cards slot (each
+ * credential's quota merged with its spend in its current window, rendered by
+ * the page from the spend context built here), the current quota windows (the
+ * pooled forecast and timeline), then spend history (a 24h/7d/30d/90d range, or
+ * one credential's window, for the KPIs, chart and users table), then the client
+ * key → device/user labels. Each section states the span its numbers cover.
+ * Logic lives in usageModel.ts.
  */
 
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
@@ -23,9 +24,9 @@ import { useNotificationStore, useThemeStore } from '@/stores';
 import type { AuthFileItem, UsageClient, UsageClientLabel } from '@/types';
 import { formatCompactNumber, formatPercent, maskApiKey } from '@/utils/format';
 import { formatRelativeInstant } from '@/utils/quota/relativeTime';
+import type { AccountSpendContext } from './components/AccountSpend';
 import { UsageClientsEditor } from './components/UsageClientsEditor';
 import { UsageSpendChart, type ChartMarker, type ChartSeries } from './components/UsageSpendChart';
-import { UsageSubscriptions } from './components/UsageSubscriptions';
 import { UsageUsersTable } from './components/UsageUsersTable';
 import { useUsageDirectory, useUsageLedger } from './hooks/useUsageData';
 import {
@@ -85,10 +86,10 @@ export interface UsageSectionsProps {
   onProviderChange: (provider: string) => void;
   /** Reloads the page's credential list (the header refresh reloads both halves). */
   onRefresh: () => Promise<void>;
-  /** The pooled remaining-quota forecast, shown with the current windows. */
+  /** The account cards, first on the page; spend comes from the ledger loaded here. */
+  accounts: (spend: AccountSpendContext) => ReactNode;
+  /** The pooled remaining-quota forecast and the window timeline. */
   forecast: ReactNode;
-  /** Per-credential quota cards and timeline, shown below the spend history. */
-  quotaDetails: ReactNode;
 }
 
 export function UsageSections({
@@ -98,8 +99,8 @@ export function UsageSections({
   provider,
   onProviderChange,
   onRefresh,
+  accounts,
   forecast,
-  quotaDetails,
 }: UsageSectionsProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage;
@@ -379,6 +380,17 @@ export function UsageSections({
   const rangeLabel = (value: UsageRange) => t(`usage.range_${value}`);
   const rangeLong = t(`usage.range_long_${range}`);
   const stale = ledgerState.covered ? '' : styles.contentStale;
+  const spend: AccountSpendContext = {
+    status: ledgerState.error ? 'unavailable' : showSkeleton ? 'loading' : 'ready',
+    stale: !ledgerState.covered,
+    summaries,
+    userSlots: userColors,
+    activeId: picked ? selection.authId : null,
+    userLabel,
+    rangeName: rangeLong,
+    rangeSpan: rangeSpanText,
+    onSelect: selectWindow,
+  };
 
   return (
     <>
@@ -395,7 +407,19 @@ export function UsageSections({
         />
       </div>
 
-      {/* ---------- Current quota windows: no range control; each card names its window. ---------- */}
+      <section className={styles.section} aria-labelledby="accounts-title">
+        <header className={styles.sectionHead}>
+          <div className={styles.sectionCopy}>
+            <h2 id="accounts-title" className={styles.sectionTitle}>
+              {t('quota_management.details_title')}
+            </h2>
+            <p className={styles.sectionHint}>{t('quota_management.details_hint')}</p>
+          </div>
+        </header>
+        {accounts(spend)}
+      </section>
+
+      {/* ---------- Current quota windows: no range control; each lane names its window. ---------- */}
       <section className={styles.section} aria-labelledby="usage-windows-title">
         <header className={styles.sectionHead}>
           <div className={styles.sectionCopy}>
@@ -405,35 +429,17 @@ export function UsageSections({
             <p className={styles.sectionHint}>{t('usage.windows_hint')}</p>
           </div>
         </header>
-
         {forecast}
-
-        {ledgerState.error ? (
-          <EmptyState
-            title={t(ledgerState.disabled ? 'usage.disabled_title' : 'usage.load_failed_title')}
-            description={t(
-              ledgerState.disabled ? 'usage.disabled_desc' : 'usage.load_failed_desc',
-              { error: ledgerState.error }
-            )}
-          />
-        ) : showSkeleton ? (
-          <Skeleton height={180} rounded={14} />
-        ) : (
-          <div className={stale} aria-busy={!ledgerState.covered}>
-            <UsageSubscriptions
-              summaries={summaries}
-              userSlots={userColors}
-              activeId={picked ? selection.authId : null}
-              nowMs={now}
-              resolvedTheme={resolvedTheme}
-              userLabel={userLabel}
-              rangeName={rangeLong}
-              rangeSpan={rangeSpanText}
-              onSelect={selectWindow}
-            />
-          </div>
-        )}
       </section>
+
+      {ledgerState.error && (
+        <EmptyState
+          title={t(ledgerState.disabled ? 'usage.disabled_title' : 'usage.load_failed_title')}
+          description={t(ledgerState.disabled ? 'usage.disabled_desc' : 'usage.load_failed_desc', {
+            error: ledgerState.error,
+          })}
+        />
+      )}
 
       {/* ---------- Spend history: the range control lives here and only affects this section. ---------- */}
       {!ledgerState.error && (
@@ -655,18 +661,6 @@ export function UsageSections({
           )}
         </section>
       )}
-
-      <section className={styles.section} aria-labelledby="quota-details-title">
-        <header className={styles.sectionHead}>
-          <div className={styles.sectionCopy}>
-            <h2 id="quota-details-title" className={styles.sectionTitle}>
-              {t('quota_management.details_title')}
-            </h2>
-            <p className={styles.sectionHint}>{t('quota_management.details_hint')}</p>
-          </div>
-        </header>
-        {quotaDetails}
-      </section>
 
       {!ledgerState.error && !showSkeleton && (
         <section className={styles.panel}>
