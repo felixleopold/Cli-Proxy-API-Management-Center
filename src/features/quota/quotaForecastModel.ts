@@ -1031,11 +1031,13 @@ export function learnActivity(
    * Quota percent per dollar is measured over the intervals the pool's drain
    * was recorded in, leaving out time the pool as a whole was rationed. All
    * drain counts there, since a rationed credential's drain is still quota
-   * spent; the same rationed time is then left out of the rates.
+   * spent; the same rationed time is then left out of the rates. Rates start
+   * at the pool's first sample: earlier cost (e.g. imports) may not have been
+   * the pool's, though it still shapes the hour-of-day profile.
    */
   function ledgerPaceOf(
     pool: ProviderPool,
-    entries: { drains: Drain[]; observed: Span[] }[]
+    entries: { oldestMs: number; drains: Drain[]; observed: Span[] }[]
   ): ((part: CostPart) => { pace: number; daily: number[] } | null) | null {
     if (!Number.isFinite(ledgerFromMs)) return null;
     const drains = entries.flatMap((entry) => entry.drains);
@@ -1081,11 +1083,12 @@ export function learnActivity(
     );
     if (drain < MIN_CALIBRATION_DRAIN || spent <= 0) return null;
     const percentPerDollar = drain / spent;
+    const paceFromMs = Math.max(ledgerFromMs, Math.min(...entries.map((entry) => entry.oldestMs)));
 
     return (part) => {
       const ledgerRate = (fromMs: number, toMs: number, weight: Weight) =>
         rateOver(
-          Math.max(fromMs, ledgerFromMs),
+          Math.max(fromMs, paceFromMs),
           toMs,
           censored,
           weight,
@@ -1095,7 +1098,7 @@ export function learnActivity(
       if (pace === null) return null;
       return {
         pace,
-        daily: pastDays(ledgerFromMs).flatMap(
+        daily: pastDays(paceFromMs).flatMap(
           (fromMs) => ledgerRate(fromMs, fromMs + DAY_MS, unweighted) ?? []
         ),
       };
