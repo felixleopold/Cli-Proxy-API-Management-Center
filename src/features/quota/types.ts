@@ -99,4 +99,10 @@ export function bindQuotaClasses(module: Record<string, string>, source: string)
 export interface QuotaBodyProps<TState> {
   quota: TState;
   classes: QuotaClassMap;
+  /**
+   * The Usage & quota account card shows the plan in its header and the account
+   * details (renewal, credits, manual resets) behind a disclosure, so the body
+   * renders only the limits. Bodies without such details ignore it.
+   */
+  compact?: boolean;
 }

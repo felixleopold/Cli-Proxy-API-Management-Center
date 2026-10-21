@@ -21,12 +21,19 @@ Current base: upstream `v1.25.6`.
   quota, so its edge can be compared with the now line (past it means usage is ahead of pace),
   while the label shows remaining. A legend entry (`quota_management.windows_legend_used`) says so.
 - **Usage & quota page** (`/usage-quota`, OBSERVE; `/usage` and `/quota` redirect there). One page
-  and one provider filter, in span order: *Current quota windows* (the pooled forecast plus one card
-  per subscription showing spend in that credential's current window, labelled "This window · start –
-  end" with its reset), *Spend history* (the 24h/7d/30d/90d control lives in its header and only drives
-  the KPIs, chart and users table; clicking a card swaps in that window, with ‹ › and "Back to 7d"),
-  then the upstream per-credential quota cards and the device label editor. Shell:
-  `src/features/quota/UsageQuotaPage.tsx`; usage half: `src/features/usage/UsageSections.tsx`.
+  and one provider filter, in order: *Accounts* (one card per credential merging upstream's quota card
+  with its spend: email title with the file name on hover, provider and plan, "resets in …" chip, the
+  limit bars as % left, then "$X this window ≈ $Y at 100%" with the user split, then renewal, credit
+  balance and manual reset expiries behind a "N manual resets ›" disclosure, then Reset / Refresh),
+  *Current quota windows* (the pooled forecast and the window timeline), *Spend history* (the
+  24h/7d/30d/90d control lives in its header and only drives the KPIs, chart and users table; clicking
+  a card's spend swaps in that window, with ‹ › and "Back to 7d"), then the device label editor. A
+  quota card pairs with its spend by auth id (`file.id`, else the file name), the ledger's `auth_id`;
+  credentials without quota support get a spend-only card after the quota cards, on the last page
+  (`src/features/quota/accountCards.ts`, tests: `tests/accountCards.test.ts`). The Codex, Claude and
+  Antigravity bodies take `compact` there (plan in the header, details in the disclosure); the Auth
+  Files cards render them unchanged. Shell: `src/features/quota/UsageQuotaPage.tsx`; card:
+  `components/QuotaCard.tsx`; usage half: `src/features/usage/UsageSections.tsx`.
   API-equivalent USD per user across all providers comes from the fork-only gateway ledger
   (`/observability/usage/ledger`, `/observability/usage/clients` GET/PUT; needs
   `usage-ledger.enabled: true`, otherwise an empty state says so). Buckets carry the serving
@@ -36,8 +43,8 @@ Current base: upstream `v1.25.6`.
   on `/credentials` (Claude unified 7d/5h, Codex primary/secondary), or, without live signals (e.g.
   after a gateway restart), from its newest quota-history sample; stale resets roll forward by whole
   periods. Cards without either say they show the history range. The ledger refetches when the
-  selection needs an earlier start or the clock passes the hour the snapshot ends in. Cards also show
-  used %, spend by user and ≈ spend at 100% from ≥ 5% used; the chart stacks by user or subscription
+  selection needs an earlier start or the clock passes the hour the snapshot ends in. Cards show
+  spend by user and ≈ spend at 100% from ≥ 5% used; the chart stacks by user or subscription
   with reset markers; the table drills user → device → model; the label editor maps key → device/user
   (fingerprint = first 12 hex of sha256 of the key). Series colors follow identity (users
   alphabetically, subscriptions by provider and name; `components/seriesSlots.module.scss`).
