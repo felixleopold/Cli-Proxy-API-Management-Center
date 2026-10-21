@@ -156,11 +156,15 @@ export function UsageQuotaPage() {
     [quotaByType]
   );
 
-  // A loaded Codex card has the freshest manual resets; otherwise the gateway's cache is
-  // used, which also covers Claude reset grants.
+  // A Codex card whose credits loaded has the freshest manual resets; otherwise the
+  // gateway's cache is used, which also covers Claude reset grants.
   const resetCreditsFor = useCallback(
-    (file: AuthFileItem) =>
-      codexQuota[getQuotaCacheKey(file)]?.rateLimitResetCredits ?? gatewayResetCredits(file),
+    (file: AuthFileItem) => {
+      const card = codexQuota[getQuotaCacheKey(file)];
+      return card?.status === 'success' && !card.rateLimitResetCreditsError
+        ? card.rateLimitResetCredits
+        : gatewayResetCredits(file);
+    },
     [codexQuota]
   );
 
