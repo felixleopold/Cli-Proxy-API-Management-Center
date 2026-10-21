@@ -741,6 +741,33 @@ describe('usage ledger', () => {
     });
   });
 
+  test('heavy unattributed cost before the first sample does not raise the pace', () => {
+    withTimeZone('UTC', () => {
+      const workHours = [9, 10, 11, 12, 13, 14, 15, 16];
+      // From Oct 12: 0.5% per working hour against $2 an hour, 4% a day.
+      const samples = [sample({ atMs: Date.UTC(2026, 9, 12, 9), usedPercent: 0 })];
+      for (let day = 12; day <= 16; day += 1) {
+        workHours.forEach((hour) =>
+          samples.push(
+            sample({ atMs: Date.UTC(2026, 9, day, hour + 1), usedPercent: samples.length * 0.5 })
+          )
+        );
+      }
+      // Imported before any sample: ten times the cost, maybe not even this pool's.
+      const ledger = ledgerRows('claude', workHours, (hourMs) =>
+        hourMs < Date.UTC(2026, 9, 12) ? 20 : 2
+      );
+      const activity = learnActivity(
+        [pool(credential({ usedPercent: 20 }))],
+        samples,
+        NOW,
+        DEFAULT_SLEEP_HOURS,
+        ledger
+      );
+      expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo(4, 0);
+    });
+  });
+
   test('unchanged readings keep their cost in the ledger calibration', () => {
     withTimeZone('UTC', () => {
       const workHours = [9, 10, 11, 12, 13, 14, 15, 16];
