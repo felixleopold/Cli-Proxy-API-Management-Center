@@ -704,6 +704,43 @@ describe('usage ledger', () => {
     });
   });
 
+  test('each credential paces by its own attributed ledger cost', () => {
+    withTimeZone('UTC', () => {
+      const workHours = [9, 10, 11, 12, 13, 14, 15, 16];
+      // 'a' drains 80% on Oct 4–8 at $1 an hour; 'b' drains 80% on Oct 15–16 at $2.50 an hour.
+      const spell = (authId: string, days: number[], perHour: number, costUsd: number) => {
+        const samples = [sample({ authId, atMs: Date.UTC(2026, 9, days[0], 9), usedPercent: 0 })];
+        const ledger: LedgerCost[] = [];
+        days.forEach((day) =>
+          workHours.forEach((hour) => {
+            const hourMs = Date.UTC(2026, 9, day, hour);
+            ledger.push({ hourMs, provider: 'claude', authId, costUsd });
+            samples.push(
+              sample({ authId, atMs: hourMs + HOUR_MS, usedPercent: samples.length * perHour })
+            );
+          })
+        );
+        return { samples, ledger };
+      };
+      const a = spell('a', [4, 5, 6, 7, 8], 2, 1);
+      const b = spell('b', [15, 16], 5, 2.5);
+      const activity = learnActivity(
+        [pool(credential({ usedPercent: 80 }), credential({ authId: 'b', usedPercent: 80 }))],
+        [...a.samples, ...b.samples],
+        NOW,
+        DEFAULT_SLEEP_HOURS,
+        [...a.ledger, ...b.ledger]
+      );
+      // Equal drain, but 'b' spent recently: the rates follow each one's decayed cost.
+      const decayedCost = (rows: LedgerCost[]) =>
+        rows.reduce((sum, row) => sum + row.costUsd * decay(row.hourMs + HOUR_MS / 2), 0);
+      const rateA = (activity.rates.get('a') ?? 0) * DAY_MS;
+      const rateB = (activity.rates.get('b') ?? 0) * DAY_MS;
+      expect(rateA).toBeGreaterThan(0);
+      expect(rateB / rateA).toBeCloseTo(decayedCost(b.ledger) / decayedCost(a.ledger));
+    });
+  });
+
   test('unchanged readings keep their cost in the ledger calibration', () => {
     withTimeZone('UTC', () => {
       const workHours = [9, 10, 11, 12, 13, 14, 15, 16];

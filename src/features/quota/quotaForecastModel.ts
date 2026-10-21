@@ -798,6 +798,8 @@ interface Span {
 /** How much an amount or a stretch of time at t counts toward a rate. */
 type Weight = (t: number) => number;
 const unweighted: Weight = () => 1;
+/** One credential's part of a ledger row's cost, by the row's credential ('' before attribution). */
+type CostPart = (authId: string) => number;
 
 /** Length of [startMs, endMs] inside [fromMs, toMs]. */
 const overlapMs = (startMs: number, endMs: number, fromMs: number, toMs: number) =>
@@ -830,8 +832,9 @@ const outside = (
  * their learned weight, so a quiet afternoon is slower, not asleep.
  *
  * A pool whose quota drain can be matched to enough ledger cost takes its
- * decayed and daily rates from the ledger, converted at that ratio and split
- * by each credential's share of the drain.
+ * decayed and daily rates from the ledger, converted at that ratio: each
+ * credential its own cost, plus cost recorded before attribution split by its
+ * decayed share of the drain.
  */
 export function learnActivity(
   pools: ProviderPool[],
@@ -868,19 +871,31 @@ export function learnActivity(
   // the ledger attributed credentials; API keys and removed accounts drain no quota.
   const pooled = new Set(pools.flatMap((pool) => pool.credentials.map((c) => c.authId)));
   const ledgerFromMs = ledgerRows.reduce((min, row) => Math.min(min, row.hourMs), Infinity);
-  const costByHour = new Map<ForecastProvider, Map<number, number>>();
-  ledgerRows.forEach(({ hourMs, costUsd, authId, provider }) => {
-    if (authId && !pooled.has(authId)) return;
-    const hours = costByHour.get(provider) ?? new Map<number, number>();
-    hours.set(hourMs, (hours.get(hourMs) ?? 0) + costUsd);
-    costByHour.set(provider, hours);
+  const costRows = new Map<ForecastProvider, typeof ledgerRows>();
+  ledgerRows.forEach((row) => {
+    if (row.authId && !pooled.has(row.authId)) return;
+    const rows = costRows.get(row.provider) ?? [];
+    rows.push(row);
+    costRows.set(row.provider, rows);
   });
-  /** The provider's ledger cost in [fromMs, toMs], hours taken pro rata, each weighted at its midpoint. */
-  const costBetween = (provider: ForecastProvider, fromMs: number, toMs: number, weight: Weight) =>
-    [...(costByHour.get(provider) ?? new Map<number, number>())].reduce(
-      (sum, [hourMs, cost]) =>
+  /**
+   * The provider's ledger cost in [fromMs, toMs], hours taken pro rata, each
+   * weighted at its midpoint, and each row by the `part` its credential gets.
+   */
+  const costBetween = (
+    provider: ForecastProvider,
+    fromMs: number,
+    toMs: number,
+    weight: Weight,
+    part: CostPart
+  ) =>
+    (costRows.get(provider) ?? []).reduce(
+      (sum, { hourMs, costUsd, authId }) =>
         sum +
-        (cost * overlapMs(hourMs, hourMs + HOUR_MS, fromMs, toMs) * weight(hourMs + HOUR_MS / 2)) /
+        (costUsd *
+          part(authId) *
+          overlapMs(hourMs, hourMs + HOUR_MS, fromMs, toMs) *
+          weight(hourMs + HOUR_MS / 2)) /
           HOUR_MS,
       0
     );
@@ -959,8 +974,9 @@ export function learnActivity(
   const ranges = new Map<string, PaceRange>();
   groups.forEach(({ pool, entries }) => {
     const ledgerPace = ledgerPaceOf(pool, entries);
+    // Cost from before attribution is shared as the recent, decayed drain was.
     const drained = entries.map((entry) =>
-      entry.drains.reduce((sum, drain) => sum + drain.delta, 0)
+      entry.drains.reduce((sum, drain) => sum + drain.delta * decayed(drain.atMs), 0)
     );
     const totalDrained = drained.reduce((sum, value) => sum + value, 0);
 
@@ -975,14 +991,16 @@ export function learnActivity(
             .filter((drain) => !drain.censored && drain.atMs > from && drain.atMs <= to)
             .reduce((sum, drain) => sum + drain.delta * weight(drain.atMs), 0)
         );
-      // Credentials share the provider's ledger cost as they shared its drain.
       const share = totalDrained > 0 ? drained[index] / totalDrained : 1 / entries.length;
+      const fromLedger = ledgerPace?.((authId) =>
+        authId === entry.authId ? 1 : authId ? 0 : share
+      );
 
       let expected: number;
       let daily: number[];
-      if (ledgerPace) {
-        expected = ledgerPace.pace * share;
-        daily = ledgerPace.daily.map((rate) => rate * share);
+      if (fromLedger) {
+        expected = fromLedger.pace;
+        daily = fromLedger.daily;
       } else {
         const pace = historyRate(windowStartMs, nowMs, decayed);
         if (pace === null) return;
@@ -1007,8 +1025,9 @@ export function learnActivity(
   });
 
   /**
-   * The pool's decayed and daily rates from ledger cost, percent per active
-   * millisecond, or null when its drain cannot be matched to enough cost.
+   * Decayed and daily rates from the part of the pool's ledger cost a
+   * credential gets, percent per active millisecond; null when the pool's
+   * drain cannot be matched to enough cost.
    * Quota percent per dollar is measured over the intervals the pool's drain
    * was recorded in, leaving out time the pool as a whole was rationed. All
    * drain counts there, since a rationed credential's drain is still quota
@@ -1017,7 +1036,7 @@ export function learnActivity(
   function ledgerPaceOf(
     pool: ProviderPool,
     entries: { drains: Drain[]; observed: Span[] }[]
-  ): { pace: number; daily: number[] } | null {
+  ): ((part: CostPart) => { pace: number; daily: number[] } | null) | null {
     if (!Number.isFinite(ledgerFromMs)) return null;
     const drains = entries.flatMap((entry) => entry.drains);
     if (drains.length === 0) return null;
@@ -1041,8 +1060,10 @@ export function learnActivity(
       const endMs = history[index + 1]?.t ?? nowMs;
       return point.v < rationedBelow && endMs > point.t ? [{ startMs: point.t, endMs }] : [];
     });
-    const cost = (fromMs: number, toMs: number, weight: Weight = unweighted) =>
-      outside(fromMs, toMs, censored, (from, to) => costBetween(pool.provider, from, to, weight));
+    const cost = (fromMs: number, toMs: number, weight: Weight, part: CostPart) =>
+      outside(fromMs, toMs, censored, (from, to) =>
+        costBetween(pool.provider, from, to, weight, part)
+      );
 
     // A drain partly before the ledger or partly rationed counts pro rata.
     const drain = drains.reduce((sum, { fromMs, atMs, delta }) => {
@@ -1054,25 +1075,30 @@ export function learnActivity(
       );
       return atMs > fromMs ? sum + (delta * Math.max(0, inside)) / (atMs - fromMs) : sum;
     }, 0);
-    const spent = intervals.reduce((sum, span) => sum + cost(span.startMs, span.endMs), 0);
+    const spent = intervals.reduce(
+      (sum, span) => sum + cost(span.startMs, span.endMs, unweighted, () => 1),
+      0
+    );
     if (drain < MIN_CALIBRATION_DRAIN || spent <= 0) return null;
     const percentPerDollar = drain / spent;
 
-    const ledgerRate = (fromMs: number, toMs: number, weight: Weight) =>
-      rateOver(
-        Math.max(fromMs, ledgerFromMs),
-        toMs,
-        censored,
-        weight,
-        (from, to) => percentPerDollar * cost(from, to, weight)
-      );
-    const pace = ledgerRate(windowStartMs, nowMs, decayed);
-    if (pace === null) return null;
-    return {
-      pace,
-      daily: pastDays(ledgerFromMs).flatMap(
-        (fromMs) => ledgerRate(fromMs, fromMs + DAY_MS, unweighted) ?? []
-      ),
+    return (part) => {
+      const ledgerRate = (fromMs: number, toMs: number, weight: Weight) =>
+        rateOver(
+          Math.max(fromMs, ledgerFromMs),
+          toMs,
+          censored,
+          weight,
+          (from, to) => percentPerDollar * cost(from, to, weight, part)
+        );
+      const pace = ledgerRate(windowStartMs, nowMs, decayed);
+      if (pace === null) return null;
+      return {
+        pace,
+        daily: pastDays(ledgerFromMs).flatMap(
+          (fromMs) => ledgerRate(fromMs, fromMs + DAY_MS, unweighted) ?? []
+        ),
+      };
     };
   }
 
