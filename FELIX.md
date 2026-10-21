@@ -20,18 +20,27 @@ Current base: upstream `v1.25.6`.
 - **Timeline legend explains the fill.** The current window's fill deliberately shows *used*
   quota, so its edge can be compared with the now line (past it means usage is ahead of pace),
   while the label shows remaining. A legend entry (`quota_management.windows_legend_used`) says so.
-- **Usage page** (`/usage`, OBSERVE; `src/features/usage/`). API-equivalent USD per user across
-  all providers, from the fork-only gateway ledger (`/observability/usage/ledger`, `/observability/usage/clients`
-  GET/PUT; needs `usage-ledger.enabled: true`, otherwise an empty state says so). Buckets carry the
-  serving credential (`auth_id`; `''` before attribution counts as Unattributed, totals only).
-  Provider tabs and a 24h/7d/30d/90d range; or a subscription window: each credential's window is
-  `[reset − period, reset]` from its passive `quota.signals` on `/credentials` (Claude unified 7d/5h,
-  Codex primary/secondary), stale resets rolled forward by whole periods, with ‹ › stepping back.
-  Shows KPIs versus the previous equal period (or window at the same point), one card per
-  subscription (window, used %, spend by user, ≈ spend at 100% from ≥ 5% used), a stacked spend chart
-  by user or subscription with reset markers, a user → device → model table, and a key → device/user
-  label editor (fingerprint = first 12 hex of sha256 of the key). Series colors follow identity
-  (users alphabetically, subscriptions by provider and name; `components/seriesSlots.module.scss`).
+- **Usage & quota page** (`/usage-quota`, OBSERVE; `/usage` and `/quota` redirect there). One page
+  and one provider filter, in span order: *Current quota windows* (the pooled forecast plus one card
+  per subscription showing spend in that credential's current window, labelled "This window · start –
+  end" with its reset), *Spend history* (the 24h/7d/30d/90d control lives in its header and only drives
+  the KPIs, chart and users table; clicking a card swaps in that window, with ‹ › and "Back to 7d"),
+  then the upstream per-credential quota cards and the device label editor. Shell:
+  `src/features/quota/UsageQuotaPage.tsx`; usage half: `src/features/usage/UsageSections.tsx`.
+  API-equivalent USD per user across all providers comes from the fork-only gateway ledger
+  (`/observability/usage/ledger`, `/observability/usage/clients` GET/PUT; needs
+  `usage-ledger.enabled: true`, otherwise an empty state says so). Buckets carry the serving
+  credential (`auth_id`): `''` is shared-pool usage from before credential tracking and
+  `imported-own-account` is imported personal-account usage from before the gateway; both count in
+  totals only. Each credential's window is `[reset − period, reset]` from its passive `quota.signals`
+  on `/credentials` (Claude unified 7d/5h, Codex primary/secondary), or, without live signals (e.g.
+  after a gateway restart), from its newest quota-history sample; stale resets roll forward by whole
+  periods. Cards without either say they show the history range. The ledger refetches when the
+  selection needs an earlier start or the clock passes the hour the snapshot ends in. Cards also show
+  used %, spend by user and ≈ spend at 100% from ≥ 5% used; the chart stacks by user or subscription
+  with reset markers; the table drills user → device → model; the label editor maps key → device/user
+  (fingerprint = first 12 hex of sha256 of the key). Series colors follow identity (users
+  alphabetically, subscriptions by provider and name; `components/seriesSlots.module.scss`).
   Logic: `usageModel.ts`; tests: `tests/usageModel.test.ts`.
 - **Quota forecast** (`src/features/quota/quotaForecastModel.ts`, `components/QuotaForecast*`).
   Per-provider pool chart of remaining quota with a projection to the next resets, drain history

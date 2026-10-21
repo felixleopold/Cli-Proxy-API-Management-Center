@@ -16,7 +16,6 @@ import { Select } from '@/components/ui/Select';
 import { useNow } from '@/hooks/useNow';
 import type { AuthFileItem } from '@/types';
 import { getTypeLabel } from '@/features/authFiles/constants';
-import type { QuotaTabId } from '../constants';
 import {
   DAY_MS,
   DEFAULT_SLEEP_HOURS,
@@ -25,7 +24,6 @@ import {
   buildPools,
   drainBuckets,
   drainEdges,
-  hasForecastCredentials,
   learnActivity,
   nightHours,
   poolHistory,
@@ -39,7 +37,7 @@ import {
   type ResetCreditLike,
   type SleepHours,
 } from '../quotaForecastModel';
-import { useQuotaHistory } from '../hooks/useQuotaHistory';
+import type { QuotaHistoryState } from '../hooks/useQuotaHistory';
 import { readQuotaUiState, writeQuotaUiState } from '../uiState';
 import {
   DrainChart,
@@ -61,21 +59,29 @@ type ForecastView = 'remaining' | 'drain';
 
 export interface QuotaForecastProps {
   files: AuthFileItem[];
-  tab: QuotaTabId;
+  /** Quota history (and ledger) loaded by the page, shared with the subscription cards. */
+  history: QuotaHistoryState;
+  /** The page's provider filter; 'all', or a provider id. */
+  tab: string;
   /** Injectable for tests/screenshots; defaults to the real clock. */
   now?: number;
   /** Manual resets loaded for a credential's quota card, if any. */
   resetCreditsFor?: (file: AuthFileItem) => readonly ResetCreditLike[] | undefined;
 }
 
-export function QuotaForecast({ files, tab, now: nowProp, resetCreditsFor }: QuotaForecastProps) {
+export function QuotaForecast({
+  files,
+  history,
+  tab,
+  now: nowProp,
+  resetCreditsFor,
+}: QuotaForecastProps) {
   const { t, i18n } = useTranslation();
   const language = i18n.resolvedLanguage || i18n.language;
   const tick = useNow(nowProp === undefined);
   const nowMs = nowProp ?? tick;
   const bodyId = useId();
 
-  const history = useQuotaHistory(hasForecastCredentials(files), files);
   const samples = history.status === 'ok' ? history.samples : null;
   const ledger = history.status === 'ok' ? history.ledger : null;
   // Credentials without live signals join from their latest history reading.

@@ -1,22 +1,38 @@
 @use '../../styles/mixins' as *;
 
-/* Usage page: Quota header vocabulary (title, ▍ mono meta, pill controls), the
- * provider tabs, a compact KPI strip and panels. Color is reserved for users
- * and subscriptions in the chart; everything else stays in ink. */
+/* Usage half of the Usage & quota page: provider tabs, then sections that each
+ * state the span they cover (title, hint or ▍ mono span line, controls on the
+ * right), a compact KPI strip and panels. Color is reserved for users and
+ * subscriptions in the chart; everything else stays in ink. */
 
-.page {
+/* Provider navigation keeps its own row and native horizontal scrolling. */
+.tabsRow {
   display: flex;
-  flex-direction: column;
-  gap: 18px;
-  width: 100%;
+  align-items: center;
   min-width: 0;
+
+  > :first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
 }
 
-.header {
+/* ---------- Sections: a hairline, a heading that names the span, content ---------- */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-color);
+}
+
+.sectionHead {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 14px 24px;
+  gap: 10px 16px;
   flex-wrap: wrap;
 
   @include mobile {
@@ -25,30 +41,37 @@
   }
 }
 
-.copy {
+.sectionCopy {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 5px;
   min-width: 0;
 }
 
-.title {
+.sectionTitle {
   margin: 0;
-  font-size: clamp(26px, 3.2vw, 30px);
-  line-height: 1.15;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 19px;
+  line-height: 1.25;
+  font-weight: 650;
+  letter-spacing: -0.015em;
   color: var(--text-primary);
 }
 
-.meta {
+.sectionHint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.sectionSpan {
   margin: 0;
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 4px 8px;
+  gap: 2px 8px;
   font-family: $font-mono;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
@@ -57,33 +80,19 @@
   &::before {
     content: '▍';
     color: var(--viz-success);
-    font-size: 13px;
     line-height: 1;
     align-self: center;
     margin-right: 1px;
   }
 }
 
-.metaStrong {
+.spanStrong {
   color: var(--text-primary);
 }
 
-.metaDot {
+.spanDot {
   color: var(--text-quaternary);
   user-select: none;
-}
-
-.controls {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-  min-width: 0;
-
-  @include mobile {
-    justify-content: flex-start;
-  }
 }
 
 @mixin pill-button {
@@ -137,17 +146,42 @@
   font-size: 12px;
 }
 
-/* The selected subscription window: removable, steppable. */
-.windowChip {
+/* A subscription window replaces the range: an ink-bordered bar, steppable, with a way back. */
+.windowBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  min-width: 0;
+  padding: 4px;
+  border: 1px solid var(--text-primary);
+  border-radius: 12px;
+  background: var(--floating-surface, var(--bg-primary));
+}
+
+.windowStepper {
   display: inline-flex;
   align-items: center;
   gap: 2px;
   min-width: 0;
   max-width: 100%;
-  padding: 3px;
-  border: 1px solid var(--text-primary);
-  border-radius: $radius-full;
-  background: var(--floating-surface, var(--bg-primary));
+}
+
+.windowBack {
+  @include pill-button;
+  flex: none;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-color: var(--border-color);
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      background: var(--bg-tertiary);
+    }
+  }
 }
 
 .chipButton {
@@ -163,12 +197,6 @@
     cursor: default;
     color: var(--text-quaternary);
   }
-}
-
-.chipClose {
-  margin-left: 2px;
-  border-left: 1px solid var(--border-color);
-  border-radius: 0 $radius-full $radius-full 0;
 }
 
 .chipText {
@@ -335,6 +363,7 @@
 @media (prefers-reduced-motion: reduce) {
   .segmented button,
   .chipButton,
+  .windowBack,
   .content {
     transition: none;
   }

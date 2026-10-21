@@ -1,7 +1,9 @@
 @use '../../styles/mixins' as *;
 
 /* ============================================================
- * 额度页壳层：纯布局，视觉细节都在各组件的 colocated 模块里。
+ * Usage & quota page shell: layout only. Sections, tabs and the usage panels
+ * are styled in UsageSections.module.scss; this keeps the quota cards' toolbar,
+ * grid and pagination.
  * ============================================================ */
 
 .page {
@@ -12,29 +14,7 @@
   min-width: 0;
 }
 
-/* ---------- 工作区（tabs + 网格 + 分页） ---------- */
-
-.workbench {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-width: 0;
-}
-
-/* 提供商导航独占一行，保留原生横向滚动。 */
-
-.tabsRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-
-  > :first-child {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-}
+/* ---------- Quota cards: toolbar + grid + pagination ---------- */
 
 .toolbar {
   display: flex;

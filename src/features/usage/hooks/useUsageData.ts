@@ -1,20 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { apiKeysApi, authFilesApi, usageLedgerApi } from '@/services/api';
+import { apiKeysApi, usageLedgerApi } from '@/services/api';
 import { useAuthStore } from '@/stores';
-import type { AuthFileItem, UsageClient, UsageClientLabel, UsageLedger } from '@/types';
+import type { UsageClient, UsageClientLabel, UsageLedger } from '@/types';
+import { ledgerNeedsReload } from '../usageModel';
 
 interface Directory {
   /** Labels from the clients endpoint; null when it failed (the ledger's copy is used). */
   clients: UsageClient[] | null;
   apiKeys: string[];
-  /** Credentials with their passive quota signals; [] when the listing failed. */
-  credentials: AuthFileItem[];
   loaded: boolean;
 }
 
-const EMPTY_DIRECTORY: Directory = { clients: null, apiKeys: [], credentials: [], loaded: false };
+const EMPTY_DIRECTORY: Directory = { clients: null, apiKeys: [], loaded: false };
 
-/** Client labels, configured keys (for key hints) and credentials (for quota windows). */
+/** Client labels and configured keys (for key hints). */
 export function useUsageDirectory() {
   const connected = useAuthStore((state) => state.connectionStatus === 'connected');
   const [directory, setDirectory] = useState<Directory>(EMPTY_DIRECTORY);
@@ -26,16 +25,14 @@ export function useUsageDirectory() {
       setDirectory({ ...EMPTY_DIRECTORY, loaded: true });
       return;
     }
-    const [clients, apiKeys, credentials] = await Promise.allSettled([
+    const [clients, apiKeys] = await Promise.allSettled([
       usageLedgerApi.getClients(),
       apiKeysApi.list(),
-      authFilesApi.list(),
     ]);
     if (requestId !== requestRef.current) return;
     setDirectory({
       clients: clients.status === 'fulfilled' ? clients.value : null,
       apiKeys: apiKeys.status === 'fulfilled' ? apiKeys.value : [],
-      credentials: credentials.status === 'fulfilled' ? (credentials.value?.files ?? []) : [],
       loaded: true,
     });
   }, [connected]);
@@ -78,11 +75,12 @@ const EMPTY_LEDGER: LedgerState = {
 };
 
 /**
- * The ledger from `fromMs` to now. It loads again only when a selection needs an
- * earlier start than the loaded span; a shorter one reuses what is loaded. Null
- * waits (e.g. for the credentials that decide the span).
+ * The ledger from `fromMs` to now. It loads again when a selection needs an
+ * earlier start than the loaded span (a shorter one reuses what is loaded) or
+ * when the clock has moved into an hour the snapshot does not reach. Null waits
+ * (e.g. for the credentials that decide the span).
  */
-export function useUsageLedger(fromMs: number | null) {
+export function useUsageLedger(fromMs: number | null, nowMs: number) {
   const connected = useAuthStore((state) => state.connectionStatus === 'connected');
   const [state, setState] = useState<LedgerState>(EMPTY_LEDGER);
   const requestRef = useRef(0);
@@ -114,12 +112,23 @@ export function useUsageLedger(fromMs: number | null) {
   );
 
   const loadedFromMs = state.fromMs;
+  const loadedToMs = state.ledger?.toMs ?? null;
   const failed = state.error !== '';
+  // Only a missing start dims the page; catching up with the clock refreshes quietly.
   const covered = fromMs !== null && loadedFromMs !== null && loadedFromMs <= fromMs;
+  const needsReload =
+    fromMs !== null &&
+    ledgerNeedsReload(
+      loadedFromMs === null || loadedToMs === null
+        ? null
+        : { startMs: loadedFromMs, endMs: loadedToMs },
+      fromMs,
+      nowMs
+    );
   useEffect(() => {
-    if (fromMs === null || failed || covered) return;
+    if (fromMs === null || failed || !needsReload) return;
     void load(fromMs);
-  }, [covered, failed, fromMs, load]);
+  }, [failed, fromMs, load, needsReload]);
 
   useEffect(
     () => () => {

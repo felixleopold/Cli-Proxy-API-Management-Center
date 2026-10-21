@@ -7,6 +7,7 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { deriveAuthFileIdentity } from '@/features/authFiles/identity';
+import type { QuotaHistorySample } from '@/services/api/quotaHistory';
 import type { AuthFileItem, UsageClient, UsageLedgerBucket } from '@/types';
 import { isRecord } from '@/utils/helpers';
 import { DAY_MS, HOUR_MS, MINUTE_MS } from '@/utils/time/durations';
@@ -20,6 +21,8 @@ export const ESTIMATE_MIN_PERCENT = 5;
 export const MAX_WINDOWS_BACK = 12;
 /** Series key for everything past the named slots. */
 export const OTHER_KEY = '\u0000other';
+/** Ledger `auth_id` of imported usage from a personal account, before the gateway. */
+export const OWN_ACCOUNT_AUTH_ID = 'imported-own-account';
 
 export interface TimeSpan {
   startMs: number;
@@ -119,6 +122,8 @@ export interface Subscription {
   quota: QuotaWindow | null;
   /** A shorter session window (Claude 5h, Codex primary), when also reported. */
   session: QuotaWindow | null;
+  /** The window comes from the newest quota-history sample, not a live reading. */
+  fromHistory?: true;
 }
 
 const readNumber = (value: string | undefined): number | null => {
@@ -201,6 +206,34 @@ export function parseSubscription(file: AuthFileItem): Subscription {
     observedAtMs,
     quota: windows[0] ?? null,
     session: windows[1] ?? null,
+  };
+}
+
+/**
+ * A credential without live signals (e.g. after a gateway restart) takes its
+ * window from its newest quota-history sample, preferring the weekly one, as
+ * the pooled forecast does. The window rolls forward like a stale live reading.
+ */
+export function withHistoryWindow(
+  subscription: Subscription,
+  samples: readonly QuotaHistorySample[]
+): Subscription {
+  if (subscription.quota) return subscription;
+  const latestFirst = samples
+    .filter((sample) => sample.authId === subscription.id && sample.windowMinutes > 0)
+    .sort((a, b) => b.atMs - a.atMs);
+  const sample = latestFirst.find((item) => item.window === 'weekly') ?? latestFirst[0];
+  if (!sample) return subscription;
+  return {
+    ...subscription,
+    observedAtMs: sample.atMs,
+    quota: {
+      usedPercent: sample.usedPercent,
+      resetMs: sample.resetAtMs,
+      periodMs: sample.windowMinutes * MINUTE_MS,
+    },
+    session: null,
+    fromHistory: true,
   };
 }
 
@@ -295,6 +328,15 @@ export function ledgerStartMs(
     }
   }
   return Math.floor(startMs / HOUR_MS) * HOUR_MS;
+}
+
+/**
+ * Whether the loaded ledger snapshot must be fetched again: it starts after
+ * `fromMs`, or it ends before the current hour, so usage since then (such as a
+ * window that just reset) would be missing.
+ */
+export function ledgerNeedsReload(loaded: TimeSpan | null, fromMs: number, nowMs: number): boolean {
+  return loaded === null || loaded.startMs > fromMs || loaded.endMs < floorToUnit(nowMs, 'hour');
 }
 
 // ---------- Ledger rollups ----------
@@ -460,7 +502,7 @@ export interface SubscriptionSummary {
   window: TimeSpan | null;
   usedPercent: number | null;
   sessionUsedPercent: number | null;
-  /** Spend this credential served in its window, or in `fallback` without one. */
+  /** Spend this credential served in its window, or in `fallback` (the history range) without one. */
   costUsd: number;
   users: { user: string; costUsd: number }[];
   /** Spend at 100% of the quota, from the spend up to the quota reading. */
@@ -525,13 +567,32 @@ export function userSlots(clients: readonly UsageClient[]): Map<string, SeriesSl
   );
 }
 
-/** Subscriptions by provider, then name. */
+/** Subscriptions by provider, then name; imported personal-account usage last. */
 export function subscriptionSlots(subscriptions: readonly Subscription[]): Map<string, SeriesSlot> {
-  return assignSlots(
-    [...subscriptions]
+  return assignSlots([
+    ...[...subscriptions]
       .sort((a, b) => a.provider.localeCompare(b.provider) || a.name.localeCompare(b.name))
-      .map((subscription) => subscription.id)
-  );
+      .map((subscription) => subscription.id),
+    OWN_ACCOUNT_AUTH_ID,
+  ]);
+}
+
+// ---------- Serving credentials ----------
+
+/**
+ * What a ledger `auth_id` stands for. '' is shared-pool usage recorded (or
+ * imported) before the ledger tracked credentials. Neither marker belongs to a
+ * subscription window.
+ */
+export type CredentialKind = 'subscription' | 'pre_tracking' | 'own_account' | 'removed';
+
+export function credentialKind(
+  authId: string,
+  known: { has(id: string): boolean }
+): CredentialKind {
+  if (!authId) return 'pre_tracking';
+  if (authId === OWN_ACCOUNT_AUTH_ID) return 'own_account';
+  return known.has(authId) ? 'subscription' : 'removed';
 }
 
 /** Series key of a slotted entity: itself, OTHER_KEY past the named slots. */
