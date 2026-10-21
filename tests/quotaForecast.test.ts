@@ -15,6 +15,7 @@ import {
   nightBands,
   nightHours,
   poolHistory,
+  gatewayResetCredits,
   poolResetCredits,
   projectPool,
   runsOutAt,
@@ -491,6 +492,26 @@ test('manual resets: only unused, unexpired ones of the pool, each id once, soon
     NOW + 2 * DAY_MS,
     NOW + 3 * DAY_MS,
   ]);
+});
+
+test('gateway-cached reset credits keep valid entries only', () => {
+  const claude = file(
+    'claude',
+    {},
+    {
+      quota_planning: {
+        reset_credits: [
+          { id: 'grant-1', expires_at: new Date(NOW + HOUR_MS).toISOString() },
+          { id: 'grant-2' },
+          'bogus',
+        ],
+      },
+    }
+  );
+  expect(gatewayResetCredits(claude)).toEqual([
+    { id: 'grant-1', status: 'available', expiresAt: new Date(NOW + HOUR_MS).toISOString() },
+  ]);
+  expect(gatewayResetCredits(file('claude', {}))).toEqual([]);
 });
 
 test('the tooltip names only manual resets drawn on the chart', () => {
