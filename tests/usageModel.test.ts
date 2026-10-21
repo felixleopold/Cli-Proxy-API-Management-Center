@@ -12,6 +12,7 @@ import {
   filterBuckets,
   floorToUnit,
   ledgerNeedsReload,
+  ledgerStartMs,
   parseSubscription,
   quotaWindowSpan,
   resolveSelection,
@@ -127,34 +128,38 @@ describe('quota signals', () => {
 });
 
 describe('quota history fallback', () => {
+  const weekly = (atMs: number, resetAtMs: number, usedPercent: number) => ({
+    authId: 'claude-a',
+    provider: 'claude',
+    window: 'weekly' as const,
+    windowMinutes: 7 * 24 * 60,
+    atMs,
+    resetAtMs,
+    usedPercent,
+  });
+  const history = [
+    weekly(NOW - 3 * DAY, NOW - 2 * DAY, 30),
+    weekly(NOW - 10 * DAY, NOW - 9 * DAY, 80),
+    // Newer, but a session window: the weekly one is preferred.
+    { ...weekly(NOW - HOUR, NOW + HOUR, 10), window: 'session' as const, windowMinutes: 300 },
+    // Another credential's newer weekly reading is ignored.
+    { ...weekly(NOW - DAY, NOW + 6 * DAY, 90), authId: 'claude-b' },
+  ];
+
   test('a credential without live signals takes its newest weekly history window', () => {
-    const restarted = { ...claude, observedAtMs: null, quota: null };
-    const sample = { authId: 'claude-a', provider: 'claude', usedPercent: 30 };
-    const filled = withHistoryWindow(restarted, [
-      {
-        ...sample,
-        atMs: NOW - 3 * DAY,
-        window: 'weekly',
-        windowMinutes: 7 * 24 * 60,
-        resetAtMs: NOW - 2 * DAY,
-      },
-      {
-        ...sample,
-        atMs: NOW - HOUR,
-        window: 'session',
-        windowMinutes: 5 * 60,
-        resetAtMs: NOW + HOUR,
-      },
-    ]);
+    const filled = withHistoryWindow({ ...claude, observedAtMs: null, quota: null }, history);
     expect(filled.fromHistory).toBe(true);
     expect(filled.observedAtMs).toBe(NOW - 3 * DAY);
+    expect(filled.quota).toEqual({ usedPercent: 30, resetMs: NOW - 2 * DAY, periodMs: WEEK_MS });
     // The stale reset rolls forward into the window containing now.
     expect(quotaWindowSpan(filled.quota!, NOW)).toEqual({
       startMs: NOW - 2 * DAY,
       endMs: NOW + 5 * DAY,
     });
-    // A live window wins over history.
-    expect(withHistoryWindow(claude, [])).toBe(claude);
+  });
+
+  test('a live window wins over history', () => {
+    expect(withHistoryWindow(claude, history)).toBe(claude);
   });
 });
 
@@ -268,6 +273,18 @@ describe('selection', () => {
 });
 
 describe('ledger snapshot', () => {
+  test('covers the history range that windowless cards fall back to while a window is open', () => {
+    const window = resolveSelection(
+      { kind: 'window', subscriptionId: 'claude-a', stepsBack: 0 },
+      [claude],
+      NOW
+    )!;
+    const ninetyDays = resolveSelection({ kind: 'range', range: '90d' }, [claude], NOW)!;
+    expect(ledgerStartMs(window, [claude], NOW, ninetyDays)).toBeLessThanOrEqual(
+      ninetyDays.startMs
+    );
+  });
+
   test('reloads once the clock passes the hour the snapshot ends in', () => {
     const loaded = { startMs: NOW - 14 * DAY, endMs: NOW + 50 * 60_000 };
     expect(ledgerNeedsReload(loaded, NOW - 7 * DAY, NOW + 59 * 60_000)).toBe(false);

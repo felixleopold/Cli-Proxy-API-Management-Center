@@ -315,13 +315,17 @@ export function resolveSelection(
   };
 }
 
-/** Earliest hour the ledger must cover: the comparison period and every current window. */
+/**
+ * Earliest hour the ledger must cover: the comparison period, every current
+ * window, and the history range that cards without a window fall back to.
+ */
 export function ledgerStartMs(
   selection: ResolvedSelection,
   subscriptions: readonly Subscription[],
-  nowMs: number
+  nowMs: number,
+  fallback: TimeSpan
 ): number {
-  let startMs = selection.previous.startMs;
+  let startMs = Math.min(selection.previous.startMs, fallback.startMs);
   for (const subscription of subscriptions) {
     if (subscription.quota) {
       startMs = Math.min(startMs, quotaWindowSpan(subscription.quota, nowMs).startMs);
