@@ -741,6 +741,11 @@ describe('usage ledger', () => {
       const activity = learnActivity([], [], NOW, DEFAULT_SLEEP_HOURS, ledger);
       expect(activity.sleep).toEqual({ startHour: 1, endHour: 8 });
       expect(learnActivity([], [], NOW, DEFAULT_SLEEP_HOURS).sleep).toEqual(DEFAULT_SLEEP_HOURS);
+      // Office hours leave 17:00–09:00 quiet; that 16-hour run clips to the baseline.
+      const officeHours = ledgerRows('claude', [9, 10, 11, 12, 13, 14, 15, 16], () => 1);
+      expect(learnActivity([], [], NOW, DEFAULT_SLEEP_HOURS, officeHours).sleep).toEqual(
+        DEFAULT_SLEEP_HOURS
+      );
     });
   });
 });

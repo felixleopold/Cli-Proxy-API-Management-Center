@@ -660,10 +660,8 @@ const PROFILE_PRIOR_DAYS = 7;
 const NIGHT_WEIGHT = 0.25;
 /** Days of measured drain before the sleep stretch is learned rather than assumed. */
 const MIN_SLEEP_DAYS = 3;
-/** Quiet stretches shorter than this are not sleep... */
+/** Quiet stretches shorter than this are not sleep; clipping to the baseline bounds long ones. */
 const MIN_SLEEP_HOURS = 2;
-/** ...nor longer than this: sparse samples leave most hours quiet. */
-const MAX_SLEEP_HOURS = 12;
 /**
  * Pace weighs use and time by 2^(-age / HALF_LIFE_MS): recent days count more,
  * yet one busy or quiet day only nudges the pace.
@@ -724,8 +722,8 @@ export function baselineProfile(sleep: SleepHours): number[] {
 
 /**
  * The one continuous sleep stretch in a day of hourly drain shares (mean 1):
- * quiet hours, with single active hours between them merged, MIN_SLEEP_HOURS
- * to MAX_SLEEP_HOURS long and overlapping the baseline. The stretch overlapping
+ * quiet hours, with single active hours between them merged, at least
+ * MIN_SLEEP_HOURS long and overlapping the baseline. The stretch overlapping
  * the baseline most wins, clipped to the baseline: one sleeps later or shorter,
  * not at noon. Without one there is no sleep, as when agents run all night.
  */
@@ -748,13 +746,22 @@ export function sleepStretch(shares: number[], baseline: SleepHours): SleepHours
     }
     if (start === -1) continue;
     const length = hour - start;
-    // In run order; contiguous while the run and the baseline together span under a day.
-    const asleep = Array.from({ length }, (_, index) => (start + index) % 24).filter((h) =>
-      isSleepHour(h, baseline)
+    // The run's hours inside the baseline, in run order; a run around both of its
+    // ends overlaps it twice, and the longer piece is the sleep.
+    const pieces: number[][] = [];
+    for (let index = 0; index < length; index += 1) {
+      const h = (start + index) % 24;
+      if (!isSleepHour(h, baseline)) continue;
+      const last = pieces[pieces.length - 1];
+      if (last && last[last.length - 1] === (h + 23) % 24) last.push(h);
+      else pieces.push([h]);
+    }
+    const asleep = pieces.reduce<number[]>(
+      (longest, piece) => (piece.length > longest.length ? piece : longest),
+      []
     );
     if (
       length >= MIN_SLEEP_HOURS &&
-      length <= MAX_SLEEP_HOURS &&
       asleep.length > 0 &&
       (!best ||
         asleep.length > best.asleep.length ||
