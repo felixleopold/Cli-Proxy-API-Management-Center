@@ -19,6 +19,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { IconSearch, IconX } from '@/components/ui/icons';
 import { Select } from '@/components/ui/Select';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { triggerHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useNow } from '@/hooks/useNow';
 import { useRevealGroup } from '@/hooks/motion';
 import { useAuthStore, useQuotaStore, useThemeStore } from '@/stores';
@@ -257,11 +258,13 @@ export function UsageQuotaPage() {
   const prevLoadingRef = useRef(loading);
 
   // 刷新全部：先重取文件列表，待其落定（loading 下降沿）再批量拉当前页额度
+  // The header refresh (registered by UsageSections) reloads the file list, ledger and labels,
+  // so spend and estimates refresh together with the quota readings.
   const handleRefreshAll = useCallback(() => {
     if (disableControls) return;
     pendingRefreshRef.current = sessionGeneration;
-    void loadFiles();
-  }, [disableControls, loadFiles, sessionGeneration]);
+    void triggerHeaderRefresh();
+  }, [disableControls, sessionGeneration]);
 
   useEffect(() => {
     const wasLoading = prevLoadingRef.current;

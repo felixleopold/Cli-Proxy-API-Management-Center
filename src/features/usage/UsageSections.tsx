@@ -130,7 +130,12 @@ export function UsageSections({
   );
   const ledgerState = useUsageLedger(
     filesReady
-      ? ledgerStartMs(resolveOrRange(request, range, subscriptions, now), subscriptions, now)
+      ? ledgerStartMs(
+          resolveOrRange(request, range, subscriptions, now),
+          subscriptions,
+          now,
+          resolveOrRange({ kind: 'range', range }, range, subscriptions, now)
+        )
       : null,
     now
   );
