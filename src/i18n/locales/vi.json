@@ -1592,7 +1592,7 @@
     "forecast_sleep_start": "Bắt đầu ngủ",
     "forecast_sleep_end": "Kết thúc ngủ",
     "forecast_sleep_hint": "Cho đến khi có đủ lịch sử, dự báo giả định không dùng hạn mức trong những giờ này.",
-    "forecast_pace_hint": "Tốc độ là mức dùng gần đây trên mỗi giờ hoạt động của từng thông tin xác thực, lấy trung bình trong 14 ngày qua, ngày càng gần càng có trọng số lớn (một ngày cách đây 3 ngày chỉ tính bằng một nửa hôm nay). Khi lịch sử hoạt động dưới 3 giờ thì dùng mức trung bình của cửa sổ hiện tại. Mức dùng khi thông tin xác thực còn dưới 15% bị bỏ qua, vì đó là dùng dè sẻn chứ không phải nhu cầu thật. Vùng tô bóng trải từ tốc độ của một ngày bận rộn đến tốc độ của một ngày nhàn rỗi."
+    "forecast_pace_hint": "Tốc độ là mức dùng trung bình mỗi ngày của từng thông tin xác thực trong 14 ngày qua, ngày càng gần càng có trọng số lớn (một ngày cách đây 3 ngày chỉ tính bằng một nửa hôm nay). Khi lịch sử hoạt động dưới 3 giờ thì dùng mức trung bình của cửa sổ hiện tại. Mức dùng khi thông tin xác thực còn dưới 15% bị bỏ qua, vì đó là dùng dè sẻn chứ không phải nhu cầu thật. Vùng tô bóng trải từ tốc độ của một ngày bận rộn đến tốc độ của một ngày nhàn rỗi."
   },
   "plugin_management": {
     "title": "Quản lý Plugin",
