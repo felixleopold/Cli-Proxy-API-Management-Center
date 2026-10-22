@@ -2391,5 +2391,19 @@
     "stack_user": "사용자별",
     "stack_subscription": "구독별",
     "users_title": "사용자"
+  },
+  "claude_credit": {
+    "title": "Claude API 크레딧",
+    "toggle_label": "구독 소진 후 유료 Claude API 크레딧 사용",
+    "status_off": "꺼짐 — 구독이 소진되면 속도 제한 오류를 반환하고 Pushover 알림을 보냅니다.",
+    "status_on": "켜짐 — 구독이 소진된 후 유료 API 크레딧을 사용합니다.",
+    "status_on_until": "켜짐 — 구독이 소진된 후 유료 API 크레딧을 사용합니다. {{time}}에 꺼집니다({{remaining}} 남음).",
+    "confirm_title": "유료 API 크레딧을 켤까요?",
+    "confirm_message": "앞으로 {{duration}} 동안 구독이 소진되면 Claude 요청이 Anthropic API 키로 청구됩니다. 이후 자동으로 꺼집니다.",
+    "confirm_button": "{{duration}} 동안 켜기",
+    "save_failed": "Claude API 크레딧을 업데이트하지 못했습니다: {{message}}",
+    "duration_h": "{{hours}}시간",
+    "duration_m": "{{minutes}}분",
+    "duration_hm": "{{hours}}시간 {{minutes}}분"
   }
 }

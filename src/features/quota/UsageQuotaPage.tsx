@@ -1,9 +1,10 @@
 /**
- * Usage & quota page: one provider filter over the account cards (each
- * credential's live quota with its spend in its current window), the current
- * quota windows (pooled forecast and timeline) and the spend history. This
- * shell owns the credential list and the account cards; UsageSections owns the
- * ledger, the tabs and the header refresh.
+ * Usage & quota page: the global Claude API credit switch, then one provider
+ * filter over the account cards (each credential's live quota with its spend in
+ * its current window), the current quota windows (pooled forecast and timeline)
+ * and the spend history. This shell owns the credential list and the account
+ * cards; ClaudeCreditCard owns its switch; UsageSections owns the ledger, the
+ * tabs and the header refresh.
  *
  * Behaviour contracts kept from the quota page:
  * - existing providers load on click; Devin queries once when first visible, without polling;
@@ -29,6 +30,7 @@ import { getQuotaCacheKey } from '@/utils/quota/identity';
 import type { AccountSpendContext } from '@/features/usage/components/AccountSpend';
 import { UsageSections } from '@/features/usage/UsageSections';
 import { pairAccountSpend } from './accountCards';
+import { ClaudeCreditCard } from './components/ClaudeCreditCard';
 import { QuotaHeader } from './components/QuotaHeader';
 import { QuotaCard, SpendOnlyCard } from './components/QuotaCard';
 import { QuotaForecast } from './components/QuotaForecast';
@@ -490,6 +492,9 @@ export function UsageQuotaPage() {
         disableControls={disableControls}
         onRefreshAll={handleRefreshAll}
       />
+
+      {/* Global, so above the provider tabs; hidden on gateways without the switch. */}
+      <ClaudeCreditCard />
 
       <UsageSections
         files={files}

@@ -2391,5 +2391,19 @@
     "stack_user": "By user",
     "stack_subscription": "By subscription",
     "users_title": "Users"
+  },
+  "claude_credit": {
+    "title": "Claude API credits",
+    "toggle_label": "Use paid Claude API credits after subscriptions run out",
+    "status_off": "Off — exhausted subscriptions return a rate-limit error; you get a Pushover alert.",
+    "status_on": "On — paid API credits are used after subscriptions run out.",
+    "status_on_until": "On — paid API credits are used after subscriptions run out. Turns off at {{time}} ({{remaining}} left).",
+    "confirm_title": "Turn on paid API credits?",
+    "confirm_message": "For the next {{duration}}, Claude requests are billed to the Anthropic API key once subscriptions are exhausted. It turns off by itself afterwards.",
+    "confirm_button": "Turn on for {{duration}}",
+    "save_failed": "Could not update Claude API credits: {{message}}",
+    "duration_h": "{{hours}} h",
+    "duration_m": "{{minutes}} min",
+    "duration_hm": "{{hours}} h {{minutes}} min"
   }
 }

@@ -2397,5 +2397,19 @@
     "stack_user": "Theo người dùng",
     "stack_subscription": "Theo gói",
     "users_title": "Người dùng"
+  },
+  "claude_credit": {
+    "title": "Tín dụng Claude API",
+    "toggle_label": "Dùng tín dụng Claude API trả phí khi gói đăng ký hết",
+    "status_off": "Tắt — khi gói đăng ký hết, yêu cầu trả về lỗi giới hạn tốc độ; bạn nhận cảnh báo Pushover.",
+    "status_on": "Bật — dùng tín dụng API trả phí sau khi gói đăng ký hết.",
+    "status_on_until": "Bật — dùng tín dụng API trả phí sau khi gói đăng ký hết. Tự tắt lúc {{time}} (còn {{remaining}}).",
+    "confirm_title": "Bật tín dụng API trả phí?",
+    "confirm_message": "Trong {{duration}} tới, yêu cầu Claude sẽ được tính phí vào khóa Anthropic API khi gói đăng ký hết. Sau đó tự động tắt.",
+    "confirm_button": "Bật trong {{duration}}",
+    "save_failed": "Không thể cập nhật tín dụng Claude API: {{message}}",
+    "duration_h": "{{hours}} giờ",
+    "duration_m": "{{minutes}} phút",
+    "duration_hm": "{{hours}} giờ {{minutes}} phút"
   }
 }

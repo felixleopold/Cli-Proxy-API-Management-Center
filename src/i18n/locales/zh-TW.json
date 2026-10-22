@@ -2408,5 +2408,19 @@
     "stack_user": "依使用者",
     "stack_subscription": "依訂閱",
     "users_title": "使用者"
+  },
+  "claude_credit": {
+    "title": "Claude API 額度",
+    "toggle_label": "訂閱用盡後使用付費 Claude API 額度",
+    "status_off": "已關閉 — 訂閱用盡時回傳限流錯誤，並傳送 Pushover 提醒。",
+    "status_on": "已開啟 — 訂閱用盡後使用付費 API 額度。",
+    "status_on_until": "已開啟 — 訂閱用盡後使用付費 API 額度。將於 {{time}} 關閉（剩餘 {{remaining}}）。",
+    "confirm_title": "開啟付費 API 額度？",
+    "confirm_message": "在接下來的 {{duration}} 內，訂閱用盡後的 Claude 請求將計費至 Anthropic API 金鑰。到期後自動關閉。",
+    "confirm_button": "開啟 {{duration}}",
+    "save_failed": "無法更新 Claude API 額度：{{message}}",
+    "duration_h": "{{hours}} 小時",
+    "duration_m": "{{minutes}} 分鐘",
+    "duration_hm": "{{hours}} 小時 {{minutes}} 分鐘"
   }
 }
