@@ -2399,5 +2399,19 @@
     "stack_user": "По пользователям",
     "stack_subscription": "По подпискам",
     "users_title": "Пользователи"
+  },
+  "claude_credit": {
+    "title": "Кредиты Claude API",
+    "toggle_label": "Использовать платные кредиты Claude API после исчерпания подписок",
+    "status_off": "Выключено — при исчерпании подписок возвращается ошибка лимита; приходит уведомление Pushover.",
+    "status_on": "Включено — после исчерпания подписок используются платные кредиты API.",
+    "status_on_until": "Включено — после исчерпания подписок используются платные кредиты API. Выключится в {{time}} (осталось {{remaining}}).",
+    "confirm_title": "Включить платные кредиты API?",
+    "confirm_message": "В течение {{duration}} запросы Claude после исчерпания подписок оплачиваются с ключа Anthropic API. Затем переключатель выключится сам.",
+    "confirm_button": "Включить на {{duration}}",
+    "save_failed": "Не удалось обновить кредиты Claude API: {{message}}",
+    "duration_h": "{{hours}} ч",
+    "duration_m": "{{minutes}} мин",
+    "duration_hm": "{{hours}} ч {{minutes}} мин"
   }
 }

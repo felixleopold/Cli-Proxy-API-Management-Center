@@ -49,6 +49,17 @@ Current base: upstream `v1.25.6`.
   (fingerprint = first 12 hex of sha256 of the key). Series colors follow identity (users
   alphabetically, subscriptions by provider and name; `components/seriesSlots.module.scss`).
   Logic: `usageModel.ts`; tests: `tests/usageModel.test.ts`.
+- **Claude API credit switch** (`src/features/quota/components/ClaudeCreditCard.tsx`, top of
+  `/usage-quota`, above the provider tabs). Reads and flips the fork-only gateway switch
+  `/claude-credit-fallback` (GET/PUT `{enabled}`; `src/services/api/claudeCreditFallback.ts`) that
+  lets Claude requests fall back to the paid Anthropic API key once subscriptions are exhausted.
+  Turning it on asks for confirmation and lasts the gateway's `duration_seconds` (2 h), after which
+  the gateway turns it off; turning it off is immediate. The card shows the turn-off time with a
+  once-a-minute countdown and refetches every minute and on tab focus
+  (`hooks/useClaudeCreditFallback.ts`), so the automatic turn-off shows up. Gateways without the
+  switch (404) or without an API key (`configured: false`) render nothing. Pushover alerts for an
+  exhausted subscription link here. Logic: `claudeCreditModel.ts`; tests:
+  `tests/claudeCreditFallback.test.ts`.
 - **Quota forecast** (`src/features/quota/quotaForecastModel.ts`, `components/QuotaForecast*`).
   Per-provider pool chart of remaining quota with a projection to the next resets, drain history
   and a horizon picker. The projection is sleep-aware: each credential's daily rate is its own

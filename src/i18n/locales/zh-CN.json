@@ -2382,5 +2382,19 @@
     "stack_user": "按用户",
     "stack_subscription": "按订阅",
     "users_title": "用户"
+  },
+  "claude_credit": {
+    "title": "Claude API 额度",
+    "toggle_label": "订阅用尽后使用付费 Claude API 额度",
+    "status_off": "已关闭 — 订阅用尽时返回限流错误，并发送 Pushover 提醒。",
+    "status_on": "已开启 — 订阅用尽后使用付费 API 额度。",
+    "status_on_until": "已开启 — 订阅用尽后使用付费 API 额度。将于 {{time}} 关闭（剩余 {{remaining}}）。",
+    "confirm_title": "开启付费 API 额度？",
+    "confirm_message": "在接下来的 {{duration}} 内，订阅用尽后的 Claude 请求将计费到 Anthropic API 密钥。到期后自动关闭。",
+    "confirm_button": "开启 {{duration}}",
+    "save_failed": "无法更新 Claude API 额度：{{message}}",
+    "duration_h": "{{hours}} 小时",
+    "duration_m": "{{minutes}} 分钟",
+    "duration_hm": "{{hours}} 小时 {{minutes}} 分钟"
   }
 }

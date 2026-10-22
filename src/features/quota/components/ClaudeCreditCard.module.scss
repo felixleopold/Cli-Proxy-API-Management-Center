@@ -1,0 +1,61 @@
+@use '../../../styles/mixins' as *;
+
+/* Claude API credit switch: one quiet row above the provider tabs. Off reads as
+ * an ordinary panel; on takes the amber tint (money is being spent) without
+ * motion. */
+
+.card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  min-width: 0;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.3;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.status {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.on {
+  border-color: var(--amber-30);
+  background: var(--amber-10);
+
+  .title::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: $radius-full;
+    background: var(--amber-color);
+  }
+
+  .status {
+    color: var(--text-primary);
+  }
+}

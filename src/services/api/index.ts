@@ -3,6 +3,7 @@ export * from './apiCall';
 export * from './antigravitySubscription';
 export * from './apiKeyUsage';
 export * from './usageLedger';
+export * from './claudeCreditFallback';
 export * from './config';
 export * from './configFile';
 export * from './apiKeys';
