@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { IconAlertTriangle, IconCheck, IconCopy } from '@/components/ui/icons';
 import { copyToClipboard } from '@/utils/clipboard';
 import { anthropicEnvSnippet } from '../clientKeysModel';
+import { readGatewayUrl, writeGatewayUrl } from '../viewPrefs';
 import styles from './SecretReveal.module.scss';
 
 /**
@@ -19,7 +20,7 @@ export interface RevealedSecret {
 
 interface SecretRevealProps {
   revealed: RevealedSecret;
-  /** Gateway origin for ANTHROPIC_BASE_URL. */
+  /** The panel's API base; the gateway URL field starts from it until one is saved. */
   gatewayOrigin: string;
   onClose: () => void;
 }
@@ -53,7 +54,14 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 export function SecretReveal({ revealed, gatewayOrigin, onClose }: SecretRevealProps) {
   const { t } = useTranslation();
   const isKey = revealed.kind !== 'token';
-  const snippet = isKey ? anthropicEnvSnippet(gatewayOrigin, revealed.secret) : '';
+  const gatewayId = useId();
+  const [gatewayUrl, setGatewayUrl] = useState(() => readGatewayUrl() ?? gatewayOrigin);
+  const snippet = isKey ? anthropicEnvSnippet(gatewayUrl.trim(), revealed.secret) : '';
+
+  const changeGatewayUrl = (value: string) => {
+    setGatewayUrl(value);
+    writeGatewayUrl(value.trim());
+  };
 
   return (
     <Modal
@@ -81,6 +89,27 @@ export function SecretReveal({ revealed, gatewayOrigin, onClose }: SecretRevealP
           </div>
           <code className={styles.secret}>{revealed.secret}</code>
         </div>
+
+        {isKey && (
+          <div className={styles.block}>
+            <label htmlFor={gatewayId} className={styles.blockLabel}>
+              {t('client_keys.reveal_gateway_label')}
+            </label>
+            <input
+              id={gatewayId}
+              className="input"
+              value={gatewayUrl}
+              onChange={(event) => changeGatewayUrl(event.target.value)}
+              placeholder="http://127.0.0.1:8317"
+              spellCheck={false}
+              autoComplete="off"
+              aria-describedby={`${gatewayId}-hint`}
+            />
+            <p id={`${gatewayId}-hint`} className={styles.hint}>
+              {t('client_keys.reveal_gateway_hint')}
+            </p>
+          </div>
+        )}
 
         {isKey && (
           <div className={styles.block}>

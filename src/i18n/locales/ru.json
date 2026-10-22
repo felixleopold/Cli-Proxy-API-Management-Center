@@ -2555,6 +2555,8 @@
     "reveal_secret_label": "Секрет",
     "reveal_token_label": "Токен",
     "reveal_env_label": "Переменные окружения",
+    "reveal_gateway_label": "URL шлюза",
+    "reveal_gateway_hint": "Адрес, по которому приложения обращаются к порту моделей шлюза; сохраняется в этом браузере.",
     "reveal_env_hint": "Для Anthropic SDK и Claude Code. Клиенты OpenAI и Gemini используют тот же ключ.",
     "reveal_done": "Готово, я сохранил",
     "copy": "Копировать",

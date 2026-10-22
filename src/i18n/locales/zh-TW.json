@@ -2549,6 +2549,8 @@
     "reveal_secret_label": "金鑰值",
     "reveal_token_label": "權杖",
     "reveal_env_label": "環境變數",
+    "reveal_gateway_label": "閘道位址",
+    "reveal_gateway_hint": "應用程式存取閘道模型連接埠所用的位址；儲存在此瀏覽器中。",
     "reveal_env_hint": "適用於 Anthropic SDK 和 Claude Code。OpenAI 與 Gemini 用戶端可使用同一個金鑰。",
     "reveal_done": "完成，已儲存",
     "copy": "複製",

@@ -2537,6 +2537,8 @@
     "reveal_secret_label": "시크릿",
     "reveal_token_label": "토큰",
     "reveal_env_label": "환경 변수",
+    "reveal_gateway_label": "게이트웨이 URL",
+    "reveal_gateway_hint": "앱이 게이트웨이의 모델 포트에 접속하는 주소입니다. 이 브라우저에 저장됩니다.",
     "reveal_env_hint": "Anthropic SDK와 Claude Code용입니다. OpenAI와 Gemini 클라이언트도 같은 키를 사용합니다.",
     "reveal_done": "완료, 저장했습니다",
     "copy": "복사",

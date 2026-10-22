@@ -61,3 +61,27 @@ export function writeViewPrefs(prefs: ClientKeysViewPrefs): void {
     // Storage full or blocked: the preference lasts for this visit only.
   }
 }
+
+/**
+ * The gateway URL in the reveal dialog's env snippet: where apps reach the gateway's model
+ * port, which can differ from the panel's address (e.g. behind a management-only proxy).
+ */
+const GATEWAY_URL_KEY = 'clientKeysPage.gatewayUrl';
+
+export function readGatewayUrl(): string | null {
+  try {
+    return window.localStorage.getItem(GATEWAY_URL_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** An empty value forgets the stored URL, so the dialog falls back to the panel's address. */
+export function writeGatewayUrl(url: string): void {
+  try {
+    if (url) window.localStorage.setItem(GATEWAY_URL_KEY, url);
+    else window.localStorage.removeItem(GATEWAY_URL_KEY);
+  } catch {
+    // Storage full or blocked: the URL lasts for this dialog only.
+  }
+}

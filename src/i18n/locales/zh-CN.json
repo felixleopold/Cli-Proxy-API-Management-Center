@@ -2523,6 +2523,8 @@
     "reveal_secret_label": "密钥值",
     "reveal_token_label": "令牌",
     "reveal_env_label": "环境变量",
+    "reveal_gateway_label": "网关地址",
+    "reveal_gateway_hint": "应用访问网关模型端口所用的地址；保存在此浏览器中。",
     "reveal_env_hint": "适用于 Anthropic SDK 和 Claude Code。OpenAI 与 Gemini 客户端可使用同一个密钥。",
     "reveal_done": "完成，已保存",
     "copy": "复制",

@@ -2543,6 +2543,8 @@
     "reveal_secret_label": "Secret",
     "reveal_token_label": "Token",
     "reveal_env_label": "Biến môi trường",
+    "reveal_gateway_label": "URL gateway",
+    "reveal_gateway_hint": "Địa chỉ ứng dụng dùng để truy cập cổng mô hình của gateway; được lưu trong trình duyệt này.",
     "reveal_env_hint": "Cho Anthropic SDK và Claude Code. Client OpenAI và Gemini dùng cùng khóa này.",
     "reveal_done": "Xong, tôi đã lưu",
     "copy": "Sao chép",

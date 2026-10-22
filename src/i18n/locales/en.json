@@ -2537,6 +2537,8 @@
     "reveal_secret_label": "Secret",
     "reveal_token_label": "Token",
     "reveal_env_label": "Environment",
+    "reveal_gateway_label": "Gateway URL",
+    "reveal_gateway_hint": "The address your apps reach the gateway's model port at; saved in this browser.",
     "reveal_env_hint": "For Anthropic SDKs and Claude Code. OpenAI and Gemini clients take the same key.",
     "reveal_done": "Done, I've saved it",
     "copy": "Copy",
