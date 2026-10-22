@@ -1637,7 +1637,8 @@
     "details_title": "账户",
     "details_hint": "每个账户的实时额度及其当前窗口内的花费。加载卡片时从提供商读取额度。",
     "details_more": "详情",
-    "details_resets": "{{count}} 次手动重置"
+    "details_resets": "{{count}} 次手动重置",
+    "details_next_expiry": "最近一次{{relative}}过期"
   },
   "plugin_management": {
     "title": "插件管理",

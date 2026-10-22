@@ -171,7 +171,8 @@
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-  align-items: stretch;
+  /* Natural heights: opening one card's details must not stretch its row-mates. */
+  align-items: start;
 }
 
 /* ---------- 分页 ---------- */

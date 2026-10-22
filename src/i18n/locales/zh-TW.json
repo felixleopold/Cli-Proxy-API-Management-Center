@@ -1663,7 +1663,8 @@
     "details_title": "帳戶",
     "details_hint": "每個帳戶的即時額度及其目前視窗內的花費。載入卡片時向提供者讀取額度。",
     "details_more": "詳細資訊",
-    "details_resets": "{{count}} 次手動重置"
+    "details_resets": "{{count}} 次手動重置",
+    "details_next_expiry": "最近一次{{relative}}到期"
   },
   "plugin_management": {
     "title": "插件管理",

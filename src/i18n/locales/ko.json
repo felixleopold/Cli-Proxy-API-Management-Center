@@ -1642,7 +1642,8 @@
     "details_hint": "각 계정의 실시간 할당량과 현재 기간의 비용입니다. 카드를 불러올 때 제공자에서 할당량을 가져옵니다.",
     "details_more": "세부 정보",
     "details_resets_one": "수동 초기화 {{count}}회",
-    "details_resets_other": "수동 초기화 {{count}}회"
+    "details_resets_other": "수동 초기화 {{count}}회",
+    "details_next_expiry": "다음 만료 {{relative}}"
   },
   "plugin_management": {
     "title": "플러그인 관리",

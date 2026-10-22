@@ -1599,7 +1599,8 @@
     "details_hint": "Hạn mức trực tiếp của từng tài khoản và chi phí trong chu kỳ hiện tại. Hạn mức được lấy từ nhà cung cấp khi tải thẻ.",
     "details_more": "Chi tiết",
     "details_resets_one": "{{count}} lần đặt lại thủ công",
-    "details_resets_other": "{{count}} lần đặt lại thủ công"
+    "details_resets_other": "{{count}} lần đặt lại thủ công",
+    "details_next_expiry": "lần gần nhất hết hạn {{relative}}"
   },
   "plugin_management": {
     "title": "Quản lý Plugin",

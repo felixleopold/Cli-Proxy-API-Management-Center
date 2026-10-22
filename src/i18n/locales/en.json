@@ -1642,7 +1642,8 @@
     "details_hint": "Each account's live quota and its spend in the current window. Load a card to fetch its quota from the provider.",
     "details_more": "Details",
     "details_resets_one": "{{count}} manual reset",
-    "details_resets_other": "{{count}} manual resets"
+    "details_resets_other": "{{count}} manual resets",
+    "details_next_expiry": "next expires {{relative}}"
   },
   "plugin_management": {
     "title": "Plugin Management",
