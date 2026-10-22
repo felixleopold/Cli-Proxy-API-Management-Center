@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AutocompleteInput } from '@/components/ui/AutocompleteInput';
 import { Button } from '@/components/ui/Button';
@@ -40,6 +40,7 @@ const expiryIso = (date: string) => {
 export function KeyFormDialog({ editing, projects, onClose, onSubmit }: KeyFormDialogProps) {
   const { t } = useTranslation();
   const modelsId = useId();
+  const projectId = useId();
   const [name, setName] = useState(editing?.name ?? '');
   const [project, setProject] = useState(editing?.project ?? '');
   const [models, setModels] = useState<string[]>(editing?.models ?? []);
@@ -54,6 +55,9 @@ export function KeyFormDialog({ editing, projects, onClose, onSubmit }: KeyFormD
   const [expiry, setExpiry] = useState(initialExpiry);
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Blocks a second submit (e.g. a repeated Enter) before `saving` re-renders: each create
+  // mints a key, and a later reveal would replace the first one-time secret.
+  const inFlightRef = useRef(false);
   const [error, setError] = useState('');
 
   const allModels = addModelPatterns(models, modelDraft);
@@ -80,7 +84,8 @@ export function KeyFormDialog({ editing, projects, onClose, onSubmit }: KeyFormD
   const handleSubmit = async (event?: FormEvent) => {
     event?.preventDefault();
     setSubmitted(true);
-    if (nameInvalid || budgetInvalid || invalidModels.length > 0) return;
+    if (inFlightRef.current || nameInvalid || budgetInvalid || invalidModels.length > 0) return;
+    inFlightRef.current = true;
     setSaving(true);
     setError('');
     try {
@@ -100,6 +105,7 @@ export function KeyFormDialog({ editing, projects, onClose, onSubmit }: KeyFormD
       });
     } catch (err: unknown) {
       setError(getErrorMessage(err, t('common.unknown_error')));
+      inFlightRef.current = false;
       setSaving(false);
     }
   };
@@ -130,125 +136,128 @@ export function KeyFormDialog({ editing, projects, onClose, onSubmit }: KeyFormD
         </>
       }
     >
-      <form className={styles.form} onSubmit={(event) => void handleSubmit(event)}>
-        <div className={styles.row}>
-          <Input
-            label={t('client_keys.field_name')}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder={t('client_keys.field_name_placeholder')}
-            error={submitted && nameInvalid ? t('client_keys.field_name_required') : undefined}
-            autoFocus
-          />
-          <AutocompleteInput
-            label={t('client_keys.field_project')}
-            value={project}
-            onChange={setProject}
-            options={projects}
-            placeholder={t('client_keys.field_project_placeholder')}
-            hint={t('client_keys.field_project_hint')}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor={modelsId}>{t('client_keys.field_models')}</label>
-          <div className={styles.tags}>
-            {models.map((model) => (
-              <span
-                key={model}
-                className={
-                  isValidModelPattern(model) ? styles.tag : `${styles.tag} ${styles.tagInvalid}`
-                }
-              >
-                {model}
-                <button
-                  type="button"
-                  className={styles.tagRemove}
-                  onClick={() => setModels(models.filter((item) => item !== model))}
-                  aria-label={t('client_keys.field_models_remove', { model })}
-                >
-                  <IconX size={12} />
-                </button>
-              </span>
-            ))}
-            <input
-              id={modelsId}
-              className={styles.tagInput}
-              value={modelDraft}
-              onChange={(event) => setModelDraft(event.target.value)}
-              onKeyDown={handleModelKey}
-              onBlur={commitDraft}
-              placeholder={
-                models.length === 0 ? t('client_keys.field_models_placeholder') : undefined
-              }
+      <form onSubmit={(event) => void handleSubmit(event)}>
+        <fieldset className={styles.form} disabled={saving}>
+          <div className={styles.row}>
+            <Input
+              label={t('client_keys.field_name')}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder={t('client_keys.field_name_placeholder')}
+              error={submitted && nameInvalid ? t('client_keys.field_name_required') : undefined}
+              autoFocus
+            />
+            <AutocompleteInput
+              id={projectId}
+              label={t('client_keys.field_project')}
+              value={project}
+              onChange={setProject}
+              options={projects}
+              placeholder={t('client_keys.field_project_placeholder')}
+              hint={t('client_keys.field_project_hint')}
             />
           </div>
-          <div className="hint">{t('client_keys.field_models_hint')}</div>
-          {submitted && invalidModels.length > 0 && (
-            <div className="error-box">
-              {t('client_keys.field_models_invalid', { models: invalidModels.join(', ') })}
+
+          <div className="form-group">
+            <label htmlFor={modelsId}>{t('client_keys.field_models')}</label>
+            <div className={styles.tags}>
+              {models.map((model) => (
+                <span
+                  key={model}
+                  className={
+                    isValidModelPattern(model) ? styles.tag : `${styles.tag} ${styles.tagInvalid}`
+                  }
+                >
+                  {model}
+                  <button
+                    type="button"
+                    className={styles.tagRemove}
+                    onClick={() => setModels(models.filter((item) => item !== model))}
+                    aria-label={t('client_keys.field_models_remove', { model })}
+                  >
+                    <IconX size={12} />
+                  </button>
+                </span>
+              ))}
+              <input
+                id={modelsId}
+                className={styles.tagInput}
+                value={modelDraft}
+                onChange={(event) => setModelDraft(event.target.value)}
+                onKeyDown={handleModelKey}
+                onBlur={commitDraft}
+                placeholder={
+                  models.length === 0 ? t('client_keys.field_models_placeholder') : undefined
+                }
+              />
+            </div>
+            <div className="hint">{t('client_keys.field_models_hint')}</div>
+            {submitted && invalidModels.length > 0 && (
+              <div className="error-box">
+                {t('client_keys.field_models_invalid', { models: invalidModels.join(', ') })}
+              </div>
+            )}
+          </div>
+
+          <div className={styles.row}>
+            <Input
+              label={t('client_keys.field_budget')}
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step="0.01"
+              value={budget}
+              onChange={(event) => setBudget(event.target.value)}
+              placeholder={t('client_keys.field_budget_placeholder')}
+              hint={t('client_keys.field_budget_hint')}
+              error={submitted && budgetInvalid ? t('client_keys.field_budget_invalid') : undefined}
+            />
+            <Input
+              label={t('client_keys.field_expiry')}
+              type="date"
+              value={expiry}
+              onChange={(event) => setExpiry(event.target.value)}
+              hint={t('client_keys.field_expiry_hint')}
+            />
+          </div>
+
+          <fieldset className={styles.choices}>
+            <legend>{t('client_keys.field_credentials')}</legend>
+            {(['api-key', 'any'] as const).map((value) => (
+              <label
+                key={value}
+                className={
+                  credentials === value ? `${styles.choice} ${styles.choiceOn}` : styles.choice
+                }
+              >
+                <input
+                  type="radio"
+                  name="client-key-credentials"
+                  value={value}
+                  checked={credentials === value}
+                  onChange={() => setCredentials(value)}
+                />
+                <span className={styles.choiceText}>
+                  <span className={styles.choiceTitle}>
+                    {t(`client_keys.credentials_${value === 'any' ? 'any' : 'api_key'}_title`)}
+                    <code>{value}</code>
+                  </span>
+                  <span className={styles.choiceHint}>
+                    {t(`client_keys.credentials_${value === 'any' ? 'any' : 'api_key'}_hint`)}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+
+          {error && (
+            <div className="error-box" role="alert">
+              {error}
             </div>
           )}
-        </div>
-
-        <div className={styles.row}>
-          <Input
-            label={t('client_keys.field_budget')}
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="0.01"
-            value={budget}
-            onChange={(event) => setBudget(event.target.value)}
-            placeholder={t('client_keys.field_budget_placeholder')}
-            hint={t('client_keys.field_budget_hint')}
-            error={submitted && budgetInvalid ? t('client_keys.field_budget_invalid') : undefined}
-          />
-          <Input
-            label={t('client_keys.field_expiry')}
-            type="date"
-            value={expiry}
-            onChange={(event) => setExpiry(event.target.value)}
-            hint={t('client_keys.field_expiry_hint')}
-          />
-        </div>
-
-        <fieldset className={styles.choices}>
-          <legend>{t('client_keys.field_credentials')}</legend>
-          {(['api-key', 'any'] as const).map((value) => (
-            <label
-              key={value}
-              className={
-                credentials === value ? `${styles.choice} ${styles.choiceOn}` : styles.choice
-              }
-            >
-              <input
-                type="radio"
-                name="client-key-credentials"
-                value={value}
-                checked={credentials === value}
-                onChange={() => setCredentials(value)}
-              />
-              <span className={styles.choiceText}>
-                <span className={styles.choiceTitle}>
-                  {t(`client_keys.credentials_${value === 'any' ? 'any' : 'api_key'}_title`)}
-                  <code>{value}</code>
-                </span>
-                <span className={styles.choiceHint}>
-                  {t(`client_keys.credentials_${value === 'any' ? 'any' : 'api_key'}_hint`)}
-                </span>
-              </span>
-            </label>
-          ))}
+          {/* Enter in a text field submits. */}
+          <button type="submit" hidden />
         </fieldset>
-
-        {error && (
-          <div className="error-box" role="alert">
-            {error}
-          </div>
-        )}
-        {/* Enter in a text field submits. */}
-        <button type="submit" hidden />
       </form>
     </Modal>
   );

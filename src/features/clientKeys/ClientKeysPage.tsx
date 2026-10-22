@@ -7,7 +7,7 @@
  * rotate live only in `revealed`, which is dropped when the reveal dialog closes.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -51,6 +51,9 @@ export function ClientKeysPage() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [creatingToken, setCreatingToken] = useState(false);
+  // The control that opened the current dialog chain. The dialogs unmount on close, before the
+  // shared Modal/Sheet can restore focus, so the page does it.
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   useHeaderRefresh(reload);
 
@@ -64,23 +67,46 @@ export function ClientKeysPage() {
     writeViewPrefs(next);
   }, []);
 
+  const rememberFocus = () => {
+    returnFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  };
+
+  const restoreFocus = () => {
+    const target = returnFocusRef.current;
+    returnFocusRef.current = null;
+    if (target) window.requestAnimationFrame(() => target.isConnected && target.focus());
+  };
+
+  const openForm = (next: FormState) => {
+    rememberFocus();
+    setForm(next);
+  };
+
+  const closeForm = () => {
+    setForm({ mode: 'closed' });
+    restoreFocus();
+  };
+
   const fail = (err: unknown) =>
     showNotification(getErrorMessage(err, t('common.unknown_error')), 'error');
 
   const submitForm = async (input: ClientKeyInput) => {
     if (form.mode === 'edit') {
       await clientKeysApi.update(form.key.id, input);
-      setForm({ mode: 'closed' });
+      closeForm();
       showNotification(t('client_keys.saved', { name: input.name }), 'success');
     } else {
       const { key, secret } = await clientKeysApi.create(input);
+      // Focus returns to the opener when the reveal closes.
       setForm({ mode: 'closed' });
       setRevealed({ kind: 'created', name: key.name, secret });
     }
     void reload();
   };
 
-  const rotate = (key: ClientKey) =>
+  const rotate = (key: ClientKey) => {
+    rememberFocus();
     showConfirmation({
       title: t('client_keys.rotate_confirm_title', { name: key.name }),
       message: t('client_keys.rotate_confirm_message'),
@@ -96,6 +122,7 @@ export function ClientKeysPage() {
         }
       },
     });
+  };
 
   const toggleDisabled = async (key: ClientKey) => {
     setPendingId(key.id);
@@ -124,7 +151,7 @@ export function ClientKeysPage() {
       onConfirm: async () => {
         try {
           await clientKeysApi.revoke(key.id);
-          if (detailId === key.id) setDetailId(null);
+          if (detailId === key.id) closeDetail();
           showNotification(t('client_keys.revoked_notice', { name: key.name }), 'success');
           void reload();
         } catch (err: unknown) {
@@ -132,6 +159,27 @@ export function ClientKeysPage() {
         }
       },
     });
+
+  const openDetail = (key: ClientKey) => {
+    rememberFocus();
+    setDetailId(key.id);
+  };
+
+  const closeDetail = () => {
+    setDetailId(null);
+    restoreFocus();
+  };
+
+  const changeCreatingToken = (open: boolean) => {
+    if (open) rememberFocus();
+    setCreatingToken(open);
+    if (!open) restoreFocus();
+  };
+
+  const closeReveal = () => {
+    setRevealed(null);
+    restoreFocus();
+  };
 
   const createToken = async (name: string) => {
     const { manager, token } = await clientKeysApi.createManager(name);
@@ -179,7 +227,7 @@ export function ClientKeysPage() {
           <button
             type="button"
             className={styles.primaryAction}
-            onClick={() => setForm({ mode: 'create' })}
+            onClick={() => openForm({ mode: 'create' })}
             disabled={loading}
           >
             <IconPlus size={14} />
@@ -225,9 +273,9 @@ export function ClientKeysPage() {
               prefs={prefs}
               onPrefsChange={changePrefs}
               pendingId={pendingId}
-              onCreate={() => setForm({ mode: 'create' })}
-              onOpen={(key) => setDetailId(key.id)}
-              onEdit={(key) => setForm({ mode: 'edit', key })}
+              onCreate={() => openForm({ mode: 'create' })}
+              onOpen={openDetail}
+              onEdit={(key) => openForm({ mode: 'edit', key })}
               onRotate={rotate}
               onToggleDisabled={(key) => void toggleDisabled(key)}
               onRevoke={revoke}
@@ -242,7 +290,7 @@ export function ClientKeysPage() {
                 variant="secondary"
                 size="sm"
                 className={styles.iconButton}
-                onClick={() => setCreatingToken(true)}
+                onClick={() => changeCreatingToken(true)}
               >
                 <IconPlus size={14} />
                 {t('client_keys.tokens_new')}
@@ -252,7 +300,7 @@ export function ClientKeysPage() {
             <AgentTokens
               managers={managers}
               creating={creatingToken}
-              onCreatingChange={setCreatingToken}
+              onCreatingChange={changeCreatingToken}
               onCreate={createToken}
               onRevoke={revokeToken}
             />
@@ -264,21 +312,15 @@ export function ClientKeysPage() {
         <KeyFormDialog
           editing={form.mode === 'edit' ? form.key : null}
           projects={projects}
-          onClose={() => setForm({ mode: 'closed' })}
+          onClose={closeForm}
           onSubmit={submitForm}
         />
       )}
 
-      {detailKey && (
-        <KeyDetailSheet keyEntry={detailKey} nowMs={nowMs} onClose={() => setDetailId(null)} />
-      )}
+      {detailKey && <KeyDetailSheet keyEntry={detailKey} nowMs={nowMs} onClose={closeDetail} />}
 
       {revealed && (
-        <SecretReveal
-          revealed={revealed}
-          gatewayOrigin={gatewayOrigin}
-          onClose={() => setRevealed(null)}
-        />
+        <SecretReveal revealed={revealed} gatewayOrigin={gatewayOrigin} onClose={closeReveal} />
       )}
     </div>
   );

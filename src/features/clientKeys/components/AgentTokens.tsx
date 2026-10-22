@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -85,19 +85,24 @@ function CreateTokenDialog({
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // Blocks a second submit before `saving` re-renders; each create mints a token.
+  const inFlightRef = useRef(false);
 
   const submit = async (event?: FormEvent) => {
     event?.preventDefault();
+    if (inFlightRef.current) return;
     if (!name.trim()) {
       setError(t('client_keys.field_name_required'));
       return;
     }
+    inFlightRef.current = true;
     setSaving(true);
     setError('');
     try {
       await onCreate(name.trim());
     } catch (err: unknown) {
       setError(getErrorMessage(err, t('common.unknown_error')));
+      inFlightRef.current = false;
       setSaving(false);
     }
   };
@@ -127,6 +132,7 @@ function CreateTokenDialog({
           onChange={(event) => setName(event.target.value)}
           placeholder={t('client_keys.tokens_name_placeholder')}
           error={error || undefined}
+          disabled={saving}
           autoFocus
         />
       </form>
