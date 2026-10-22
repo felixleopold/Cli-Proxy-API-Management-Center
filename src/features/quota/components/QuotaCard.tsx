@@ -178,7 +178,7 @@ function AccountDetails({
           : t('quota_management.details_resets', { count })}
         {nextMs !== null && (
           <span className={styles.detailsNext} title={formatInstantShort(nextMs)}>
-            {' · '}
+            {'· '}
             {t('quota_management.details_next_expiry', {
               relative: formatRelativeInstant(nextMs, now, i18n.resolvedLanguage),
             })}
