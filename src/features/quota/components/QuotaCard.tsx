@@ -5,7 +5,8 @@
  * - header: provider icon, account identity (file name on hover), plan, next reset;
  * - body, four states: idle (the whole body loads on click; upstream rate limits mean
  *   no auto-fetch), loading skeleton, error strip, success (the provider body, compact);
- * - spend row (AccountSpend), then renewal / credits / manual resets behind a disclosure;
+ * - spend row (AccountSpend), then renewal / credits / manual resets behind a disclosure
+ *   whose label names the next reset expiry;
  * - footer actions.
  */
 
@@ -20,7 +21,7 @@ import type {
   CodexQuotaState,
   ResolvedTheme,
 } from '@/types';
-import { resolveQuotaErrorMessage } from '@/utils/quota';
+import { formatInstantShort, parseIsoToMs, resolveQuotaErrorMessage } from '@/utils/quota';
 import { getQuotaDisplayName } from '@/utils/quota/identity';
 import { formatRelativeInstant } from '@/utils/quota/relativeTime';
 import {
@@ -149,16 +150,40 @@ function AccountCardHeader({
   );
 }
 
-/** Account details behind a native disclosure: keyboard operable and announced as expandable. */
-/** Labelled with the manual reset count when there is at least one, else "Details". */
-function AccountDetails({ count, children }: { count: number | null; children: ReactNode }) {
-  const { t } = useTranslation();
+/**
+ * Account details behind a native disclosure: keyboard operable and announced as expandable.
+ * Labelled with the manual reset count when there is at least one, else "Details", plus the
+ * soonest of `expiries` still ahead, so the next expiry reads without expanding.
+ */
+function AccountDetails({
+  count,
+  expiries,
+  children,
+}: {
+  count: number | null;
+  expiries: readonly unknown[];
+  children: ReactNode;
+}) {
+  const { t, i18n } = useTranslation();
+  const now = useNow();
+  const nextMs = expiries.reduce<number | null>((next, expiry) => {
+    const ms = parseIsoToMs(expiry);
+    return ms !== null && ms > now && (next === null || ms < next) ? ms : next;
+  }, null);
   return (
     <details className={styles.details}>
       <summary className={styles.detailsSummary}>
         {count === null || count <= 0
           ? t('quota_management.details_more')
           : t('quota_management.details_resets', { count })}
+        {nextMs !== null && (
+          <span className={styles.detailsNext} title={formatInstantShort(nextMs)}>
+            {'· '}
+            {t('quota_management.details_next_expiry', {
+              relative: formatRelativeInstant(nextMs, now, i18n.resolvedLanguage),
+            })}
+          </span>
+        )}
         <IconChevronRight size={13} aria-hidden="true" className={styles.detailsChevron} />
       </summary>
       <div className={styles.detailsBody}>{children}</div>
@@ -338,12 +363,20 @@ export function QuotaCard(props: QuotaCardProps) {
       <AccountSpend summary={summary} context={spend} labelId={nameId} />
 
       {codexQuota && hasCodexDetails(codexQuota) && (
-        <AccountDetails count={codexQuota.rateLimitResetCreditsAvailableCount ?? null}>
+        <AccountDetails
+          count={codexQuota.rateLimitResetCreditsAvailableCount ?? null}
+          expiries={(codexQuota.rateLimitResetCredits ?? [])
+            .filter((credit) => credit.status === 'available')
+            .map((credit) => credit.expiresAt)}
+        >
           <CodexQuotaDetails quota={codexQuota} classes={quotaClasses} />
         </AccountDetails>
       )}
       {claudeGrants.length > 0 && (
-        <AccountDetails count={claudeReset.count}>
+        <AccountDetails
+          count={claudeReset.count}
+          expiries={claudeGrants.map((grant) => grant.endsAt)}
+        >
           <ClaudeResetGrantDetails grants={claudeGrants} classes={quotaClasses} />
         </AccountDetails>
       )}

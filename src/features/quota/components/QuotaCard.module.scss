@@ -303,6 +303,12 @@
   }
 }
 
+.detailsNext {
+  font-weight: 500;
+  color: var(--text-tertiary);
+  white-space: pre;
+}
+
 .detailsChevron {
   flex: none;
   transition: transform var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);

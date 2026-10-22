@@ -1651,7 +1651,8 @@
     "details_resets_one": "{{count}} ручной сброс",
     "details_resets_few": "{{count}} ручных сброса",
     "details_resets_many": "{{count}} ручных сбросов",
-    "details_resets_other": "{{count}} ручного сброса"
+    "details_resets_other": "{{count}} ручного сброса",
+    "details_next_expiry": "ближайший истекает {{relative}}"
   },
   "plugin_management": {
     "title": "Управление плагинами",
