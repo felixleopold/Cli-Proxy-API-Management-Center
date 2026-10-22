@@ -54,6 +54,8 @@ export function ClientKeysPage() {
   // The control that opened the current dialog chain. The dialogs unmount on close, before the
   // shared Modal/Sheet can restore focus, so the page does it.
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  // Fallback when the opener is gone, e.g. the empty state's button after the first key.
+  const newKeyRef = useRef<HTMLButtonElement>(null);
 
   useHeaderRefresh(reload);
 
@@ -75,7 +77,7 @@ export function ClientKeysPage() {
   const restoreFocus = () => {
     const target = returnFocusRef.current;
     returnFocusRef.current = null;
-    if (target) window.requestAnimationFrame(() => target.isConnected && target.focus());
+    window.requestAnimationFrame(() => (target?.isConnected ? target : newKeyRef.current)?.focus());
   };
 
   const openForm = (next: FormState) => {
@@ -119,8 +121,10 @@ export function ClientKeysPage() {
           void reload();
         } catch (err: unknown) {
           fail(err);
+          restoreFocus();
         }
       },
+      onCancel: restoreFocus,
     });
   };
 
@@ -226,6 +230,7 @@ export function ClientKeysPage() {
         {!featureOff && (
           <button
             type="button"
+            ref={newKeyRef}
             className={styles.primaryAction}
             onClick={() => openForm({ mode: 'create' })}
             disabled={loading}
