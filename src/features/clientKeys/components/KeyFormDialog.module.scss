@@ -1,0 +1,174 @@
+@use '../../../styles/mixins' as *;
+
+.form {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+
+  @include mobile {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Model allowlist: tags inside one field that looks like an input. */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: $radius-md;
+  background: var(--bg-secondary);
+  cursor: text;
+
+  &:focus-within {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba($primary-color, 0.18);
+  }
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px 3px 8px;
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  font-family: $font-mono;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.tagInvalid {
+  background: var(--failure-badge-bg);
+  color: var(--failure-badge-text);
+}
+
+.tagRemove {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+  }
+}
+
+.tagInput {
+  flex: 1 1 140px;
+  min-width: 120px;
+  padding: 4px 2px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: $font-mono;
+  font-size: 12.5px;
+
+  &::placeholder {
+    font-family: inherit;
+    color: var(--text-tertiary);
+  }
+}
+
+/* Credential pin: two radio cards. */
+.choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 $spacing-md;
+  padding: 0;
+  border: 0;
+
+  legend {
+    margin-bottom: $spacing-xs;
+    padding: 0;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  @include mobile {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+
+  input {
+    margin: 3px 0 0;
+    accent-color: var(--text-primary);
+  }
+
+  &:focus-within {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+.choiceOn {
+  border-color: var(--text-primary);
+}
+
+.choiceText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.choiceTitle {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+
+  code {
+    padding: 1px 6px;
+    border-radius: $radius-full;
+    border: 1px solid var(--border-primary);
+    font-family: $font-mono;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+}
+
+.choiceHint {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}

@@ -1,0 +1,259 @@
+@use '../../../styles/mixins' as *;
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.blockHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.blockTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+/* Settings as a two-column definition grid with hairlines. */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+
+  @include mobile {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 14px;
+  box-shadow:
+    -1px 0 0 var(--border-color),
+    0 -1px 0 var(--border-color);
+
+  dt {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+  }
+
+  dd {
+    margin: 0;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+  }
+}
+
+.mono {
+  font-family: $font-mono;
+  font-size: 12px;
+}
+
+.segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: $radius-full;
+
+  button {
+    padding: 4px 11px;
+    border: 1px solid transparent;
+    border-radius: $radius-full;
+    background: transparent;
+    font: inherit;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--text-primary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 1px;
+    }
+
+    &[aria-pressed='true'] {
+      background: var(--floating-surface, var(--bg-primary));
+      border-color: var(--border-hover);
+      color: var(--text-primary);
+    }
+  }
+}
+
+.skeletons,
+.usage {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.usage {
+  transition: opacity $transition-fast;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.stale {
+  opacity: 0.6;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px 14px;
+  box-shadow: -1px 0 0 var(--border-color);
+}
+
+.statLabel {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.statValue {
+  @include text-ellipsis;
+  font-family: $font-mono;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.notice,
+.error,
+.empty {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.notice {
+  border: 1px solid var(--amber-30);
+  background: var(--amber-10);
+  color: var(--amber-text);
+}
+
+.error {
+  border: 1px solid var(--warning-border);
+  background: var(--bg-error-light);
+  color: var(--danger-color);
+}
+
+.empty {
+  border: 1px dashed var(--border-color);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.scroller {
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.caption {
+  padding-bottom: 8px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+
+  th,
+  td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    text-align: left;
+    vertical-align: middle;
+  }
+
+  thead th {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+  }
+
+  tbody th {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+}
+
+.num {
+  text-align: right !important;
+  white-space: nowrap;
+}
+
+.spend {
+  font-family: $font-mono;
+  font-weight: 600;
+  color: var(--text-primary) !important;
+}
+
+.unpriced {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: $radius-full;
+  border: 1px solid var(--amber-30);
+  background: var(--amber-10);
+  color: var(--amber-text);
+  font-size: 10.5px;
+  font-weight: 600;
+}

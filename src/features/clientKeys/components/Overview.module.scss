@@ -1,0 +1,70 @@
+@use '../../../styles/mixins' as *;
+
+/* The usage page's KPI strip: one bordered row, cells split by hairlines. */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
+  overflow: hidden;
+
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 460px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px 18px;
+  box-shadow:
+    -1px 0 0 var(--border-color),
+    0 -1px 0 var(--border-color);
+}
+
+.label {
+  @include text-ellipsis;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.value {
+  @include text-ellipsis;
+  font-family: $font-mono;
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.valueMuted {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.valueAlert {
+  color: var(--viz-failure);
+}
+
+.valueWarn {
+  color: var(--amber-text);
+}
+
+.hint {
+  @include text-ellipsis;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-tertiary);
+}

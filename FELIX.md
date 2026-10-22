@@ -60,6 +60,18 @@ Current base: upstream `v1.25.6`.
   switch (404) or without an API key (`configured: false`) render nothing. Pushover alerts for an
   exhausted subscription link here. Logic: `claudeCreditModel.ts`; tests:
   `tests/claudeCreditFallback.test.ts`.
+- **Client keys page** (`/client-keys`, GATEWAY; `src/features/clientKeys/`). Per-app gateway keys
+  from the fork-only `/client-keys` routes (`src/services/api/clientKeys.ts`): an overview of this
+  month's spend against budgets, keys near (≥ 80%) or over budget and keys with unpriced usage; the
+  keys grouped by project (or flat) with search, a project filter and optional columns, both kept in
+  localStorage (`viewPrefs.ts`); create/edit with a model allowlist (`*` only as a trailing prefix
+  glob), monthly budget, credential pin and expiry; rotate, disable and revoke. Create and rotate
+  show the secret once with an `ANTHROPIC_BASE_URL`/`ANTHROPIC_API_KEY` snippet whose gateway URL is
+  editable and remembered (`clientKeysPage.gatewayUrl`), since the panel's address may not reach the
+  model port. A key's sheet charts its usage by day (`/client-keys/:id/usage`) with the Usage page's
+  chart and lists it by model. Agent tokens (`/client-key-managers`) are listed, created (shown once)
+  and revoked there too. A 409 means `client-keys.enabled` (or, for spend, `usage-ledger.enabled`)
+  is off, and the page says so. Logic: `clientKeysModel.ts`; tests: `tests/clientKeysModel.test.ts`.
 - **Quota forecast** (`src/features/quota/quotaForecastModel.ts`, `components/QuotaForecast*`).
   Per-provider pool chart of remaining quota with a projection to the next resets, drain history
   and a horizon picker. The projection is sleep-aware: each credential's daily rate is its own

@@ -1,0 +1,421 @@
+@use '../../../styles/mixins' as *;
+
+/* Keys list: a toolbar (search and project on the left, grouping and columns on the
+ * right) over one hairline table. Projects are row groups, so columns stay aligned
+ * across groups. */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  min-width: 0;
+}
+
+.filters,
+.viewControls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.filters {
+  flex: 1 1 420px;
+}
+
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 1 320px;
+  min-width: 180px;
+  height: 34px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+
+  &:focus-within {
+    border-color: var(--border-hover);
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+.searchIcon {
+  position: absolute;
+  left: 11px;
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0 36px 0 35px;
+  border: 0;
+  border-radius: inherit;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  appearance: none;
+
+  &::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  &::-webkit-search-cancel-button,
+  &::-webkit-search-decoration {
+    appearance: none;
+  }
+}
+
+.clearSearch {
+  position: absolute;
+  right: 4px;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+  }
+}
+
+.projectSelect {
+  min-width: 170px;
+}
+
+@mixin pill-button {
+  font: inherit;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: $radius-full;
+  cursor: pointer;
+  transition:
+    color $transition-fast,
+    background-color $transition-fast;
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover:not(:disabled) {
+      color: var(--text-primary);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+}
+
+.segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: $radius-full;
+
+  button {
+    @include pill-button;
+    padding: 4px 12px;
+    font-size: 12.5px;
+
+    &[aria-pressed='true'] {
+      background: var(--floating-surface, var(--bg-primary));
+      border-color: var(--border-hover);
+      color: var(--text-primary);
+    }
+  }
+}
+
+/* ---------- Columns menu ---------- */
+
+.menuRoot {
+  position: relative;
+}
+
+.menuButton {
+  @include pill-button;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border-color: var(--border-color);
+  font-size: 12.5px;
+  color: var(--text-primary);
+
+  &[aria-expanded='true'] {
+    background: var(--bg-tertiary);
+  }
+}
+
+.menuPanel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 200px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--floating-surface, var(--bg-primary));
+  box-shadow: var(--floating-shadow);
+}
+
+.menuTitle {
+  margin: 0 0 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+/* ---------- Table ---------- */
+
+.scroller {
+  overflow-x: auto;
+  min-width: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
+}
+
+.table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+
+  th,
+  td {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    text-align: left;
+    vertical-align: middle;
+  }
+
+  thead th {
+    padding-top: 10px;
+    padding-bottom: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+  }
+
+  tbody:last-child tr:last-child > * {
+    border-bottom: 0;
+  }
+}
+
+.groupRow th {
+  padding-top: 16px;
+  padding-bottom: 8px;
+  background: color-mix(in srgb, var(--bg-tertiary) 45%, transparent);
+}
+
+.groupName,
+.groupNameMuted {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text-primary);
+  margin-right: 10px;
+}
+
+.groupNameMuted {
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.groupMeta {
+  font-family: $font-mono;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.row {
+  transition: background-color $transition-fast;
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover > * {
+      background: color-mix(in srgb, var(--bg-tertiary) 40%, transparent);
+    }
+  }
+}
+
+/* Disabled and expired keys stay readable but recede. */
+.rowInactive .name,
+.rowInactive .prefix {
+  color: var(--text-tertiary);
+}
+
+.nameCell {
+  min-width: 200px;
+}
+
+.nameButton {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  max-width: 100%;
+  margin-right: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  vertical-align: middle;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover .name {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-decoration-color: var(--text-quaternary);
+    }
+  }
+}
+
+.name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.prefix {
+  font-family: $font-mono;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.muted {
+  color: var(--text-tertiary) !important;
+  font-style: italic;
+}
+
+.date {
+  white-space: nowrap;
+}
+
+.actionsHead,
+.actionsCell {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.iconAction {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    color $transition-fast,
+    background-color $transition-fast;
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover:not(:disabled) {
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.4;
+  }
+}
+
+.iconDanger {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover:not(:disabled) {
+      color: var(--danger-color);
+      background: var(--bg-error-light);
+    }
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.noMatch {
+  margin: 0;
+  padding: 18px;
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segmented button,
+  .menuButton,
+  .iconAction,
+  .row {
+    transition: none;
+  }
+}
