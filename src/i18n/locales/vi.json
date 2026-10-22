@@ -2486,7 +2486,7 @@
     "budget_untracked_label": "Ngân sách {{budget}}; chi phí không được ghi",
     "budget_unlimited": "không giới hạn",
     "budget_near": "Gần hạn mức",
-    "budget_over": "Đã hết",
+    "budget_over": "Vượt ngân sách",
     "budget_untracked": "Không ghi",
     "never": "Không bao giờ",
     "action_edit": "Sửa {{name}}",

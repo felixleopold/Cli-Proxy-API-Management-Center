@@ -2498,7 +2498,7 @@
     "budget_untracked_label": "Бюджет {{budget}}; расход не учитывается",
     "budget_unlimited": "без лимита",
     "budget_near": "Почти лимит",
-    "budget_over": "Исчерпан",
+    "budget_over": "Бюджет превышен",
     "budget_untracked": "Не учитывается",
     "never": "Никогда",
     "action_edit": "Изменить {{name}}",

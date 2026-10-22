@@ -2466,7 +2466,7 @@
     "budget_untracked_label": "预算 {{budget}}；花费未记录",
     "budget_unlimited": "不限额",
     "budget_near": "接近上限",
-    "budget_over": "已用尽",
+    "budget_over": "超出预算",
     "budget_untracked": "未记录",
     "never": "永不",
     "action_edit": "编辑 {{name}}",

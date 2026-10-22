@@ -2480,7 +2480,7 @@
     "budget_untracked_label": "예산 {{budget}}; 비용이 기록되지 않음",
     "budget_unlimited": "제한 없음",
     "budget_near": "한도 근접",
-    "budget_over": "소진됨",
+    "budget_over": "예산 초과",
     "budget_untracked": "기록 안 됨",
     "never": "없음",
     "action_edit": "{{name}} 편집",

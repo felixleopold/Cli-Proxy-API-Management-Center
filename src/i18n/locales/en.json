@@ -2480,7 +2480,7 @@
     "budget_untracked_label": "Budget {{budget}}; spend isn't tracked",
     "budget_unlimited": "no limit",
     "budget_near": "Near limit",
-    "budget_over": "Exhausted",
+    "budget_over": "Over budget",
     "budget_untracked": "Not tracked",
     "never": "Never",
     "action_edit": "Edit {{name}}",
