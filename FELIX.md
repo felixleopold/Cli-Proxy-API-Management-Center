@@ -40,10 +40,11 @@ Current base: upstream `v1.25.6`.
   credential (`auth_id`): `''` is shared-pool usage from before credential tracking and
   `imported-own-account` is imported personal-account usage from before the gateway; both count in
   totals only. Each credential's window is `[reset − period, reset]` from its passive `quota.signals`
-  on `/credentials` (Claude unified 7d/5h, Codex primary/secondary), or, without live signals (e.g.
-  after a gateway restart), from its newest quota-history sample; stale resets roll forward by whole
-  periods. Cards without either say they show the history range. The ledger refetches when the
-  selection needs an earlier start or the clock passes the hour the snapshot ends in. Cards show
+  on `/credentials` (Claude unified 7d/5h, Codex primary/secondary, Muse weekly/window), or,
+  without live signals (e.g. after a gateway restart), from its newest quota-history sample; stale
+  resets roll forward by whole periods. Cards without either say they show the history range. The
+  ledger refetches when the selection needs an earlier start or the clock passes the hour the
+  snapshot ends in. Cards show
   spend by user and ≈ spend at 100% from ≥ 5% used; the chart stacks by user or subscription
   with reset markers; the table drills user → device → model; the label editor maps key → device/user
   (fingerprint = first 12 hex of sha256 of the key). Series colors follow identity (users
@@ -74,7 +75,8 @@ Current base: upstream `v1.25.6`.
   is off, and the page says so. Logic: `clientKeysModel.ts`; tests: `tests/clientKeysModel.test.ts`.
 - **Quota forecast** (`src/features/quota/quotaForecastModel.ts`, `components/QuotaForecast*`).
   Per-provider pool chart of remaining quota with a projection to the next resets, drain history
-  and a horizon picker. The projection is sleep-aware: each credential's daily rate is its own
+  and a horizon picker, for Claude, Codex and Muse (`meta`), each shown only once one of its
+  credentials reports quota. The projection is sleep-aware: each credential's daily rate is its own
   trailing-7-day drain or its last-24h drain, whichever is higher (below 24h, the drain so far
   over its activity-weighted time; below 3h, the window pace), spread over a local hour-of-day
   profile learned from drain and blended into a configurable sleep baseline. Unused Codex manual resets show as amber expiry markers and a count,

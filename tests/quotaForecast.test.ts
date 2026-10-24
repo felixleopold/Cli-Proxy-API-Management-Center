@@ -115,6 +115,31 @@ describe('readPoolCredential', () => {
       expect.objectContaining({ provider: 'codex', capacity: 100 }),
     ]);
   });
+
+  test('Muse pools its weekly window; disabled or signal-less Muse credentials add no pool', () => {
+    const muse = file('meta', {
+      'Muse-Window-Used-Percent': '70',
+      'Muse-Window-Minutes': '300',
+      'Muse-Window-Reset-At': unix(NOW + HOUR_MS),
+      'Muse-Weekly-Used-Percent': '35',
+      'Muse-Weekly-Reset-At': unix(NOW + 2 * DAY_MS),
+    });
+    expect(buildPools([muse])).toEqual([
+      {
+        provider: 'meta',
+        capacity: 100,
+        credentials: [
+          expect.objectContaining({
+            window: 'weekly',
+            periodMs: WEEK_MS,
+            usedPercent: 35,
+            resetAtMs: NOW + 2 * DAY_MS,
+          }),
+        ],
+      },
+    ]);
+    expect(buildPools([{ ...muse, disabled: true }, file('meta', {})])).toEqual([]);
+  });
 });
 
 describe('current state and projection', () => {
