@@ -120,7 +120,7 @@ export interface Subscription {
   observedAtMs: number | null;
   /** The longest reported window (weekly on current plans); null without one. */
   quota: QuotaWindow | null;
-  /** A shorter session window (Claude 5h, Codex primary), when also reported. */
+  /** A shorter session window (Claude 5h, Codex primary, Muse window), when also reported. */
   session: QuotaWindow | null;
   /** The window comes from the newest quota-history sample, not a live reading. */
   fromHistory?: true;
@@ -169,6 +169,19 @@ function codexWindow(
   };
 }
 
+function museWindow(signals: Signals, name: 'weekly' | 'window'): QuotaWindow | null {
+  // The weekly window carries no duration; its scope defines seven days.
+  const minutes =
+    name === 'weekly' ? WEEK_MS / MINUTE_MS : readNumber(signals.get('muse-window-minutes'));
+  const resetAt = readNumber(signals.get(`muse-${name}-reset-at`));
+  if (minutes === null || minutes <= 0 || resetAt === null) return null;
+  return {
+    usedPercent: readNumber(signals.get(`muse-${name}-used-percent`)),
+    resetMs: resetAt * 1000,
+    periodMs: minutes * MINUTE_MS,
+  };
+}
+
 /** A credential and its quota windows, from the passive `quota.signals` snapshot. */
 export function parseSubscription(file: AuthFileItem): Subscription {
   const quota = isRecord(file.quota) ? file.quota : {};
@@ -196,6 +209,10 @@ export function parseSubscription(file: AuthFileItem): Subscription {
       codexWindow(signals, 'primary', observedAtMs),
       codexWindow(signals, 'secondary', observedAtMs),
     ].filter((window): window is QuotaWindow => window !== null);
+  } else if (provider === 'meta') {
+    windows = [museWindow(signals, 'weekly'), museWindow(signals, 'window')].filter(
+      (window): window is QuotaWindow => window !== null
+    );
   }
   windows.sort((a, b) => b.periodMs - a.periodMs);
 

@@ -15,7 +15,7 @@ import { isRecord } from '@/utils/helpers';
 export const HOUR_MS = 60 * 60 * 1000;
 export const DAY_MS = 24 * HOUR_MS;
 
-export const FORECAST_PROVIDERS = ['claude', 'codex'] as const;
+export const FORECAST_PROVIDERS = ['claude', 'codex', 'meta'] as const;
 export type ForecastProvider = (typeof FORECAST_PROVIDERS)[number];
 
 export const FORECAST_HORIZON_DAYS = [1, 3, 7, 14] as const;
@@ -123,6 +123,21 @@ const readSignalWindows = (
         parseUnixMs(signal(`${prefix}Reset`))
       );
     });
+    return windows;
+  }
+
+  if (provider === 'meta') {
+    // Percent is 0..100; resets are unix seconds; the weekly window carries no duration.
+    add(
+      7 * 24 * 60,
+      parseNumber(signal('Muse-Weekly-Used-Percent')),
+      parseUnixMs(signal('Muse-Weekly-Reset-At'))
+    );
+    add(
+      parseNumber(signal('Muse-Window-Minutes')),
+      parseNumber(signal('Muse-Window-Used-Percent')),
+      parseUnixMs(signal('Muse-Window-Reset-At'))
+    );
     return windows;
   }
 

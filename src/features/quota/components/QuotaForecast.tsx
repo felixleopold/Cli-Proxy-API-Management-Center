@@ -50,6 +50,7 @@ import styles from './QuotaForecast.module.scss';
 const SERIES_COLOR: Record<ForecastProvider, string> = {
   claude: 'var(--fc-claude)',
   codex: 'var(--fc-codex)',
+  meta: 'var(--fc-meta)',
 };
 
 /** History drawn left of "now"; longer horizons keep a week so the chart stays readable. */

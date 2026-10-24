@@ -7,6 +7,7 @@
 .forecast {
   --fc-claude: #c4561f;
   --fc-codex: #4b4fd8;
+  --fc-meta: #008f6e;
   --fc-surface: var(--bg-secondary);
 
   display: flex;
@@ -21,6 +22,7 @@
   [data-theme='dark'] & {
     --fc-claude: #d96b3e;
     --fc-codex: #8682f2;
+    --fc-meta: #1fa37a;
   }
 }
 
