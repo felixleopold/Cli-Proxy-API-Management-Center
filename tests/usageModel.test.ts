@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
+import { normalizeClientKey } from '../src/services/api/clientKeys';
 import {
   WEEK_MS,
   assignSlots,
   buildClientRows,
+  clientKind,
   buildTimeBuckets,
   OWN_ACCOUNT_AUTH_ID,
   clientKeyFingerprint,
@@ -395,7 +397,7 @@ describe('client rows', () => {
     const expected = createHash('sha256').update('sk-device-one').digest('hex').slice(0, 12);
     expect(clientKeyFingerprint('  sk-device-one\n')).toBe(expected);
     expect(clientKeyFingerprint('   ')).toBe('');
-    expect(buildClientRows([], ['', '  ']).map((row) => row.fingerprint)).toEqual([]);
+    expect(buildClientRows([], ['', '  '], []).map((row) => row.fingerprint)).toEqual([]);
   });
 
   test('match configured keys by sha256 prefix and include keys not seen yet', () => {
@@ -408,11 +410,34 @@ describe('client rows', () => {
         { fingerprint: expected, device: 'MacBook', user: 'Felix', configured: true },
         { fingerprint: '', device: '', user: '', configured: false },
       ],
-      [key, 'sk-unused']
+      [key, 'sk-unused'],
+      []
     );
     expect(rows.map((row) => [row.user, row.apiKey])).toEqual([
       ['', 'sk-unused'],
       ['Felix', key],
+    ]);
+  });
+
+  test('app keys match the ledger by id, not by secret, and unmatched keys stay unknown', () => {
+    const appKey = normalizeClientKey({ id: 'ck_e6741b5734', name: 'felix-mail-triage' });
+    const appFingerprint = createHash('sha256')
+      .update('client-key:ck_e6741b5734')
+      .digest('hex')
+      .slice(0, 12);
+    expect(appFingerprint).toBe('88112f1e8648');
+
+    const rows = buildClientRows(
+      [
+        { fingerprint: appFingerprint, device: '', user: '', configured: false },
+        { fingerprint: 'revokedkey01', device: '', user: '', configured: false },
+      ],
+      [],
+      [appKey]
+    );
+    expect(rows.map((row) => [row.fingerprint, clientKind(row), row.appKey?.name])).toEqual([
+      ['88112f1e8648', 'app', 'felix-mail-triage'],
+      ['revokedkey01', 'unknown', undefined],
     ]);
   });
 });

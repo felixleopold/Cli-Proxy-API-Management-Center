@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { apiKeysApi, usageLedgerApi } from '@/services/api';
+import { apiKeysApi, clientKeysApi, usageLedgerApi, type ClientKey } from '@/services/api';
 import { useAuthStore } from '@/stores';
 import type { UsageClient, UsageClientLabel, UsageLedger } from '@/types';
 import { ledgerNeedsReload } from '../usageModel';
@@ -8,12 +8,14 @@ interface Directory {
   /** Labels from the clients endpoint; null when it failed (the ledger's copy is used). */
   clients: UsageClient[] | null;
   apiKeys: string[];
+  /** App keys from the Client keys page; empty while that feature is off. */
+  appKeys: ClientKey[];
   loaded: boolean;
 }
 
-const EMPTY_DIRECTORY: Directory = { clients: null, apiKeys: [], loaded: false };
+const EMPTY_DIRECTORY: Directory = { clients: null, apiKeys: [], appKeys: [], loaded: false };
 
-/** Client labels and configured keys (for key hints). */
+/** Client labels, configured keys (for key hints) and app keys (to name them). */
 export function useUsageDirectory() {
   const connected = useAuthStore((state) => state.connectionStatus === 'connected');
   const [directory, setDirectory] = useState<Directory>(EMPTY_DIRECTORY);
@@ -25,14 +27,16 @@ export function useUsageDirectory() {
       setDirectory({ ...EMPTY_DIRECTORY, loaded: true });
       return;
     }
-    const [clients, apiKeys] = await Promise.allSettled([
+    const [clients, apiKeys, appKeys] = await Promise.allSettled([
       usageLedgerApi.getClients(),
       apiKeysApi.list(),
+      clientKeysApi.list(),
     ]);
     if (requestId !== requestRef.current) return;
     setDirectory({
       clients: clients.status === 'fulfilled' ? clients.value : null,
       apiKeys: apiKeys.status === 'fulfilled' ? apiKeys.value : [],
+      appKeys: appKeys.status === 'fulfilled' ? appKeys.value : [],
       loaded: true,
     });
   }, [connected]);
