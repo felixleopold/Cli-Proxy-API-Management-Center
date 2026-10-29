@@ -1,8 +1,8 @@
 import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconChevronDown } from '@/components/ui/icons';
-import { formatCompactNumber, formatPercent } from '@/utils/format';
-import { formatUsd, type SeriesSlot, type UsageRollup } from '../usageModel';
+import { formatCompactNumber, formatPercent, maskApiKey } from '@/utils/format';
+import { formatUsd, type ClientRow, type SeriesSlot, type UsageRollup } from '../usageModel';
 import { slotClassName } from './slotClass';
 import styles from './UsageUsersTable.module.scss';
 
@@ -10,8 +10,8 @@ interface UsageUsersTableProps {
   rollup: UsageRollup;
   slots: Map<string, SeriesSlot>;
   userLabel: (user: string) => string;
-  /** Masked configured api key per fingerprint. */
-  keyHints: Map<string, string>;
+  /** Known keys by fingerprint: configured device keys and app keys. */
+  clients: Map<string, ClientRow>;
 }
 
 const toggle = (set: Set<string>, key: string) => {
@@ -20,7 +20,7 @@ const toggle = (set: Set<string>, key: string) => {
   return next;
 };
 
-export function UsageUsersTable({ rollup, slots, userLabel, keyHints }: UsageUsersTableProps) {
+export function UsageUsersTable({ rollup, slots, userLabel, clients }: UsageUsersTableProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage;
   const [openUsers, setOpenUsers] = useState<Set<string>>(() => new Set());
@@ -57,6 +57,10 @@ export function UsageUsersTable({ rollup, slots, userLabel, keyHints }: UsageUse
             const userOpen = openUsers.has(user.user);
             const slot = slots.get(user.user) ?? 'other';
             const userShare = share(user.costUsd);
+            const appCount = user.devices.filter(
+              (device) => clients.get(device.fingerprint)?.appKey
+            ).length;
+            const deviceCount = user.devices.length - appCount;
             return (
               <Fragment key={user.user || '\u0000'}>
                 <tr className={styles.userRow}>
@@ -76,7 +80,12 @@ export function UsageUsersTable({ rollup, slots, userLabel, keyHints }: UsageUse
                         {userLabel(user.user)}
                       </span>
                       <span className={styles.meta}>
-                        {t('usage.device_count', { count: user.devices.length })}
+                        {[
+                          deviceCount > 0 && t('usage.device_count', { count: deviceCount }),
+                          appCount > 0 && t('usage.app_key_count', { count: appCount }),
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
                       </span>
                     </button>
                   </th>
@@ -100,7 +109,9 @@ export function UsageUsersTable({ rollup, slots, userLabel, keyHints }: UsageUse
                   user.devices.map((device) => {
                     const deviceKey = `${user.user}\u0000${device.fingerprint}`;
                     const deviceOpen = openDevices.has(deviceKey);
-                    const keyHint = keyHints.get(device.fingerprint);
+                    const client = clients.get(device.fingerprint);
+                    const appKey = client?.appKey;
+                    const name = appKey?.name || device.device;
                     return (
                       <Fragment key={deviceKey}>
                         <tr className={styles.deviceRow}>
@@ -116,15 +127,23 @@ export function UsageUsersTable({ rollup, slots, userLabel, keyHints }: UsageUse
                                 className={styles.chevron}
                                 aria-hidden="true"
                               />
-                              <span className={device.device ? undefined : styles.unassigned}>
+                              <span className={name ? undefined : styles.unassigned}>
                                 {device.fingerprint
-                                  ? device.device || t('usage.unnamed_device')
+                                  ? name || t('usage.unnamed_device')
                                   : t('usage.anonymous')}
                               </span>
+                              {appKey && (
+                                <span className={styles.appTag}>{t('usage.app_key_tag')}</span>
+                              )}
                               {device.fingerprint && (
                                 <code className={styles.fingerprint}>{device.fingerprint}</code>
                               )}
-                              {keyHint && <span className={styles.meta}>{keyHint}</span>}
+                              {client?.apiKey && (
+                                <span className={styles.meta}>{maskApiKey(client.apiKey)}</span>
+                              )}
+                              {appKey?.project && (
+                                <span className={styles.meta}>{appKey.project}</span>
+                              )}
                             </button>
                           </th>
                           <td className={styles.num}>{formatUsd(device.costUsd, locale)}</td>

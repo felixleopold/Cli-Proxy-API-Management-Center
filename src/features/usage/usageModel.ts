@@ -7,6 +7,7 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { deriveAuthFileIdentity } from '@/features/authFiles/identity';
+import type { ClientKey } from '@/services/api/clientKeys';
 import type { QuotaHistorySample } from '@/services/api/quotaHistory';
 import type { AuthFileItem, UsageClient, UsageLedgerBucket } from '@/types';
 import { isRecord } from '@/utils/helpers';
@@ -649,21 +650,36 @@ export function clientKeyFingerprint(apiKey: string): string {
   return key ? bytesToHex(sha256(new TextEncoder().encode(key))).slice(0, 12) : '';
 }
 
+/**
+ * Go `clientkeys.Entry.Fingerprint`: the ledger records an app (client) key under
+ * `client-key:<id>`, not under its secret.
+ */
+export const appKeyFingerprint = (id: string): string => clientKeyFingerprint(`client-key:${id}`);
+
 export interface ClientRow {
   fingerprint: string;
   device: string;
   user: string;
   /** The configured api key with this fingerprint, if any. */
   apiKey: string | null;
+  /** The app key (Client keys page) with this fingerprint, if any. */
+  appKey: ClientKey | null;
 }
 
+/** A device key from the config, an app key, or a key neither knows (removed or revoked). */
+export type ClientKind = 'device' | 'app' | 'unknown';
+
+export const clientKind = (row: Pick<ClientRow, 'apiKey' | 'appKey'>): ClientKind =>
+  row.appKey ? 'app' : row.apiKey ? 'device' : 'unknown';
+
 /**
- * Every labellable client: those the backend has seen plus configured keys that
- * have not been used yet. The anonymous fingerprint cannot be labelled.
+ * Every labellable client: those the backend has seen plus configured and app keys
+ * that have not been used yet. The anonymous fingerprint cannot be labelled.
  */
 export function buildClientRows(
   clients: readonly UsageClient[],
-  apiKeys: readonly string[]
+  apiKeys: readonly string[],
+  appKeys: readonly ClientKey[]
 ): ClientRow[] {
   const keyByFingerprint = new Map(
     apiKeys.flatMap((key) => {
@@ -671,19 +687,21 @@ export function buildClientRows(
       return fingerprint ? [[fingerprint, key] as const] : [];
     })
   );
+  const appKeyByFingerprint = new Map(appKeys.map((key) => [appKeyFingerprint(key.id), key]));
   const rows = new Map<string, ClientRow>();
+  const row = (fingerprint: string, device = '', user = ''): ClientRow => ({
+    fingerprint,
+    device,
+    user,
+    apiKey: keyByFingerprint.get(fingerprint) ?? null,
+    appKey: appKeyByFingerprint.get(fingerprint) ?? null,
+  });
   for (const client of clients) {
-    if (!client.fingerprint) continue;
-    rows.set(client.fingerprint, {
-      fingerprint: client.fingerprint,
-      device: client.device,
-      user: client.user,
-      apiKey: keyByFingerprint.get(client.fingerprint) ?? null,
-    });
+    if (client.fingerprint)
+      rows.set(client.fingerprint, row(client.fingerprint, client.device, client.user));
   }
-  for (const [fingerprint, apiKey] of keyByFingerprint) {
-    if (!rows.has(fingerprint))
-      rows.set(fingerprint, { fingerprint, device: '', user: '', apiKey });
+  for (const fingerprint of [...keyByFingerprint.keys(), ...appKeyByFingerprint.keys()]) {
+    if (!rows.has(fingerprint)) rows.set(fingerprint, row(fingerprint));
   }
   // Unassigned first: those are the rows that need the operator's attention.
   return Array.from(rows.values()).sort(

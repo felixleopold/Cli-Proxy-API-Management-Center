@@ -22,7 +22,7 @@ import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useNow } from '@/hooks/useNow';
 import { useNotificationStore, useThemeStore } from '@/stores';
 import type { AuthFileItem, UsageClient, UsageClientLabel } from '@/types';
-import { formatCompactNumber, formatPercent, maskApiKey } from '@/utils/format';
+import { formatCompactNumber, formatPercent } from '@/utils/format';
 import { formatRelativeInstant } from '@/utils/quota/relativeTime';
 import type { AccountSpendContext } from './components/AccountSpend';
 import { UsageClientsEditor } from './components/UsageClientsEditor';
@@ -312,14 +312,11 @@ export function UsageSections({
   }, [picked, selected]);
 
   const clientRows = useMemo(
-    () => buildClientRows(labels, directory.apiKeys),
-    [directory.apiKeys, labels]
+    () => buildClientRows(labels, directory.apiKeys, directory.appKeys),
+    [directory.apiKeys, directory.appKeys, labels]
   );
-  const keyHints = useMemo(
-    () =>
-      new Map(
-        clientRows.flatMap((row) => (row.apiKey ? [[row.fingerprint, maskApiKey(row.apiKey)]] : []))
-      ),
+  const clientByFingerprint = useMemo(
+    () => new Map(clientRows.map((row) => [row.fingerprint, row])),
     [clientRows]
   );
 
@@ -649,7 +646,7 @@ export function UsageSections({
                   rollup={rollup}
                   slots={userColors}
                   userLabel={userLabel}
-                  keyHints={keyHints}
+                  clients={clientByFingerprint}
                 />
                 {ledger && ledger.unpricedModels.length > 0 && (
                   <p className={styles.note}>
