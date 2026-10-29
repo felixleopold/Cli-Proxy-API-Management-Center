@@ -111,7 +111,7 @@ export function UsageUsersTable({ rollup, slots, userLabel, clients }: UsageUser
                     const deviceOpen = openDevices.has(deviceKey);
                     const client = clients.get(device.fingerprint);
                     const appKey = client?.appKey;
-                    const name = device.device || appKey?.name;
+                    const name = appKey?.name || device.device;
                     return (
                       <Fragment key={deviceKey}>
                         <tr className={styles.deviceRow}>
