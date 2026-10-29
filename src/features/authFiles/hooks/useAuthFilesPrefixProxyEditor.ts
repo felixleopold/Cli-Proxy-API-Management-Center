@@ -338,12 +338,16 @@ export const buildAuthFileFieldsPatch = (
   }
 
   if (supportsAuthFileUsageCap(editor.providerKey)) {
-    const nextUsageCap = parseUsageCapPercentText(editor.usageCapPercent);
-    if (nextUsageCap === undefined) {
-      throw new Error(resolveError('auth_files.usage_cap_invalid'));
-    }
-    if (nextUsageCap !== readAuthFileUsageCapPercent(original)) {
-      patch.usage_cap_percent = nextUsageCap;
+    const originalUsageCap = readAuthFileUsageCapPercent(original);
+    // An untouched value may be a gateway-valid fraction the whole-number input would reject.
+    if (editor.usageCapPercent.trim() !== String(originalUsageCap ?? '')) {
+      const nextUsageCap = parseUsageCapPercentText(editor.usageCapPercent);
+      if (nextUsageCap === undefined) {
+        throw new Error(resolveError('auth_files.usage_cap_invalid'));
+      }
+      if (nextUsageCap !== originalUsageCap) {
+        patch.usage_cap_percent = nextUsageCap;
+      }
     }
   }
 

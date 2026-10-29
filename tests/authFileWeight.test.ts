@@ -91,6 +91,15 @@ describe('auth-file Codex usage cap patch', () => {
     ).toEqual({});
   });
 
+  test('keeps or clears a fractional cap the gateway already enforces', () => {
+    expect(
+      buildAuthFileFieldsPatch(withCap({ usage_cap_percent: 80.5 }, '80.5'), resolveError)
+    ).toEqual({});
+    expect(
+      buildAuthFileFieldsPatch(withCap({ usage_cap_percent: 80.5 }, ''), resolveError)
+    ).toEqual({ usage_cap_percent: null });
+  });
+
   test('rejects out-of-range input and ignores non-Codex credentials', () => {
     for (const value of ['0', '100', '50.5', 'abc']) {
       expect(() => buildAuthFileFieldsPatch(withCap({}, value), resolveError)).toThrow(

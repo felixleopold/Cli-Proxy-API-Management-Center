@@ -240,11 +240,12 @@ export const parseUsageCapPercentText = (text: string): number | null | undefine
   return value >= 1 && value <= 99 ? value : undefined;
 };
 
+/** Reads the cap the gateway enforces: any number strictly between 0 and 100, else null. */
 export const readAuthFileUsageCapPercent = (value: Record<string, unknown>): number | null => {
   const raw = value.usage_cap_percent;
-  return typeof raw === 'number' || typeof raw === 'string'
-    ? (parseUsageCapPercentText(String(raw)) ?? null)
-    : null;
+  const cap =
+    typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() ? Number(raw) : NaN;
+  return cap > 0 && cap < 100 ? cap : null;
 };
 
 export const supportsAuthFileUsingApi = (providerKey: string): boolean =>
