@@ -18,9 +18,12 @@ import {
   applyAuthFileUsingApi,
   normalizeProviderKey,
   parsePriorityValue,
+  parseUsageCapPercentText,
   readAuthFileDisableCooling,
+  readAuthFileUsageCapPercent,
   readAuthFileWebsockets,
   readAuthFileUsingApi,
+  supportsAuthFileUsageCap,
   supportsAuthFileWebsockets,
   supportsAuthFileUsingApi,
 } from '@/features/authFiles/constants';
@@ -39,7 +42,8 @@ type AuthFileHeadersErrorKey =
 type AuthFileContentErrorKey =
   'auth_files.prefix_proxy_invalid_json' | 'auth_files.prefix_proxy_html_challenge';
 type AuthFileWeightErrorKey = 'auth_files.weight_invalid_integer' | 'auth_files.weight_invalid_max';
-type AuthFileEditorErrorKey = AuthFileHeadersErrorKey | AuthFileWeightErrorKey;
+type AuthFileEditorErrorKey =
+  AuthFileHeadersErrorKey | AuthFileWeightErrorKey | 'auth_files.usage_cap_invalid';
 
 export type PrefixProxyEditorField =
   | CredentialPolicyField
@@ -47,6 +51,7 @@ export type PrefixProxyEditorField =
   | 'proxyUrl'
   | 'priority'
   | 'weight'
+  | 'usageCapPercent'
   | 'disableCooling'
   | 'websockets'
   | 'usingApi'
@@ -73,6 +78,8 @@ export type PrefixProxyEditorState = {
   priority: string;
   weight: string;
   weightError: string | null;
+  usageCapPercent: string;
+  usageCapPercentError: string | null;
   disableCooling: boolean;
   disableCoolingTouched: boolean;
   websockets: boolean;
@@ -330,6 +337,20 @@ export const buildAuthFileFieldsPatch = (
     patch.weight = nextWeight;
   }
 
+  if (supportsAuthFileUsageCap(editor.providerKey)) {
+    const originalUsageCap = readAuthFileUsageCapPercent(original);
+    // An untouched value may be a gateway-valid fraction the whole-number input would reject.
+    if (editor.usageCapPercent.trim() !== String(originalUsageCap ?? '')) {
+      const nextUsageCap = parseUsageCapPercentText(editor.usageCapPercent);
+      if (nextUsageCap === undefined) {
+        throw new Error(resolveError('auth_files.usage_cap_invalid'));
+      }
+      if (nextUsageCap !== originalUsageCap) {
+        patch.usage_cap_percent = nextUsageCap;
+      }
+    }
+  }
+
   if (editor.disableCoolingTouched) {
     const originalDisableCooling = readAuthFileDisableCooling(original);
     const nextDisableCooling = Boolean(editor.disableCooling);
@@ -430,6 +451,11 @@ const buildPrefixProxyUpdatedText = (
     }
   }
 
+  if (patch.usage_cap_percent !== undefined) {
+    // The backend stores null as-is; a null cap means no cap.
+    next.usage_cap_percent = patch.usage_cap_percent;
+  }
+
   if (patch.disable_cooling !== undefined) {
     next.disable_cooling = patch.disable_cooling;
   }
@@ -480,6 +506,7 @@ export function useAuthFilesPrefixProxyEditor(
   const hasBlockingValidationError = Boolean(
     (prefixProxyEditor?.headersTouched && prefixProxyEditor.headersError) ||
     prefixProxyEditor?.weightError ||
+    prefixProxyEditor?.usageCapPercentError ||
     credentialPolicyError(prefixProxyEditor?.policy)
   );
   const prefixProxyUpdatedText =
@@ -531,6 +558,8 @@ export function useAuthFilesPrefixProxyEditor(
       priority: '',
       weight: '',
       weightError: null,
+      usageCapPercent: '',
+      usageCapPercentError: null,
       disableCooling: false,
       disableCoolingTouched: false,
       websockets: false,
@@ -585,6 +614,7 @@ export function useAuthFilesPrefixProxyEditor(
       const proxyUrl = typeof json.proxy_url === 'string' ? json.proxy_url : '';
       const priority = parsePriorityValue(json.priority);
       const weight = readCredentialWeight(json.weight);
+      const usageCapPercent = readAuthFileUsageCapPercent(json);
       const disableCooling = readAuthFileDisableCooling(json);
       const websockets = supportsAuthFileWebsockets(providerKey)
         ? readAuthFileWebsockets(json)
@@ -617,6 +647,8 @@ export function useAuthFilesPrefixProxyEditor(
           priority: priority !== undefined ? String(priority) : '',
           weight: weight !== undefined ? String(weight) : '',
           weightError: null,
+          usageCapPercent: usageCapPercent !== null ? String(usageCapPercent) : '',
+          usageCapPercentError: null,
           disableCooling,
           disableCoolingTouched: false,
           websockets,
@@ -671,6 +703,17 @@ export function useAuthFilesPrefixProxyEditor(
           ...prev,
           weight,
           weightError: error ? t(credentialWeightErrorKey(error)) : null,
+        };
+      }
+      if (field === 'usageCapPercent') {
+        const usageCapPercent = String(value);
+        return {
+          ...prev,
+          usageCapPercent,
+          usageCapPercentError:
+            parseUsageCapPercentText(usageCapPercent) === undefined
+              ? t('auth_files.usage_cap_invalid')
+              : null,
         };
       }
       if (field === 'disableCooling') {
