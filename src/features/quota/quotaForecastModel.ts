@@ -265,8 +265,9 @@ export function cardReading(
   // Without a 5-hour window the lane falls back to a longer one, which is not short.
   if (short && short.periodMs < WEEKLY_MIN_MINUTES * 60 * 1000) return { ...pooled, short };
   // Claude and Codex report an idle 5-hour window with its usage but no reset.
-  const idle = ((quota as { windows?: { id?: string; usedPercent?: number | null }[] }).windows ?? [])
-    .find((window) => window.id === 'five-hour' && typeof window.usedPercent === 'number');
+  const idle = (
+    (quota as { windows?: { id?: string; usedPercent?: number | null }[] }).windows ?? []
+  ).find((window) => window.id === 'five-hour' && typeof window.usedPercent === 'number');
   return {
     ...pooled,
     short: idle
@@ -404,7 +405,9 @@ const shortWindowOf = (
     ? {
         minutes: card.periodMs / 60_000,
         usedPercent:
-          card.resetAtMs === null ? card.usedPercent : usedNow(card.usedPercent, card.resetAtMs, nowMs),
+          card.resetAtMs === null
+            ? card.usedPercent
+            : usedNow(card.usedPercent, card.resetAtMs, nowMs),
       }
     : null;
 };
