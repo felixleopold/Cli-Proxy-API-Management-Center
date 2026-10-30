@@ -197,6 +197,16 @@ describe('history', () => {
     expect(valueAt(series, NOW)).toBe(90);
   });
 
+  test('a newly added credential joins the pool without hiding earlier history', () => {
+    const old = credential({ usedPercent: 30, observedAtMs: NOW });
+    const added = credential({ authId: 'b', usedPercent: 0, observedAtMs: NOW - HOUR_MS });
+    const samples = [sample({ atMs: NOW - 2 * DAY_MS, usedPercent: 20 })];
+    const series = poolHistory(pool(old, added), samples, NOW - 3 * DAY_MS, NOW);
+    expect(series[0].t).toBe(NOW - 2 * DAY_MS);
+    expect(valueAt(series, NOW - DAY_MS)).toBe(80);
+    expect(valueAt(series, NOW - 0.5 * HOUR_MS)).toBe(180);
+  });
+
   test('an idle credential with no samples in range counts from its current snapshot', () => {
     const idle = credential({ usedPercent: 20, observedAtMs: NOW - 5 * DAY_MS });
     const series = poolHistory(pool(idle), [], NOW - DAY_MS, NOW);
