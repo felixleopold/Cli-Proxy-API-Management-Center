@@ -2,7 +2,10 @@
  * Account card on the Usage & quota page: one per credential, merging its live
  * quota with the spend in its current window.
  *
- * - header: provider icon, account identity (file name on hover), plan, next reset;
+ * - header: provider icon, account identity (file name on hover), plan, plan multiplier and
+ *   our share of it, next reset;
+ * - headline: what is left to us of the weekly window in plan multipliers, from the
+ *   credential's passive quota signals, so it shows before the card loads;
  * - body, four states: idle (the whole body loads on click; upstream rate limits mean
  *   no auto-fetch), loading skeleton, error strip, success (the provider body, compact);
  * - spend row (AccountSpend), then renewal / credits / manual resets behind a disclosure
@@ -37,6 +40,8 @@ import { bindQuotaClasses, type QuotaClassMap } from '../types';
 import { QUOTA_ADAPTERS, type QuotaCardState } from '../providers';
 import type { QuotaProviderType } from '../providers/types';
 import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
+import type { AccountMultiplier } from '../planMultipliers';
+import { AccountMultiplierBadge, AccountMultiplierHeadline } from './PlanMultipliers';
 import { getAntigravityPlanLabel, isAntigravityPremiumPlan } from '../providers/antigravity/plan';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import { ClaudeResetGrantDetails } from '../providers/claude/ClaudeResetGrantDetails';
@@ -229,6 +234,8 @@ export type QuotaCardProps = {
   /** Spend in this credential's current window; null without ledger data for it. */
   summary: SubscriptionSummary | null;
   spend: AccountSpendContext;
+  /** Plan multiplier and what is left of it; null for providers without a usage cap. */
+  multiplier: AccountMultiplier | null;
   onRefresh: () => void;
   onReset: () => void;
 };
@@ -243,6 +250,7 @@ export function QuotaCard(props: QuotaCardProps) {
     entranceDelayMs,
     summary,
     spend,
+    multiplier,
     onRefresh,
     onReset,
   } = props;
@@ -295,11 +303,17 @@ export function QuotaCard(props: QuotaCardProps) {
         mono={identity.kind === 'fileName'}
         nameId={nameId}
         title={getQuotaDisplayName(file)}
-        plan={loaded ? planBadge(entry.type, quota, t, quotaClasses) : null}
+        plan={
+          <>
+            {loaded && planBadge(entry.type, quota, t, quotaClasses)}
+            {multiplier && <AccountMultiplierBadge share={multiplier.share} />}
+          </>
+        }
         resetMs={summary?.window?.endMs ?? null}
       />
 
       <div className={styles.body}>
+        {multiplier && <AccountMultiplierHeadline multiplier={multiplier} />}
         {entry.type === 'claude' && loaded && claudeGrants.length === 0 && (
           // Without grants to disclose, the count stays visible as on the base card.
           <div className={quotaClasses.codexPlan}>

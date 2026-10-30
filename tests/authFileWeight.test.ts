@@ -23,6 +23,8 @@ const makeEditor = (json: Record<string, unknown>, weight: string): PrefixProxyE
   weightError: null,
   usageCapPercent: '',
   usageCapPercentError: null,
+  planMultiplier: '',
+  planMultiplierError: null,
   disableCooling: false,
   disableCoolingTouched: false,
   websockets: false,
@@ -143,9 +145,9 @@ describe('auth-file disable cooling patch', () => {
   });
 
   test('does not patch an untouched or unchanged override', () => {
-    expect(buildAuthFileFieldsPatch(makeEditor({ disable_cooling: true }, ''), resolveError)).toEqual(
-      {}
-    );
+    expect(
+      buildAuthFileFieldsPatch(makeEditor({ disable_cooling: true }, ''), resolveError)
+    ).toEqual({});
     expect(
       buildAuthFileFieldsPatch(
         {

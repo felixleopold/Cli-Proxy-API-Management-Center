@@ -28,6 +28,7 @@ import type {
   PoolCredential,
   ProviderPool,
 } from '../src/features/quota/quotaForecastModel';
+import { planShareOf } from '../src/features/quota/planMultipliers';
 import {
   normalizeQuotaHistorySamples,
   type QuotaHistorySample,
@@ -52,13 +53,14 @@ const credential = (overrides: Partial<PoolCredential> = {}): PoolCredential => 
   usedPercent: 0,
   resetAtMs: NOW + 3 * DAY_MS,
   observedAtMs: NOW,
+  share: planShareOf({}),
   ...overrides,
 });
 
 const pool = (...credentials: PoolCredential[]): ProviderPool => ({
   provider: 'claude',
   credentials,
-  capacity: credentials.length * 100,
+  capacity: credentials.reduce((sum, credential) => sum + credential.share.effective, 0),
 });
 
 const sample = (overrides: Partial<QuotaHistorySample>): QuotaHistorySample => ({
@@ -112,7 +114,7 @@ describe('readPoolCredential', () => {
     });
     expect(readPoolCredential(session)).toMatchObject({ window: 'session', periodMs: 5 * HOUR_MS });
     expect(buildPools([session, { ...session, id: 'off', disabled: true }])).toEqual([
-      expect.objectContaining({ provider: 'codex', capacity: 100 }),
+      expect.objectContaining({ provider: 'codex', capacity: 1 }),
     ]);
   });
 
@@ -127,7 +129,7 @@ describe('readPoolCredential', () => {
     expect(buildPools([muse])).toEqual([
       {
         provider: 'meta',
-        capacity: 100,
+        capacity: 1,
         credentials: [
           expect.objectContaining({
             window: 'weekly',
@@ -154,23 +156,24 @@ describe('current state and projection', () => {
     const a = credential({ usedPercent: 48, resetAtMs: NOW + 3 * DAY_MS });
     const b = credential({ authId: 'b', usedPercent: 0, resetAtMs: NOW + 5 * DAY_MS });
     const summary = summarizePool(pool(a, b), NOW);
-    expect(summary.remaining).toBe(152);
-    expect(summary.capacity).toBe(200);
-    expect(summary.pacePerHour).toBeCloseTo(0.5);
+    // In plan multipliers: 1× each, so 1% of a window is 0.01×.
+    expect(summary.remaining).toBeCloseTo(1.52);
+    expect(summary.capacity).toBe(2);
+    expect(summary.pacePerHour).toBeCloseTo(0.005);
     expect(summary.nextReset?.atMs).toBe(NOW + 3 * DAY_MS);
     // By the reset another 72h at 0.5%/h is used: 48 + 36.
-    expect(summary.nextReset?.restorePercent).toBeCloseTo(84);
+    expect(summary.nextReset?.restore).toBeCloseTo(0.84);
   });
 
-  test('projection declines at pace, floors at zero and jumps back to 100 at each reset', () => {
+  test('projection declines at pace, floors at zero and jumps back to full at each reset', () => {
     // 50% used one day in: 50/24 % per hour, empty one day from now.
     const c = credential({ usedPercent: 50, resetAtMs: NOW + 6 * DAY_MS });
     const series = projectPool(pool(c), NOW, NOW + 8 * DAY_MS);
-    expect(valueAt(series, NOW)).toBeCloseTo(50);
-    expect(valueAt(series, NOW + 12 * HOUR_MS)).toBeCloseTo(25);
+    expect(valueAt(series, NOW)).toBeCloseTo(0.5);
+    expect(valueAt(series, NOW + 12 * HOUR_MS)).toBeCloseTo(0.25);
     expect(valueAt(series, NOW + 3 * DAY_MS)).toBe(0);
-    expect(valueAt(series, NOW + 6 * DAY_MS)).toBe(100);
-    expect(valueAt(series, NOW + 6.5 * DAY_MS)).toBeCloseTo(75);
+    expect(valueAt(series, NOW + 6 * DAY_MS)).toBe(1);
+    expect(valueAt(series, NOW + 6.5 * DAY_MS)).toBeCloseTo(0.75);
     expect(series.at(-1)?.t).toBe(NOW + 8 * DAY_MS);
   });
 
@@ -192,9 +195,9 @@ describe('history', () => {
     const series = poolHistory(pool(c), samples, NOW - 3 * DAY_MS, NOW);
     // Unknown before the first sample rather than invented.
     expect(series[0].t).toBe(NOW - 2 * DAY_MS);
-    expect(valueAt(series, NOW - 1.5 * DAY_MS)).toBe(40);
-    expect(valueAt(series, NOW - 0.5 * DAY_MS)).toBe(100);
-    expect(valueAt(series, NOW)).toBe(90);
+    expect(valueAt(series, NOW - 1.5 * DAY_MS)).toBe(0.4);
+    expect(valueAt(series, NOW - 0.5 * DAY_MS)).toBe(1);
+    expect(valueAt(series, NOW)).toBe(0.9);
   });
 
   test('a newly added credential joins the pool without hiding earlier history', () => {
@@ -203,14 +206,14 @@ describe('history', () => {
     const samples = [sample({ atMs: NOW - 2 * DAY_MS, usedPercent: 20 })];
     const series = poolHistory(pool(old, added), samples, NOW - 3 * DAY_MS, NOW);
     expect(series[0].t).toBe(NOW - 2 * DAY_MS);
-    expect(valueAt(series, NOW - DAY_MS)).toBe(80);
-    expect(valueAt(series, NOW - 0.5 * HOUR_MS)).toBe(180);
+    expect(valueAt(series, NOW - DAY_MS)).toBe(0.8);
+    expect(valueAt(series, NOW - 0.5 * HOUR_MS)).toBeCloseTo(1.8);
   });
 
   test('an idle credential with no samples in range counts from its current snapshot', () => {
     const idle = credential({ usedPercent: 20, observedAtMs: NOW - 5 * DAY_MS });
     const series = poolHistory(pool(idle), [], NOW - DAY_MS, NOW);
-    expect(series[0]).toEqual({ t: NOW - DAY_MS, v: 80 });
+    expect(series[0]).toEqual({ t: NOW - DAY_MS, v: 0.8 });
   });
 
   test('drain counts only positive increments within one window', () => {
@@ -225,7 +228,7 @@ describe('history', () => {
       sample({ authId: 'other', atMs: NOW - HOUR_MS, usedPercent: 99 }),
     ];
     const edges = [NOW - 3 * HOUR_MS, NOW - 2 * HOUR_MS, NOW - HOUR_MS, NOW];
-    expect(drainBuckets(pool(c), samples, edges)).toEqual([5, 0, 4]);
+    expect(drainBuckets(pool(c), samples, edges)).toEqual([0.05, 0, 0.04]);
   });
 
   test('two session windows of one credential are kept apart by duration', () => {
@@ -239,10 +242,10 @@ describe('history', () => {
       });
     const samples = [at(2, 300, 10), at(2, 1440, 70), at(1, 300, 20), at(1, 1440, 80)];
     const series = poolHistory(pool(c), samples, NOW - 2 * HOUR_MS, NOW);
-    expect(valueAt(series, NOW - 1.5 * HOUR_MS)).toBe(90);
-    expect(valueAt(series, NOW)).toBe(80);
+    expect(valueAt(series, NOW - 1.5 * HOUR_MS)).toBe(0.9);
+    expect(valueAt(series, NOW)).toBe(0.8);
     const edges = [NOW - 3 * HOUR_MS, NOW - 2 * HOUR_MS, NOW - HOUR_MS, NOW];
-    expect(drainBuckets(pool(c), samples, edges)).toEqual([0, 0, 10]);
+    expect(drainBuckets(pool(c), samples, edges)).toEqual([0, 0, 0.1]);
   });
 
   test('hourly drain edges end on the next hour in both repeated DST hours', () => {
@@ -283,7 +286,7 @@ describe('history', () => {
           resetAtMs: now + DAY_MS,
         }),
       ];
-      expect(drainBuckets(pool(c), samples, edges)).toEqual([0, 0, 0, 0, 0, 3, 0]);
+      expect(drainBuckets(pool(c), samples, edges)).toEqual([0, 0, 0, 0, 0, 0.03, 0]);
     } finally {
       process.env.TZ = previousTz;
     }
@@ -452,12 +455,12 @@ describe('sleep-aware activity', () => {
         rates: new Map([['a', 24 / DAY_MS]]),
       };
       const series = projectPool(pool(c), midnight, midnight + DAY_MS, activity);
-      expect(valueAt(series, midnight + 7.5 * HOUR_MS)).toBe(100);
-      expect(valueAt(series, midnight + 8 * HOUR_MS)).toBe(100);
-      expect(valueAt(series, midnight + 16 * HOUR_MS)).toBeCloseTo(88);
-      expect(valueAt(series, midnight + DAY_MS)).toBeCloseTo(76);
+      expect(valueAt(series, midnight + 7.5 * HOUR_MS)).toBe(1);
+      expect(valueAt(series, midnight + 8 * HOUR_MS)).toBe(1);
+      expect(valueAt(series, midnight + 16 * HOUR_MS)).toBeCloseTo(0.88);
+      expect(valueAt(series, midnight + DAY_MS)).toBeCloseTo(0.76);
       // "Per hour" stays the daily average.
-      expect(summarizePool(pool(c), midnight, activity).pacePerHour).toBeCloseTo(1);
+      expect(summarizePool(pool(c), midnight, activity).pacePerHour).toBeCloseTo(0.01);
     });
   });
 });
@@ -594,8 +597,8 @@ describe('likely range and shared sleep', () => {
         expect(valueAt(high, t)).toBeGreaterThan(valueAt(mid, t) ?? 0);
         expect(valueAt(mid, t)).toBeGreaterThan(valueAt(low, t) ?? 0);
       }
-      expect(valueAt(low, NOW)).toBe(50);
-      expect(valueAt(high, NOW)).toBe(50);
+      expect(valueAt(low, NOW)).toBe(0.5);
+      expect(valueAt(high, NOW)).toBe(0.5);
       expect(spread(NOW + 2 * DAY_MS)).toBeGreaterThan(spread(NOW + DAY_MS));
     });
   });
@@ -605,8 +608,8 @@ describe('likely range and shared sleep', () => {
     const c = credential({ usedPercent: 48, resetAtMs: NOW + 3 * DAY_MS });
     const at = (scenario: 'busy' | 'quiet') =>
       valueAt(projectPool(pool(c), NOW, NOW + DAY_MS, FLAT_ACTIVITY, scenario), NOW + 10 * HOUR_MS);
-    expect(at('busy')).toBeCloseTo(52 - 7);
-    expect(at('quiet')).toBeCloseTo(52 - 3);
+    expect(at('busy')).toBeCloseTo((52 - 7) / 100);
+    expect(at('quiet')).toBeCloseTo((52 - 3) / 100);
   });
 
   test('pace leaves out drain and time spent under 15% remaining', () => {
@@ -631,6 +634,29 @@ describe('likely range and shared sleep', () => {
           0
         );
       const activeMs = decayedActiveMs(activity.profile, NOW - 7 * DAY_MS, NOW - DAY_MS);
+      expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo((drained / activeMs) * DAY_MS);
+    });
+  });
+
+  test('a credential blocked at its cap is rationed relative to the cap, not to 100%', () => {
+    withTimeZone('UTC', () => {
+      // 10% a day up to 36%, then held at a 40% cap for the last three days.
+      const used = [0, 10, 20, 30, 36];
+      const samples = [
+        ...used.map((usedPercent, day) => sample({ atMs: NOW - (7 - day) * DAY_MS, usedPercent })),
+        sample({ atMs: NOW - 2 * DAY_MS, usedPercent: 40 }),
+        sample({ atMs: NOW - HOUR_MS, usedPercent: 40 }),
+      ];
+      const capped = credential({ usedPercent: 40, share: planShareOf({ usageCapPercent: 40 }) });
+      const activity = learnActivity([pool(capped)], samples, NOW, DEFAULT_SLEEP_HOURS);
+      // Rationed from 34% (85% of the cap): 36% over four days, not 40% over seven.
+      const drained = used
+        .slice(1)
+        .reduce(
+          (sum, value, day) => sum + (value - used[day]) * decay(NOW - (6 - day) * DAY_MS),
+          0
+        );
+      const activeMs = decayedActiveMs(activity.profile, NOW - 7 * DAY_MS, NOW - 3 * DAY_MS);
       expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo((drained / activeMs) * DAY_MS);
     });
   });
@@ -694,9 +720,9 @@ describe('likely range and shared sleep', () => {
         usedPercent: 90,
       }),
     ];
-    expect(buildPools([live, quiet])[0].capacity).toBe(100);
+    expect(buildPools([live, quiet])[0].capacity).toBe(1);
     const [codex] = buildPools([live, quiet], history);
-    expect(codex.capacity).toBe(200);
+    expect(codex.capacity).toBe(2);
     expect(codex.credentials[1]).toEqual({
       authId: 'codex-2',
       window: 'weekly',
@@ -704,6 +730,7 @@ describe('likely range and shared sleep', () => {
       usedPercent: 40,
       resetAtMs: NOW + 3 * DAY_MS,
       observedAtMs: NOW - HOUR_MS,
+      share: planShareOf({}),
     });
   });
 });
@@ -794,6 +821,54 @@ describe('usage ledger', () => {
       const rateB = (activity.rates.get('b') ?? 0) * DAY_MS;
       expect(rateA).toBeGreaterThan(0);
       expect(rateB / rateA).toBeCloseTo(decayedCost(b.ledger) / decayedCost(a.ledger));
+    });
+  });
+
+  test('ledger calibration is in base plans, so equal cost drains a bigger plan less', () => {
+    withTimeZone('UTC', () => {
+      const workHours = [9, 10, 11, 12, 13, 14, 15, 16];
+      // $1 an hour each on Oct 4–8: 0.5% an hour of a 1× plan, 0.05% of a 10× plan.
+      const spell = (authId: string, perHour: number) => {
+        const samples = [sample({ authId, atMs: Date.UTC(2026, 9, 4, 9), usedPercent: 0 })];
+        const ledger: LedgerCost[] = [];
+        [4, 5, 6, 7, 8].forEach((day) =>
+          workHours.forEach((hour) => {
+            const hourMs = Date.UTC(2026, 9, day, hour);
+            ledger.push({ hourMs, provider: 'claude', authId, costUsd: 1 });
+            samples.push(
+              sample({ authId, atMs: hourMs + HOUR_MS, usedPercent: samples.length * perHour })
+            );
+          })
+        );
+        return { samples, ledger };
+      };
+      const a = spell('a', 0.5);
+      const b = spell('b', 0.05);
+      const unequal = pool(
+        credential({ usedPercent: 20 }),
+        credential({ authId: 'b', usedPercent: 2, share: planShareOf({ planMultiplier: 10 }) })
+      );
+      const activity = learnActivity(
+        [unequal],
+        [...a.samples, ...b.samples],
+        NOW,
+        DEFAULT_SLEEP_HOURS,
+        [...a.ledger, ...b.ledger]
+      );
+      const rateA = activity.rates.get('a') ?? 0;
+      const rateB = activity.rates.get('b') ?? 0;
+      // Same cost, a tenth of the percent on the 10× plan: the same base-plan pace.
+      expect(rateA).toBeGreaterThan(0);
+      expect(rateA / rateB).toBeCloseTo(10);
+      // Alone, 'a' calibrates to the same pace: the 10× plan does not inflate it.
+      const alone = learnActivity(
+        [pool(credential({ usedPercent: 20 }))],
+        a.samples,
+        NOW,
+        DEFAULT_SLEEP_HOURS,
+        a.ledger
+      );
+      expect(rateA / (alone.rates.get('a') ?? 0)).toBeCloseTo(1);
     });
   });
 

@@ -320,7 +320,7 @@ export interface ForecastRow {
   label: string;
   /** A CSS color, e.g. var(--fc-claude). */
   color: string;
-  /** Pool size in percent; the row's y axis runs from 0 to this. */
+  /** Pool size in plan multipliers; the row's y axis runs from 0 to this. */
   capacity: number;
   history: SeriesPoint[];
   projection: SeriesPoint[];
@@ -340,6 +340,8 @@ export interface RemainingChartProps {
   toMs: number;
   nowMs: number;
   formatValue: (v: number) => string;
+  /** Tooltip and table value: a point and its row's capacity, e.g. "1.45× · 43%". */
+  formatPoint: (v: number, capacity: number) => string;
   ariaLabel: string;
   /** Tooltip names for a lone row, which has no series name to show. */
   remainingLabel: string;
@@ -378,7 +380,7 @@ const seriesAt = (row: ForecastRow, t: number, nowMs: number) =>
   valueAt(t > nowMs ? row.projection : row.history, t);
 
 /**
- * Remaining quota, one row per provider in its own absolute pool percent, all
+ * Remaining quota, one row per provider in its own pool multiplier, all
  * on one time axis with one "now". A lone provider gets a single taller row.
  */
 export function RemainingChart({
@@ -388,6 +390,7 @@ export function RemainingChart({
   toMs,
   nowMs,
   formatValue,
+  formatPoint,
   ariaLabel,
   remainingLabel,
   projectedLabel,
@@ -428,7 +431,7 @@ export function RemainingChart({
           key: row.key,
           color: row.color,
           dashed: projected,
-          value: formatValue(value),
+          value: formatPoint(value, row.capacity),
           label:
             low !== null && high !== null && formatValue(low) !== formatValue(high)
               ? `${name} · ${formatValue(low)}–${formatValue(high)}`
@@ -448,7 +451,7 @@ export function RemainingChart({
     formats.full(tick),
     ...rows.map((row) => {
       const value = seriesAt(row, tick, nowMs);
-      return value === null ? '–' : formatValue(value);
+      return value === null ? '–' : formatPoint(value, row.capacity);
     }),
   ]);
 

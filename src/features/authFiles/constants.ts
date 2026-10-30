@@ -250,6 +250,23 @@ export const readAuthFileUsageCapPercent = (value: Record<string, unknown>): num
   return cap > 0 && cap < 100 ? cap : null;
 };
 
+/** Parses a plan multiplier above 0 and up to 100: null for empty text (not set), undefined if invalid. */
+export const parsePlanMultiplierText = (text: string): number | null | undefined => {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  if (!/^(\d+(\.\d*)?|\.\d+)$/.test(trimmed)) return undefined;
+  const value = Number(trimmed);
+  return value > 0 && value <= 100 ? value : undefined;
+};
+
+/** Reads the plan multiplier as the gateway does: any number above 0, else null. */
+export const readAuthFilePlanMultiplier = (value: Record<string, unknown>): number | null => {
+  const raw = value.plan_multiplier;
+  const multiplier =
+    typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() ? Number(raw) : NaN;
+  return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : null;
+};
+
 export const supportsAuthFileUsingApi = (providerKey: string): boolean =>
   AUTH_FILE_USING_API_PROVIDERS.has(normalizeProviderKey(providerKey));
 
