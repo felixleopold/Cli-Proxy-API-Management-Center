@@ -65,7 +65,7 @@ describe('auth-file credential weight patch', () => {
   });
 });
 
-describe('auth-file Codex usage cap patch', () => {
+describe('auth-file usage cap patch', () => {
   const withCap = (
     json: Record<string, unknown>,
     usageCapPercent: string,
@@ -100,13 +100,13 @@ describe('auth-file Codex usage cap patch', () => {
     ).toEqual({ usage_cap_percent: null });
   });
 
-  test('rejects out-of-range input and ignores non-Codex credentials', () => {
+  test('rejects out-of-range input and ignores providers without observed windows', () => {
     for (const value of ['0', '100', '50.5', 'abc']) {
       expect(() => buildAuthFileFieldsPatch(withCap({}, value), resolveError)).toThrow(
         'auth_files.usage_cap_invalid'
       );
     }
-    expect(buildAuthFileFieldsPatch(withCap({}, '80', 'claude'), resolveError)).toEqual({});
+    expect(buildAuthFileFieldsPatch(withCap({}, '80', 'antigravity'), resolveError)).toEqual({});
   });
 });
 

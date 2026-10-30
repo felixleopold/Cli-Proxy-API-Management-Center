@@ -81,10 +81,11 @@ Current base: upstream `v1.25.6`.
   over its activity-weighted time; below 3h, the window pace), spread over a local hour-of-day
   profile learned from drain and blended into a configurable sleep baseline. Unused Codex manual resets show as amber expiry markers and a count,
   but the projection never assumes one is redeemed. Tests: `tests/quotaForecast.test.ts`.
-- **Codex usage cap per credential** (`src/features/authFiles/`, the credential's details sheet).
-  A "Usage cap" field (1-99 %, empty for no cap) on Codex credentials edits the fork-only gateway field
-  `usage_cap_percent`; the gateway stops picking the credential once its 5-hour or weekly window
-  usage reaches the cap, until that window resets. Logic: `constants.ts` (`parseUsageCapPercentText`), saved by
+- **Usage cap per credential** (`src/features/authFiles/`, the credential's details sheet).
+  A "Usage cap" field (1-99 %, empty for no cap) on Claude, Codex, Muse (`meta`) and Devin credentials
+  (`AUTH_FILE_USAGE_CAP_PROVIDERS`, the providers whose windows the gateway observes) edits the fork-only
+  gateway field `usage_cap_percent`; the gateway stops picking the credential once any credential-wide
+  window's usage (5-hour, daily or weekly) reaches the cap, until that window resets. Logic: `constants.ts` (`parseUsageCapPercentText`), saved by
   `hooks/useAuthFilesPrefixProxyEditor.ts`; tests: `tests/authFileWeight.test.ts`.
 
 ## Sync from upstream
