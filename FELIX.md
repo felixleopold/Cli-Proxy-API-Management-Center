@@ -102,7 +102,8 @@ Current base: upstream `v1.25.6`.
   ΣR left of the weekly window with ΣR/ΣE, and the 5-hour figure when every account reports one;
   every provider with an enabled credential gets totals, and "left" reads unavailable without readings),
   each card's "1× plan · 75% ours = 0.75×" badge and weekly headline, and the forecast pool in ×.
-  Readings come from the same pools as the forecast (live signals, else latest history). The
+  Readings come from the same pools as the forecast (live signals, else latest history, else the
+  loaded quota card, for a credential the gateway has not routed to yet). The
   credential details sheet edits `plan_multiplier` (positive, up to 100, empty = null) via
   `PATCH /credentials/fields` on the usage-cap providers (`constants.ts`
   `parsePlanMultiplierText`). Tests: `tests/planMultipliers.test.ts`, `tests/quotaForecast.test.ts`.
