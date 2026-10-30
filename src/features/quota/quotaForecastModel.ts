@@ -534,17 +534,15 @@ const snapshotCursor = (snapshots: Snapshot[]) => {
 };
 
 /**
- * Pooled remaining percent over [fromMs, nowMs]. The current snapshot seeds each
- * credential, so an idle credential with no samples in range still counts. The
- * line starts once every credential's value is known.
+ * Each credential's snapshots, oldest first. The current snapshot seeds each
+ * credential, so an idle credential with no samples in range still counts.
  */
-export function poolHistory(
+const poolSnapshots = (
   pool: ProviderPool,
   samples: QuotaHistorySample[],
-  fromMs: number,
   nowMs: number
-): SeriesPoint[] {
-  const perCredential = pool.credentials.map((credential) => {
+): Snapshot[][] =>
+  pool.credentials.map((credential) => {
     const seed: Snapshot = {
       atMs: Math.min(credential.observedAtMs ?? nowMs, nowMs),
       usedPercent: credential.usedPercent,
@@ -552,6 +550,23 @@ export function poolHistory(
     };
     return [...samplesFor(credential, samples), seed].sort((left, right) => left.atMs - right.atMs);
   });
+
+/** Pooled capacity at t: 100 per credential whose first snapshot is at or before t. */
+const knownCapacityAt = (perCredential: Snapshot[][], t: number): number =>
+  perCredential.filter((snapshots) => snapshots[0].atMs <= t).length * 100;
+
+/**
+ * Pooled remaining percent over [fromMs, nowMs]. A credential joins the sum at
+ * its first snapshot, so adding a subscription shows as a step up instead of
+ * hiding the pool's earlier history. The line starts once any value is known.
+ */
+export function poolHistory(
+  pool: ProviderPool,
+  samples: QuotaHistorySample[],
+  fromMs: number,
+  nowMs: number
+): SeriesPoint[] {
+  const perCredential = poolSnapshots(pool, samples, nowMs);
 
   const times = [
     fromMs,
@@ -563,11 +578,10 @@ export function poolHistory(
 
   const cursors = perCredential.map(snapshotCursor);
   return buildSeries(times, (t, side) => {
-    let sum = 0;
+    let sum: number | null = null;
     for (const usedAt of cursors) {
       const used = usedAt(t, side);
-      if (used === null) return null;
-      sum += 100 - used;
+      if (used !== null) sum = (sum ?? 0) + 100 - used;
     }
     return sum;
   });
@@ -1092,10 +1106,13 @@ export function learnActivity(
       });
     if (intervals.length === 0) return null;
 
-    const rationedBelow = (pool.capacity * (100 - CENSORED_ABOVE_USED)) / 100;
+    // Rationed relative to the credentials the pool had at the time.
+    const snapshots = poolSnapshots(pool, samples, nowMs);
     const history = poolHistory(pool, samples, intervals[0].startMs, nowMs);
     const censored = history.flatMap((point, index) => {
       const endMs = history[index + 1]?.t ?? nowMs;
+      const rationedBelow =
+        (knownCapacityAt(snapshots, point.t) * (100 - CENSORED_ABOVE_USED)) / 100;
       return point.v < rationedBelow && endMs > point.t ? [{ startMs: point.t, endMs }] : [];
     });
     const cost = (fromMs: number, toMs: number, weight: Weight, part: CostPart) =>
