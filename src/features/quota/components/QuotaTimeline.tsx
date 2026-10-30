@@ -24,6 +24,7 @@ import {
   laneHasWindow,
   projectLane,
   projectResetCredits,
+  timelineCells,
   timelineSpan,
   DAY_MS,
 } from '../quotaTimelineModel';
@@ -130,12 +131,9 @@ export function QuotaTimeline({
   /** Weekly: one cell per day. Session: one per 6 hours. */
   const cells = useMemo(() => {
     const zoomed = mode === 'session';
-    const count = zoomed ? span.days * 4 : span.days;
-    const cellMs = (span.endMs - span.startMs) / count;
     const todayStart = new Date(now).setHours(0, 0, 0, 0);
 
-    return Array.from({ length: count }, (_, index) => {
-      const at = span.startMs + index * cellMs;
+    return timelineCells(mode, span.startMs, span.days).map((at) => {
       const date = new Date(at);
       const isDayStart = !zoomed || date.getHours() === 0;
       return {

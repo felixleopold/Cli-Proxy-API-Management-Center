@@ -143,6 +143,21 @@ export function timelineSpan(
 }
 
 /**
+ * Start instants of the axis cells: one per day in weekly mode, one per 6 hours
+ * in session mode. Stepped on the calendar like `timelineSpan`, so a 23- or
+ * 25-hour DST day still starts its cell at local midnight.
+ */
+export function timelineCells(mode: TimelineMode, spanStartMs: number, days: number): number[] {
+  const hoursPerCell = mode === 'session' ? 6 : 24;
+  return Array.from({ length: (days * 24) / hoursPerCell }, (_, index) => {
+    const date = new Date(spanStartMs);
+    date.setDate(date.getDate() + Math.floor((index * hoursPerCell) / 24));
+    date.setHours((index * hoursPerCell) % 24);
+    return date.getTime();
+  });
+}
+
+/**
  * Project one lane's windows onto a span, clipped and positioned.
  *
  * Windows falling entirely outside the span are dropped rather than returned
