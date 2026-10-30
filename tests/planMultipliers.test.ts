@@ -216,6 +216,17 @@ describe('provider totals', () => {
     expect(multipliers.totals.remaining).toBeCloseTo(3.58);
     // The 5-hour figure stays: 10 × 0.5 + 1 × (0.75 − 0.08)
     expect(multipliers.short?.remaining).toBeCloseTo(5.67);
+
+    // An idle 5-hour window has no reset yet; it still counts, as unused.
+    const idleCard = {
+      ...card,
+      windows: card.windows.map((window) =>
+        window.id === 'five-hour' ? { ...window, usedPercent: 0, resetAtMs: null } : window
+      ),
+    };
+    const idleReadings = new Map([['hanna', cardReading('claude', idleCard)!]]);
+    const [idle] = providerMultipliers([live, fresh], [pool], NOW, idleReadings);
+    expect(idle.multipliers.short?.remaining).toBeCloseTo(5.75);
   });
 
   test('a capped credential runs out at its cap and refills to its share, not to 100%', () => {

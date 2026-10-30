@@ -233,8 +233,8 @@ interface CardWindow {
 
 /** A credential's windows as its loaded quota card read them from the provider. */
 export interface CardReading extends CardWindow {
-  /** The 5-hour window, when the card has one. */
-  short: CardWindow | null;
+  /** The 5-hour window, when the card has one; an idle one has no reset yet. */
+  short: (Omit<CardWindow, 'resetAtMs'> & { resetAtMs: number | null }) | null;
 }
 
 const cardWindow = (
@@ -262,10 +262,16 @@ export function cardReading(
   const pooled = cardWindow(provider, quota);
   if (!pooled) return null;
   const short = cardWindow(provider, quota, 5);
+  // Without a 5-hour window the lane falls back to a longer one, which is not short.
+  if (short && short.periodMs < WEEKLY_MIN_MINUTES * 60 * 1000) return { ...pooled, short };
+  // Claude and Codex report an idle 5-hour window with its usage but no reset.
+  const idle = ((quota as { windows?: { id?: string; usedPercent?: number | null }[] }).windows ?? [])
+    .find((window) => window.id === 'five-hour' && typeof window.usedPercent === 'number');
   return {
     ...pooled,
-    // Without a 5-hour window the lane falls back to a longer one, which is not short.
-    short: short && short.periodMs < WEEKLY_MIN_MINUTES * 60 * 1000 ? short : null,
+    short: idle
+      ? { usedPercent: idle.usedPercent as number, resetAtMs: null, periodMs: 5 * HOUR_MS }
+      : null,
   };
 }
 
@@ -397,7 +403,8 @@ const shortWindowOf = (
   return card
     ? {
         minutes: card.periodMs / 60_000,
-        usedPercent: usedNow(card.usedPercent, card.resetAtMs, nowMs),
+        usedPercent:
+          card.resetAtMs === null ? card.usedPercent : usedNow(card.usedPercent, card.resetAtMs, nowMs),
       }
     : null;
 };
