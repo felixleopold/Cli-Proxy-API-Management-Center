@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { ResolvedTheme } from '@/types';
 import { getAuthFileIcon, getTypeLabel } from '@/features/authFiles/constants';
-import type { ForecastProvider, PoolMultipliers } from '../quotaForecastModel';
+import type { ProviderMultipliers } from '../quotaForecastModel';
 import {
   formatMultiplier,
   shareLeft,
@@ -30,11 +30,6 @@ const windowName = (t: TFunction, minutes: number, language?: string) =>
   t('quota_management.multiplier_window_hours', {
     hours: new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(minutes / 60),
   });
-
-export interface ProviderMultipliers {
-  provider: ForecastProvider;
-  multipliers: PoolMultipliers;
-}
 
 export function PlanMultiplierTotals({
   providers,
@@ -58,6 +53,8 @@ export function PlanMultiplierTotals({
         const { totals, weekly, short } = multipliers;
         const iconSrc = getAuthFileIcon(provider, resolvedTheme);
         const label = getTypeLabel(t, provider);
+        // Without any reading, plans and our share are known but what is left is not.
+        const read = totals.readEffective > 0;
         const percent = percentOf(totals.remaining, totals.readEffective);
         return (
           <article key={provider} className={styles.tile} aria-label={label}>
@@ -72,21 +69,25 @@ export function PlanMultiplierTotals({
               </span>
             </header>
             <div className={styles.tileHeadline}>
-              <strong className={styles.tileValue}>{x(totals.remaining)}</strong>
+              <strong className={styles.tileValue}>{read ? x(totals.remaining) : '–'}</strong>
               <span className={styles.tileCaption}>
-                {weekly
-                  ? t('quota_management.multiplier_left_week')
-                  : t('quota_management.multiplier_left_window')}
+                {!read
+                  ? t('quota_management.multiplier_left_unavailable')
+                  : weekly
+                    ? t('quota_management.multiplier_left_week')
+                    : t('quota_management.multiplier_left_window')}
               </span>
             </div>
-            <QuotaMeter percent={percent} classes={quotaClasses} />
+            <QuotaMeter percent={read ? percent : null} classes={quotaClasses} />
             <p className={styles.tileFacts}>
-              <span>
-                {t('quota_management.multiplier_share_of', {
-                  percent,
-                  value: x(totals.readEffective),
-                })}
-              </span>
+              {read && (
+                <span>
+                  {t('quota_management.multiplier_share_of', {
+                    percent,
+                    value: x(totals.readEffective),
+                  })}
+                </span>
+              )}
               {short && (
                 <span>
                   {t('quota_management.multiplier_short_left', {

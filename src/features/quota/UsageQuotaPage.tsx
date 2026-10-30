@@ -56,7 +56,7 @@ import {
   credentialNow,
   gatewayResetCredits,
   hasForecastCredentials,
-  poolMultipliers,
+  providerMultipliers,
 } from './quotaForecastModel';
 import { planShareOf, remainingMultiplier, type AccountMultiplier } from './planMultipliers';
 import { supportsAuthFileUsageCap } from '@/features/authFiles/constants';
@@ -243,14 +243,12 @@ export function UsageQuotaPage() {
   const multiplierNow = useNow();
   const historySamples = history.status === 'ok' ? history.samples : null;
   const pools = useMemo(() => buildPools(files, historySamples ?? []), [files, historySamples]);
-  const providerMultipliers = useMemo(
+  // Every provider with an enabled credential, read or not.
+  const multiplierTotals = useMemo(
     () =>
-      pools
-        .filter((pool) => tab === 'all' || pool.provider === tab)
-        .map((pool) => ({
-          provider: pool.provider,
-          multipliers: poolMultipliers(pool, files, multiplierNow),
-        })),
+      providerMultipliers(files, pools, multiplierNow).filter(
+        (entry) => tab === 'all' || entry.provider === tab
+      ),
     [pools, files, tab, multiplierNow]
   );
   const multiplierFor = useMemo(() => {
@@ -389,7 +387,7 @@ export function UsageQuotaPage() {
     const isEmpty = !loading && filteredEntries.length === 0 && spendOnlyCards.length === 0;
     return (
       <>
-        <PlanMultiplierTotals providers={providerMultipliers} resolvedTheme={resolvedTheme} />
+        <PlanMultiplierTotals providers={multiplierTotals} resolvedTheme={resolvedTheme} />
         <div className={styles.toolbar}>
           <div className={styles.search}>
             <IconSearch size={16} className={styles.searchIcon} aria-hidden="true" />

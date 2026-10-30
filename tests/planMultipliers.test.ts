@@ -10,7 +10,7 @@ import {
   DAY_MS,
   HOUR_MS,
   buildPools,
-  poolMultipliers,
+  providerMultipliers,
   projectPool,
   summarizePool,
   valueAt,
@@ -120,10 +120,13 @@ describe('provider totals', () => {
       codex('hanna', 20, 0, { planMultiplier: 1 }),
       codex('off', 0, 0, { planMultiplier: 1, disabled: true }),
     ];
-    const [pool] = buildPools(files);
+    const pools = buildPools(files);
+    const [pool] = pools;
     expect(pool.capacity).toBeCloseTo(3.4);
 
-    const { totals, weekly, short } = poolMultipliers(pool, files, NOW);
+    const [{ provider, multipliers }] = providerMultipliers(files, pools, NOW);
+    expect(provider).toBe('codex');
+    const { totals, weekly, short } = multipliers;
     expect(totals.plans).toBe(4);
     expect(totals.effective).toBeCloseTo(3.4);
     // 0.25 + 0.05 + 0.3 + 0.8
@@ -137,6 +140,32 @@ describe('provider totals', () => {
     const summary = summarizePool(pool, NOW);
     expect(summary.remaining).toBeCloseTo(1.4);
     expect(summary.capacity).toBeCloseTo(3.4);
+  });
+
+  test('accounts without any reading keep their plans and share, with nothing left to show', () => {
+    const files = [
+      codex('a', 0, 0, { planMultiplier: 10, quota: undefined }),
+      codex('b', 0, 0, { planMultiplier: 1, usageCapPercent: 75, quota: undefined }),
+    ];
+    const pools = buildPools(files);
+    expect(pools).toEqual([]);
+    expect(providerMultipliers(files, pools, NOW)).toEqual([
+      {
+        provider: 'codex',
+        multipliers: {
+          totals: {
+            plans: 11,
+            effective: 10.75,
+            unset: 0,
+            remaining: 0,
+            readEffective: 0,
+            unread: 2,
+          },
+          weekly: false,
+          short: null,
+        },
+      },
+    ]);
   });
 
   test('a capped credential runs out at its cap and refills to its share, not to 100%', () => {

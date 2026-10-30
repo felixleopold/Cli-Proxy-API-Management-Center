@@ -1542,6 +1542,7 @@
     "multiplier_plans_ours": "gói {{plans}} · của chúng ta {{ours}}",
     "multiplier_left_week": "còn lại tuần này",
     "multiplier_left_window": "còn lại chu kỳ này",
+    "multiplier_left_unavailable": "còn lại: chưa có số đo hạn mức",
     "multiplier_share_of": "{{percent}}% của {{value}} của chúng ta",
     "multiplier_short_left": "{{window}}: còn {{value}} ({{percent}}%)",
     "multiplier_window_hours": "{{hours}} giờ",

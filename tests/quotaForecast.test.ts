@@ -638,6 +638,29 @@ describe('likely range and shared sleep', () => {
     });
   });
 
+  test('a credential blocked at its cap is rationed relative to the cap, not to 100%', () => {
+    withTimeZone('UTC', () => {
+      // 10% a day up to 36%, then held at a 40% cap for the last three days.
+      const used = [0, 10, 20, 30, 36];
+      const samples = [
+        ...used.map((usedPercent, day) => sample({ atMs: NOW - (7 - day) * DAY_MS, usedPercent })),
+        sample({ atMs: NOW - 2 * DAY_MS, usedPercent: 40 }),
+        sample({ atMs: NOW - HOUR_MS, usedPercent: 40 }),
+      ];
+      const capped = credential({ usedPercent: 40, share: planShareOf({ usageCapPercent: 40 }) });
+      const activity = learnActivity([pool(capped)], samples, NOW, DEFAULT_SLEEP_HOURS);
+      // Rationed from 34% (85% of the cap): 36% over four days, not 40% over seven.
+      const drained = used
+        .slice(1)
+        .reduce(
+          (sum, value, day) => sum + (value - used[day]) * decay(NOW - (6 - day) * DAY_MS),
+          0
+        );
+      const activeMs = decayedActiveMs(activity.profile, NOW - 7 * DAY_MS, NOW - 3 * DAY_MS);
+      expect((activity.rates.get('a') ?? 0) * DAY_MS).toBeCloseTo((drained / activeMs) * DAY_MS);
+    });
+  });
+
   test('every provider shares one continuous sleep stretch', () => {
     withTimeZone('UTC', () => {
       // Claude by day, Codex in the evening and once at 02:00; nobody at 13–14.
@@ -798,6 +821,54 @@ describe('usage ledger', () => {
       const rateB = (activity.rates.get('b') ?? 0) * DAY_MS;
       expect(rateA).toBeGreaterThan(0);
       expect(rateB / rateA).toBeCloseTo(decayedCost(b.ledger) / decayedCost(a.ledger));
+    });
+  });
+
+  test('ledger calibration is in base plans, so equal cost drains a bigger plan less', () => {
+    withTimeZone('UTC', () => {
+      const workHours = [9, 10, 11, 12, 13, 14, 15, 16];
+      // $1 an hour each on Oct 4–8: 0.5% an hour of a 1× plan, 0.05% of a 10× plan.
+      const spell = (authId: string, perHour: number) => {
+        const samples = [sample({ authId, atMs: Date.UTC(2026, 9, 4, 9), usedPercent: 0 })];
+        const ledger: LedgerCost[] = [];
+        [4, 5, 6, 7, 8].forEach((day) =>
+          workHours.forEach((hour) => {
+            const hourMs = Date.UTC(2026, 9, day, hour);
+            ledger.push({ hourMs, provider: 'claude', authId, costUsd: 1 });
+            samples.push(
+              sample({ authId, atMs: hourMs + HOUR_MS, usedPercent: samples.length * perHour })
+            );
+          })
+        );
+        return { samples, ledger };
+      };
+      const a = spell('a', 0.5);
+      const b = spell('b', 0.05);
+      const unequal = pool(
+        credential({ usedPercent: 20 }),
+        credential({ authId: 'b', usedPercent: 2, share: planShareOf({ planMultiplier: 10 }) })
+      );
+      const activity = learnActivity(
+        [unequal],
+        [...a.samples, ...b.samples],
+        NOW,
+        DEFAULT_SLEEP_HOURS,
+        [...a.ledger, ...b.ledger]
+      );
+      const rateA = activity.rates.get('a') ?? 0;
+      const rateB = activity.rates.get('b') ?? 0;
+      // Same cost, a tenth of the percent on the 10× plan: the same base-plan pace.
+      expect(rateA).toBeGreaterThan(0);
+      expect(rateA / rateB).toBeCloseTo(10);
+      // Alone, 'a' calibrates to the same pace: the 10× plan does not inflate it.
+      const alone = learnActivity(
+        [pool(credential({ usedPercent: 20 }))],
+        a.samples,
+        NOW,
+        DEFAULT_SLEEP_HOURS,
+        a.ledger
+      );
+      expect(rateA / (alone.rates.get('a') ?? 0)).toBeCloseTo(1);
     });
   });
 

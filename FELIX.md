@@ -79,7 +79,8 @@ Current base: upstream `v1.25.6`.
   is left of its share, refilling to its effective multiplier at reset; the pool is ΣE; values read
   "1.4× / 3.4× ours · 41% left", tooltips add the % of our multiplier) with a projection to the next
   resets, drain history (× per hour/day for one pool, % of each pool when comparing) and a horizon
-  picker, for Claude, Codex and Muse (`meta`), each shown only once one of its
+  picker (rationing counts from 85% of each credential's cap, and ledger cost calibrates in
+  base-plan percent, so unequal plans pace correctly), for Claude, Codex and Muse (`meta`), each shown only once one of its
   credentials reports quota. The projection is sleep-aware: each credential's daily rate is its own
   trailing-7-day drain or its last-24h drain, whichever is higher (below 24h, the drain so far
   over its activity-weighted time; below 3h, the window pace), spread over a local hour-of-day
@@ -98,7 +99,8 @@ Current base: upstream `v1.25.6`.
   `/credentials` (normalized in `src/services/api/authFiles.ts` to `planMultiplier`/`usageCapPercent`).
   Our effective multiplier is E = m·c/100, and with u% of a window used R = m·max(0, c − u)/100; the
   same m applies to every window. The Usage & quota page shows per-provider totals (Σm plans, ΣE ours,
-  ΣR left of the weekly window with ΣR/ΣE, and the 5-hour figure when every account reports one),
+  ΣR left of the weekly window with ΣR/ΣE, and the 5-hour figure when every account reports one;
+  every provider with an enabled credential gets totals, and "left" reads unavailable without readings),
   each card's "1× plan · 75% ours = 0.75×" badge and weekly headline, and the forecast pool in ×.
   Readings come from the same pools as the forecast (live signals, else latest history). The
   credential details sheet edits `plan_multiplier` (positive, up to 100, empty = null) via

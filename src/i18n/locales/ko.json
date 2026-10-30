@@ -1590,6 +1590,7 @@
     "multiplier_plans_ours": "요금제 {{plans}} · 우리 몫 {{ours}}",
     "multiplier_left_week": "이번 주 남음",
     "multiplier_left_window": "이번 기간 남음",
+    "multiplier_left_unavailable": "남은 양: 아직 할당량 측정값 없음",
     "multiplier_share_of": "우리 몫 {{value}}의 {{percent}}%",
     "multiplier_short_left": "{{window}}: {{value}} 남음 ({{percent}}%)",
     "multiplier_window_hours": "{{hours}}시간",

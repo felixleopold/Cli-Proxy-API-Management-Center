@@ -279,7 +279,10 @@ export function readShortWindow(
 }
 
 export interface PoolMultipliers {
-  /** Over every enabled credential of the provider; `remaining` is of the pooled window. */
+  /**
+   * Over every enabled credential of the provider; `remaining` is of the pooled
+   * window, and nothing is left to show when `readEffective` is 0 (no readings).
+   */
   totals: MultiplierTotals;
   /** Whether every pooled window is weekly. */
   weekly: boolean;
@@ -287,17 +290,34 @@ export interface PoolMultipliers {
   short: { minutes: number; remaining: number; of: number } | null;
 }
 
+export interface ProviderMultipliers {
+  provider: ForecastProvider;
+  multipliers: PoolMultipliers;
+}
+
 /**
- * The provider's plan multipliers: plans and our share over every enabled
- * credential, what is left of the pooled (weekly) window, and of the short one.
+ * Plan multipliers of each forecast provider with an enabled credential, read
+ * or not: plans and our share over every enabled credential, what is left of
+ * the pooled (weekly) window, and of the short one.
  */
-export function poolMultipliers(
-  pool: ProviderPool,
+export const providerMultipliers = (
   files: AuthFileItem[],
+  pools: ProviderPool[],
+  nowMs: number
+): ProviderMultipliers[] =>
+  FORECAST_PROVIDERS.flatMap((provider) => {
+    const own = files.filter((file) => !file.disabled && providerOf(file) === provider);
+    if (own.length === 0) return [];
+    const pool = pools.find((candidate) => candidate.provider === provider);
+    return [{ provider, multipliers: poolMultipliers(own, pool?.credentials ?? [], nowMs) }];
+  });
+
+function poolMultipliers(
+  own: AuthFileItem[],
+  credentials: PoolCredential[],
   nowMs: number
 ): PoolMultipliers {
-  const pooled = new Map(pool.credentials.map((credential) => [credential.authId, credential]));
-  const own = files.filter((file) => !file.disabled && providerOf(file) === pool.provider);
+  const pooled = new Map(credentials.map((credential) => [credential.authId, credential]));
   const totals = multiplierTotals(
     own.map((file) => {
       const credential = typeof file.id === 'string' ? pooled.get(file.id) : undefined;
@@ -328,7 +348,8 @@ export function poolMultipliers(
       : null;
   return {
     totals,
-    weekly: pool.credentials.every((credential) => credential.window === 'weekly'),
+    weekly:
+      credentials.length > 0 && credentials.every((credential) => credential.window === 'weekly'),
     short,
   };
 }
@@ -734,10 +755,15 @@ const bucketIndex = (edges: number[], t: number): number => {
 };
 
 /**
- * Above this used percent a credential is rationed: its drain shows what was
- * left, not what was wanted, so pace ignores that drain and that time.
+ * Above this share of its cap (or of 100% without one) a credential is
+ * rationed: its drain shows what was left, not what was wanted, so pace ignores
+ * that drain and that time. A credential blocked at a 40% cap is rationed from 34%.
  */
 const CENSORED_ABOVE_USED = 85;
+
+/** Used percent above which a credential is rationed. */
+const rationedAbove = (credential: PoolCredential) =>
+  (credential.share.capPercent * CENSORED_ABOVE_USED) / 100;
 
 interface Drain {
   /** The earlier sample: the drain happened somewhere in (fromMs, atMs]. */
@@ -753,7 +779,7 @@ interface Drain {
  * consecutive samples, timed at the later sample. A sample in a later window
  * counts from that window's known zero, which is never rationed.
  */
-const drainOf = (snapshots: Snapshot[]): Drain[] => {
+const drainOf = (snapshots: Snapshot[], rationedFrom: number): Drain[] => {
   const drains: Drain[] = [];
   for (let index = 1; index < snapshots.length; index += 1) {
     const previous = snapshots[index - 1];
@@ -761,7 +787,7 @@ const drainOf = (snapshots: Snapshot[]): Drain[] => {
     const newWindow = current.resetAtMs - previous.resetAtMs > SAME_RESET_TOLERANCE_MS;
     if (!newWindow && previous.resetAtMs - current.resetAtMs > SAME_RESET_TOLERANCE_MS) continue;
     const delta = current.usedPercent - (newWindow ? 0 : previous.usedPercent);
-    const censored = !newWindow && previous.usedPercent > CENSORED_ABOVE_USED;
+    const censored = !newWindow && previous.usedPercent > rationedFrom;
     if (delta > 0) drains.push({ fromMs: previous.atMs, atMs: current.atMs, delta, censored });
   }
   return drains;
@@ -781,9 +807,9 @@ const observedOf = (snapshots: Snapshot[]): Span[] =>
   });
 
 /** Stretches up to nowMs spent rationed: from a rationed snapshot to the next one or its reset. */
-const censoredSpans = (snapshots: Snapshot[], nowMs: number) =>
+const censoredSpans = (snapshots: Snapshot[], rationedFrom: number, nowMs: number) =>
   snapshots.flatMap((snapshot, index) => {
-    if (snapshot.usedPercent <= CENSORED_ABOVE_USED) return [];
+    if (snapshot.usedPercent <= rationedFrom) return [];
     const endMs = Math.min(snapshots[index + 1]?.atMs ?? nowMs, snapshot.resetAtMs, nowMs);
     return endMs > snapshot.atMs ? [{ startMs: snapshot.atMs, endMs }] : [];
   });
@@ -800,10 +826,12 @@ export function drainBuckets(
 ): number[] {
   const buckets = new Array<number>(Math.max(0, edges.length - 1)).fill(0);
   pool.credentials.forEach((credential) => {
-    drainOf(samplesFor(credential, samples)).forEach(({ atMs, delta }) => {
-      const bucket = bucketIndex(edges, atMs);
-      if (bucket !== -1) buckets[bucket] += delta * credential.share.multiplier;
-    });
+    drainOf(samplesFor(credential, samples), rationedAbove(credential)).forEach(
+      ({ atMs, delta }) => {
+        const bucket = bucketIndex(edges, atMs);
+        if (bucket !== -1) buckets[bucket] += delta * credential.share.multiplier;
+      }
+    );
   });
   return buckets.map((value) => value / 100);
 }
@@ -951,7 +979,7 @@ const percentile = (values: number[], q: number): number => {
 /** One usage ledger row: API-equivalent cost of a provider's requests in one hour. */
 export type LedgerCost = Pick<UsageLedgerBucket, 'hourMs' | 'provider' | 'authId' | 'costUsd'>;
 
-/** Calibration needs this much quota drain before ledger cost stands in for it. */
+/** Calibration needs this much drain, in base-plan percent, before ledger cost stands in for it. */
 const MIN_CALIBRATION_DRAIN = 10;
 
 interface Span {
@@ -1016,10 +1044,11 @@ export function learnActivity(
       );
       return {
         authId: credential.authId,
+        multiplier: credential.share.multiplier,
         oldestMs: snapshots.length > 0 ? snapshots[0].atMs : nowMs,
-        drains: drainOf(snapshots),
+        drains: drainOf(snapshots, rationedAbove(credential)),
         observed: observedOf(snapshots),
-        censored: censoredSpans(snapshots, nowMs),
+        censored: censoredSpans(snapshots, rationedAbove(credential), nowMs),
       };
     }),
   }));
@@ -1138,9 +1167,11 @@ export function learnActivity(
   const ranges = new Map<string, PaceRange>();
   groups.forEach(({ pool, entries }) => {
     const ledgerPace = ledgerPaceOf(pool, entries);
-    // Cost from before attribution is shared as the recent, decayed drain was.
-    const drained = entries.map((entry) =>
-      entry.drains.reduce((sum, drain) => sum + drain.delta * decayed(drain.atMs), 0)
+    // Cost from before attribution is shared as the recent, decayed drain was, in base plans.
+    const drained = entries.map(
+      (entry) =>
+        entry.multiplier *
+        entry.drains.reduce((sum, drain) => sum + drain.delta * decayed(drain.atMs), 0)
     );
     const totalDrained = drained.reduce((sum, value) => sum + value, 0);
 
@@ -1156,8 +1187,9 @@ export function learnActivity(
             .reduce((sum, drain) => sum + drain.delta * weight(drain.atMs), 0)
         );
       const share = totalDrained > 0 ? drained[index] / totalDrained : 1 / entries.length;
-      const fromLedger = ledgerPace?.((authId) =>
-        authId === entry.authId ? 1 : authId ? 0 : share
+      const fromLedger = ledgerPace?.(
+        (authId) => (authId === entry.authId ? 1 : authId ? 0 : share),
+        entry.multiplier
       );
 
       let expected: number;
@@ -1190,9 +1222,10 @@ export function learnActivity(
 
   /**
    * Decayed and daily rates from the part of the pool's ledger cost a
-   * credential gets, percent per active millisecond; null when the pool's
-   * drain cannot be matched to enough cost.
-   * Quota percent per dollar is measured over the intervals the pool's drain
+   * credential gets, in its own percent per active millisecond; null when the
+   * pool's drain cannot be matched to enough cost.
+   * Quota per dollar is measured in base-plan percent (a 10× plan's 1% is 10),
+   * since a dollar drains a bigger plan less, over the intervals the pool's drain
    * was recorded in, leaving out time the pool as a whole was rationed. All
    * drain counts there, since a rationed credential's drain is still quota
    * spent; the same rationed time is then left out of the rates. Rates start
@@ -1201,10 +1234,12 @@ export function learnActivity(
    */
   function ledgerPaceOf(
     pool: ProviderPool,
-    entries: { oldestMs: number; drains: Drain[]; observed: Span[] }[]
-  ): ((part: CostPart) => { pace: number; daily: number[] } | null) | null {
+    entries: { multiplier: number; oldestMs: number; drains: Drain[]; observed: Span[] }[]
+  ): ((part: CostPart, multiplier: number) => { pace: number; daily: number[] } | null) | null {
     if (!Number.isFinite(ledgerFromMs)) return null;
-    const drains = entries.flatMap((entry) => entry.drains);
+    const drains = entries.flatMap((entry) =>
+      entry.drains.map((drain) => ({ ...drain, delta: drain.delta * entry.multiplier }))
+    );
     if (drains.length === 0) return null;
     // Merged, the observed gaps are when cost would have shown up as drain.
     const intervals: Span[] = [];
@@ -1249,17 +1284,17 @@ export function learnActivity(
       0
     );
     if (drain < MIN_CALIBRATION_DRAIN || spent <= 0) return null;
-    const percentPerDollar = drain / spent;
+    const basePercentPerDollar = drain / spent;
     const paceFromMs = Math.max(ledgerFromMs, Math.min(...entries.map((entry) => entry.oldestMs)));
 
-    return (part) => {
+    return (part, multiplier) => {
       const ledgerRate = (fromMs: number, toMs: number, weight: Weight) =>
         rateOver(
           Math.max(fromMs, paceFromMs),
           toMs,
           censored,
           weight,
-          (from, to) => percentPerDollar * cost(from, to, weight, part)
+          (from, to) => (basePercentPerDollar * cost(from, to, weight, part)) / multiplier
         );
       const pace = ledgerRate(windowStartMs, nowMs, decayed);
       if (pace === null) return null;

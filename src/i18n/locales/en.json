@@ -1590,6 +1590,7 @@
     "multiplier_plans_ours": "{{plans}} plans · {{ours}} ours",
     "multiplier_left_week": "left this week",
     "multiplier_left_window": "left this window",
+    "multiplier_left_unavailable": "left: no quota reading yet",
     "multiplier_share_of": "{{percent}}% of our {{value}}",
     "multiplier_short_left": "{{window}}: {{value}} left ({{percent}}%)",
     "multiplier_window_hours": "{{hours}}-hour",

@@ -1588,6 +1588,7 @@
     "multiplier_plans_ours": "套餐 {{plans}} · 我们的 {{ours}}",
     "multiplier_left_week": "本周剩余",
     "multiplier_left_window": "本窗口剩余",
+    "multiplier_left_unavailable": "剩余：尚无额度读数",
     "multiplier_share_of": "我们的 {{value}} 中剩余 {{percent}}%",
     "multiplier_short_left": "{{window}}：剩余 {{value}}（{{percent}}%）",
     "multiplier_window_hours": "{{hours}} 小时",

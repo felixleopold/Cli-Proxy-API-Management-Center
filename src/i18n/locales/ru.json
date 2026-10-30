@@ -1593,6 +1593,7 @@
     "multiplier_plans_ours": "тарифы {{plans}} · наши {{ours}}",
     "multiplier_left_week": "осталось на этой неделе",
     "multiplier_left_window": "осталось в этом окне",
+    "multiplier_left_unavailable": "остаток: показаний квоты пока нет",
     "multiplier_share_of": "{{percent}}% от наших {{value}}",
     "multiplier_short_left": "{{window}}: осталось {{value}} ({{percent}}%)",
     "multiplier_window_hours": "{{hours}} ч",

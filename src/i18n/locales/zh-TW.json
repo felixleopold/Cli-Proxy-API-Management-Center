@@ -1614,6 +1614,7 @@
     "multiplier_plans_ours": "方案 {{plans}} · 我們的 {{ours}}",
     "multiplier_left_week": "本週剩餘",
     "multiplier_left_window": "本視窗剩餘",
+    "multiplier_left_unavailable": "剩餘：尚無額度讀數",
     "multiplier_share_of": "我們的 {{value}} 中剩餘 {{percent}}%",
     "multiplier_short_left": "{{window}}：剩餘 {{value}}（{{percent}}%）",
     "multiplier_window_hours": "{{hours}} 小時",
