@@ -103,7 +103,8 @@ describe('timelineCells', () => {
   test('starts every day cell at local midnight across a 25-hour DST day', () => {
     // Vienna falls back on Sunday 2026-10-25; an even split of the span made the
     // second cell start Sunday 23:00 and labelled every later day one day early.
-    const tz = process.env.TZ;
+    // Restore the resolved zone: deleting TZ does not bring Bun back to the host's.
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     process.env.TZ = 'Europe/Vienna';
     try {
       const span = timelineSpan('weekly', 0, at(2026, 9, 30, 20));
@@ -115,8 +116,7 @@ describe('timelineCells', () => {
       const session = timelineCells('session', at(2026, 9, 25), 1);
       expect(session.map((ms) => new Date(ms).getHours())).toEqual([0, 6, 12, 18]);
     } finally {
-      if (tz === undefined) delete process.env.TZ;
-      else process.env.TZ = tz;
+      process.env.TZ = tz;
     }
   });
 });
