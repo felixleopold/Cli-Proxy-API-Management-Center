@@ -10,6 +10,7 @@ import {
   DAY_MS,
   HOUR_MS,
   buildPools,
+  cardReading,
   providerMultipliers,
   projectPool,
   summarizePool,
@@ -166,6 +167,55 @@ describe('provider totals', () => {
         },
       },
     ]);
+  });
+
+  test('a credential the gateway has not routed to yet reads from its loaded quota card', () => {
+    const live: AuthFileItem = {
+      name: 'felix.json',
+      id: 'felix',
+      provider: 'claude',
+      planMultiplier: 10,
+      quota: {
+        observed_at: new Date(NOW).toISOString(),
+        signals: {
+          'Anthropic-Ratelimit-Unified-7d-Utilization': '0.7',
+          'Anthropic-Ratelimit-Unified-7d-Reset': unix(NOW + 3 * DAY_MS),
+          'Anthropic-Ratelimit-Unified-5h-Utilization': '0.5',
+          'Anthropic-Ratelimit-Unified-5h-Reset': unix(NOW + HOUR_MS),
+        },
+      },
+    };
+    // No passive signals and no history: only the card fetched its quota from Anthropic.
+    const fresh: AuthFileItem = {
+      name: 'hanna.json',
+      id: 'hanna',
+      provider: 'claude',
+      planMultiplier: 1,
+      usageCapPercent: 75,
+    };
+    const card = {
+      status: 'success',
+      windows: [
+        { id: 'five-hour', usedPercent: 8, resetAtMs: NOW + 2 * HOUR_MS, periodHours: 5 },
+        { id: 'seven-day', usedPercent: 17, resetAtMs: NOW + 4 * DAY_MS, periodHours: 168 },
+        // A model-scoped weekly window must not stand in for the account's.
+        { id: 'seven-day-fable', usedPercent: 0, resetAtMs: NOW + DAY_MS, periodHours: 168 },
+      ],
+    };
+    const readings = new Map([['hanna', cardReading('claude', card)!]]);
+
+    const [pool] = buildPools([live, fresh], [], readings);
+    expect(pool.credentials.find((credential) => credential.authId === 'hanna')).toMatchObject({
+      window: 'weekly',
+      usedPercent: 17,
+      resetAtMs: NOW + 4 * DAY_MS,
+    });
+    const [{ multipliers }] = providerMultipliers([live, fresh], [pool], NOW, readings);
+    expect(multipliers.totals.unread).toBe(0);
+    // 10 × 0.3 + 1 × (0.75 − 0.17)
+    expect(multipliers.totals.remaining).toBeCloseTo(3.58);
+    // The 5-hour figure stays: 10 × 0.5 + 1 × (0.75 − 0.08)
+    expect(multipliers.short?.remaining).toBeCloseTo(5.67);
   });
 
   test('a capped credential runs out at its cap and refills to its share, not to 100%', () => {

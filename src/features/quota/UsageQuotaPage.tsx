@@ -53,6 +53,7 @@ import {
 } from './logic';
 import {
   buildPools,
+  cardReading,
   credentialNow,
   gatewayResetCredits,
   hasForecastCredentials,
@@ -238,18 +239,32 @@ export function UsageQuotaPage() {
   const history = useQuotaHistory(hasForecastCredentials(files), files);
 
   /* ---------- Plan multipliers ----------
-   * The same pools as the forecast: live signals, else the latest history reading. */
+   * The same pools as the forecast: live signals, else the loaded card, else the latest history
+   * reading. */
 
   const multiplierNow = useNow();
   const historySamples = history.status === 'ok' ? history.samples : null;
-  const pools = useMemo(() => buildPools(files, historySamples ?? []), [files, historySamples]);
+  const cardReadings = useMemo(
+    () =>
+      new Map(
+        entries.flatMap((entry) => {
+          const reading = cardReading(entry.type, getQuota(entry));
+          return reading && typeof entry.file.id === 'string' ? [[entry.file.id, reading]] : [];
+        })
+      ),
+    [entries, getQuota]
+  );
+  const pools = useMemo(
+    () => buildPools(files, historySamples ?? [], cardReadings),
+    [files, historySamples, cardReadings]
+  );
   // Every provider with an enabled credential, read or not.
   const multiplierTotals = useMemo(
     () =>
-      providerMultipliers(files, pools, multiplierNow).filter(
+      providerMultipliers(files, pools, multiplierNow, cardReadings).filter(
         (entry) => tab === 'all' || entry.provider === tab
       ),
-    [pools, files, tab, multiplierNow]
+    [pools, files, tab, multiplierNow, cardReadings]
   );
   const multiplierFor = useMemo(() => {
     const pooled = new Map(
@@ -555,6 +570,7 @@ export function UsageQuotaPage() {
               files={files}
               history={history}
               tab={tab}
+              cardReadings={cardReadings}
               resetCreditsFor={resetCreditsFor}
             />
             {/* 时间线只比较当前页凭证，避免大量凭证一次性生成无界泳道。 */}

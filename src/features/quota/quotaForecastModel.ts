@@ -14,6 +14,8 @@
 import type { AuthFileItem, UsageLedgerBucket } from '@/types';
 import type { QuotaHistorySample, QuotaHistoryWindow } from '@/services/api/quotaHistory';
 import { isRecord } from '@/utils/helpers';
+import type { QuotaProviderType } from './providers/types';
+import { buildTimelineLane } from './quotaTimelineModel';
 import {
   multiplierTotals,
   planShareOf,
@@ -223,24 +225,89 @@ const historyCredential = (
   };
 };
 
+interface CardWindow {
+  usedPercent: number;
+  resetAtMs: number;
+  periodMs: number;
+}
+
+/** A credential's windows as its loaded quota card read them from the provider. */
+export interface CardReading extends CardWindow {
+  /** The 5-hour window, when the card has one. */
+  short: CardWindow | null;
+}
+
+const cardWindow = (
+  provider: QuotaProviderType,
+  quota: { status?: string } | undefined,
+  maxPeriodHours?: number
+): CardWindow | null => {
+  const lane = buildTimelineLane({ name: '', displayName: '', provider, quota, maxPeriodHours });
+  if (lane.anchorMs === null || !lane.periodHours || lane.remaining === null) return null;
+  return {
+    usedPercent: 100 - lane.remaining,
+    resetAtMs: lane.anchorMs,
+    periodMs: lane.periodHours * HOUR_MS,
+  };
+};
+
+/**
+ * The windows a loaded quota card shows on the timeline: the account's weekly window (else its
+ * longest) and its 5-hour one. Null when the card has not loaded a window.
+ */
+export function cardReading(
+  provider: QuotaProviderType,
+  quota: { status?: string } | undefined
+): CardReading | null {
+  const pooled = cardWindow(provider, quota);
+  if (!pooled) return null;
+  const short = cardWindow(provider, quota, 5);
+  return {
+    ...pooled,
+    // Without a 5-hour window the lane falls back to a longer one, which is not short.
+    short: short && short.periodMs < WEEKLY_MIN_MINUTES * 60 * 1000 ? short : null,
+  };
+}
+
+const cardCredential = (
+  file: AuthFileItem,
+  reading: CardReading | undefined
+): PoolCredential | null => {
+  if (!reading || typeof file.id !== 'string' || !file.id) return null;
+  return {
+    authId: file.id,
+    window: reading.periodMs >= WEEKLY_MIN_MINUTES * 60 * 1000 ? 'weekly' : 'session',
+    periodMs: reading.periodMs,
+    usedPercent: reading.usedPercent,
+    resetAtMs: reading.resetAtMs,
+    observedAtMs: null,
+    share: planShareOf(file),
+  };
+};
+
 /** Whether any enabled credential could join a pool, live or from history. */
 export const hasForecastCredentials = (files: AuthFileItem[]): boolean =>
   files.some((file) => !file.disabled && isForecastProvider(providerOf(file)));
 
 /**
  * One pool per provider that has at least one enabled credential reporting a
- * window, live or, failing that, in its latest history reading.
+ * window: live, else from its loaded quota card (a credential the gateway has
+ * not routed to yet has no signals), else from its latest history reading.
  */
 export function buildPools(
   files: AuthFileItem[],
-  samples: QuotaHistorySample[] = []
+  samples: QuotaHistorySample[] = [],
+  cardReadings: ReadonlyMap<string, CardReading> = new Map()
 ): ProviderPool[] {
   const byProvider = new Map<ForecastProvider, PoolCredential[]>();
   files.forEach((file) => {
     if (file.disabled) return;
     const provider = providerOf(file);
     if (!isForecastProvider(provider)) return;
-    const credential = readPoolCredential(file) ?? historyCredential(file, samples);
+    const credential =
+      readPoolCredential(file) ??
+      cardCredential(file, typeof file.id === 'string' ? cardReadings.get(file.id) : undefined) ??
+      historyCredential(file, samples);
     if (!credential) return;
     byProvider.set(provider, [...(byProvider.get(provider) ?? []), credential]);
   });
@@ -303,19 +370,43 @@ export interface ProviderMultipliers {
 export const providerMultipliers = (
   files: AuthFileItem[],
   pools: ProviderPool[],
-  nowMs: number
+  nowMs: number,
+  cardReadings: ReadonlyMap<string, CardReading> = new Map()
 ): ProviderMultipliers[] =>
   FORECAST_PROVIDERS.flatMap((provider) => {
     const own = files.filter((file) => !file.disabled && providerOf(file) === provider);
     if (own.length === 0) return [];
     const pool = pools.find((candidate) => candidate.provider === provider);
-    return [{ provider, multipliers: poolMultipliers(own, pool?.credentials ?? [], nowMs) }];
+    return [
+      {
+        provider,
+        multipliers: poolMultipliers(own, pool?.credentials ?? [], nowMs, cardReadings),
+      },
+    ];
   });
+
+/** The short window from live signals, else from the loaded card. */
+const shortWindowOf = (
+  file: AuthFileItem,
+  nowMs: number,
+  cardReadings: ReadonlyMap<string, CardReading>
+): { minutes: number; usedPercent: number } | null => {
+  const live = readShortWindow(file, nowMs);
+  if (live) return live;
+  const card = typeof file.id === 'string' ? cardReadings.get(file.id)?.short : undefined;
+  return card
+    ? {
+        minutes: card.periodMs / 60_000,
+        usedPercent: usedNow(card.usedPercent, card.resetAtMs, nowMs),
+      }
+    : null;
+};
 
 function poolMultipliers(
   own: AuthFileItem[],
   credentials: PoolCredential[],
-  nowMs: number
+  nowMs: number,
+  cardReadings: ReadonlyMap<string, CardReading>
 ): PoolMultipliers {
   const pooled = new Map(credentials.map((credential) => [credential.authId, credential]));
   const totals = multiplierTotals(
@@ -331,7 +422,7 @@ function poolMultipliers(
   );
   const shorts = own.flatMap((file) =>
     typeof file.id === 'string' && pooled.has(file.id)
-      ? [{ share: planShareOf(file), window: readShortWindow(file, nowMs) }]
+      ? [{ share: planShareOf(file), window: shortWindowOf(file, nowMs, cardReadings) }]
       : []
   );
   const minutes = shorts[0]?.window?.minutes;

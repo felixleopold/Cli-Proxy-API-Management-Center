@@ -69,14 +69,34 @@
 .pools {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 28px;
+  gap: 12px 0;
   min-width: 0;
 }
 
+/* One block per provider, divided like the provider tiles above. */
 .poolSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 24px;
+  border-left: 1px solid var(--border-color);
+
+  &:first-child {
+    padding-left: 0;
+    border-left: none;
+  }
+}
+
+.poolHead,
+.poolLine,
+.poolMeta {
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
+}
+
+.poolMeta {
+  gap: 12px;
 }
 
 .poolDot {

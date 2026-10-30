@@ -32,6 +32,7 @@ import {
   projectPool,
   runsOutAt,
   summarizePool,
+  type CardReading,
   type DrainSpanDays,
   type ForecastHorizonDays,
   type ForecastProvider,
@@ -68,6 +69,8 @@ export interface QuotaForecastProps {
   tab: string;
   /** Injectable for tests/screenshots; defaults to the real clock. */
   now?: number;
+  /** Readings of loaded quota cards by auth id, for credentials without live signals. */
+  cardReadings?: ReadonlyMap<string, CardReading>;
   /** Manual resets loaded for a credential's quota card, if any. */
   resetCreditsFor?: (file: AuthFileItem) => readonly ResetCreditLike[] | undefined;
 }
@@ -77,6 +80,7 @@ export function QuotaForecast({
   history,
   tab,
   now: nowProp,
+  cardReadings,
   resetCreditsFor,
 }: QuotaForecastProps) {
   const { t, i18n } = useTranslation();
@@ -87,8 +91,11 @@ export function QuotaForecast({
 
   const samples = history.status === 'ok' ? history.samples : null;
   const ledger = history.status === 'ok' ? history.ledger : null;
-  // Credentials without live signals join from their latest history reading.
-  const pools = useMemo(() => buildPools(files, samples ?? []), [files, samples]);
+  // Credentials without live signals join from their loaded card, else their latest history reading.
+  const pools = useMemo(
+    () => buildPools(files, samples ?? [], cardReadings),
+    [files, samples, cardReadings]
+  );
 
   const [collapsed, setCollapsed] = useState(() => readQuotaUiState()?.forecastCollapsed ?? false);
   const [horizon, setHorizon] = useState<ForecastHorizonDays>(
@@ -330,27 +337,33 @@ export function QuotaForecast({
           <div className={styles.pools}>
             {summaries.map(({ pool, summary, credits }) => (
               <span key={pool.provider} className={styles.poolSummary}>
-                <span
-                  className={styles.poolDot}
-                  style={{ '--series': SERIES_COLOR[pool.provider] } as CSSProperties}
-                  aria-hidden="true"
-                />
-                <span className={styles.poolName}>{getTypeLabel(t, pool.provider)}</span>
-                <strong className={styles.poolValue}>
-                  {numbers.multiplier(summary.remaining)}
-                </strong>
-                <span className={styles.poolOf}>
-                  {t('quota_management.forecast_remaining_of', {
-                    capacity: numbers.multiplier(summary.capacity),
-                    percent: numbers.share(summary.remaining, summary.capacity),
-                  })}
+                <span className={styles.poolHead}>
+                  <span
+                    className={styles.poolDot}
+                    style={{ '--series': SERIES_COLOR[pool.provider] } as CSSProperties}
+                    aria-hidden="true"
+                  />
+                  <span className={styles.poolName}>{getTypeLabel(t, pool.provider)}</span>
                 </span>
-                <span className={styles.pace} title={paceHint}>
-                  {t('quota_management.forecast_pace_short', {
-                    pace: numbers.multiplier(summary.pacePerHour * 24),
-                  })}
+                <span className={styles.poolLine}>
+                  <strong className={styles.poolValue}>
+                    {numbers.multiplier(summary.remaining)}
+                  </strong>
+                  <span className={styles.poolOf}>
+                    {t('quota_management.forecast_remaining_of', {
+                      capacity: numbers.multiplier(summary.capacity),
+                      percent: numbers.share(summary.remaining, summary.capacity),
+                    })}
+                  </span>
                 </span>
-                {creditCount(credits)}
+                <span className={styles.poolMeta}>
+                  <span className={styles.pace} title={paceHint}>
+                    {t('quota_management.forecast_pace_short', {
+                      pace: numbers.multiplier(summary.pacePerHour * 24),
+                    })}
+                  </span>
+                  {creditCount(credits)}
+                </span>
               </span>
             ))}
           </div>

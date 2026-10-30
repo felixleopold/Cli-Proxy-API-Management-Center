@@ -9,6 +9,7 @@ import {
   projectResetCredits,
   startOfDay,
   startOfWeek,
+  timelineCells,
   timelineSpan,
   windowsIn,
 } from '../src/features/quota/quotaTimelineModel';
@@ -95,6 +96,28 @@ describe('span boundaries', () => {
     const span = timelineSpan('weekly', 0, at(2026, 2, 10, 12));
     expect(new Date(span.startMs).getHours()).toBe(0);
     expect(new Date(span.endMs).getHours()).toBe(0);
+  });
+});
+
+describe('timelineCells', () => {
+  test('starts every day cell at local midnight across a 25-hour DST day', () => {
+    // Vienna falls back on Sunday 2026-10-25; an even split of the span made the
+    // second cell start Sunday 23:00 and labelled every later day one day early.
+    const tz = process.env.TZ;
+    process.env.TZ = 'Europe/Vienna';
+    try {
+      const span = timelineSpan('weekly', 0, at(2026, 9, 30, 20));
+      const cells = timelineCells('weekly', span.startMs, span.days);
+      expect(cells.map((ms) => new Date(ms).getDate())).toEqual([
+        25, 26, 27, 28, 29, 30, 31, 1, 2, 3, 4, 5, 6, 7,
+      ]);
+      expect(cells.every((ms) => new Date(ms).getHours() === 0)).toBe(true);
+      const session = timelineCells('session', at(2026, 9, 25), 1);
+      expect(session.map((ms) => new Date(ms).getHours())).toEqual([0, 6, 12, 18]);
+    } finally {
+      if (tz === undefined) delete process.env.TZ;
+      else process.env.TZ = tz;
+    }
   });
 });
 
