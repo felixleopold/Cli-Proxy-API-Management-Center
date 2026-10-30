@@ -259,6 +259,7 @@ describe('auth-file structured credential policy contracts', () => {
       priority: '',
       weight: '',
       usageCapPercent: '',
+      planMultiplier: '',
       policy: changed({}, 'requestRetry', { mode: 'custom', value: '2' }),
     } as PrefixProxyEditorState;
     expect(buildAuthFileFieldsPatch(editor, (key) => key)).toEqual({ request_retry: 2 });

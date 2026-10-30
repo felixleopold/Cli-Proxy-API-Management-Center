@@ -41,6 +41,7 @@ export type AuthFileFieldsPatch = {
   priority?: number;
   weight?: number | null;
   usage_cap_percent?: number | null;
+  plan_multiplier?: number | null;
   disable_cooling?: boolean;
   'disable-cooling'?: boolean;
   websockets?: boolean;
@@ -243,6 +244,14 @@ const readIntegerField = (value: unknown): number | undefined => {
   return Number.isSafeInteger(parsed) ? parsed : undefined;
 };
 
+/** A finite number, or a numeric string; NaN otherwise. */
+const readNumberField = (value: unknown): number =>
+  typeof value === 'number'
+    ? value
+    : typeof value === 'string' && value.trim()
+      ? Number(value.trim())
+      : Number.NaN;
+
 const readRuntimeOnlyField = (entry: AuthFileEntry): boolean => {
   const raw = entry['runtime_only'] ?? entry.runtimeOnly;
   if (typeof raw === 'boolean') return raw;
@@ -271,6 +280,8 @@ const normalizeAuthFileEntry = (
   const modified = readDateField(entry);
   const priority = readIntegerField(entry['priority']);
   const weight = readIntegerField(entry['weight']);
+  const planMultiplier = readNumberField(entry['plan_multiplier']);
+  const usageCapPercent = readNumberField(entry['usage_cap_percent']);
 
   return {
     ...entry,
@@ -284,6 +295,8 @@ const normalizeAuthFileEntry = (
     ...(modified > 0 ? { modified } : {}),
     priority,
     weight,
+    ...(Number.isFinite(planMultiplier) && planMultiplier > 0 ? { planMultiplier } : {}),
+    ...(usageCapPercent > 0 && usageCapPercent < 100 ? { usageCapPercent } : {}),
     ...(note ? { note } : {}),
     ...(email ? { email } : {}),
     ...(projectId ? { projectId } : {}),

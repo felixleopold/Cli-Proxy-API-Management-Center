@@ -158,6 +158,7 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
               Boolean(editor?.headersTouched && editor.headersError) ||
               Boolean(editor?.weightError) ||
               Boolean(editor?.usageCapPercentError) ||
+              Boolean(editor?.planMultiplierError) ||
               Boolean(credentialPolicyError(editor?.policy))
             }
           >
@@ -240,6 +241,23 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
                     disabled={disableControls || editor.saving || !editor.json}
                     onChange={(e) => onChange('weight', e.target.value)}
                   />
+                  {supportsAuthFileUsageCap(editor.providerKey) && (
+                    <Input
+                      label={t('auth_files.plan_multiplier_label')}
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      max={100}
+                      step="any"
+                      value={editor.planMultiplier}
+                      hint={t('auth_files.plan_multiplier_hint')}
+                      error={editor.planMultiplierError ?? undefined}
+                      className={styles.suffixedInput}
+                      rightElement={<span className={styles.inputSuffix}>×</span>}
+                      disabled={disableControls || editor.saving || !editor.json}
+                      onChange={(e) => onChange('planMultiplier', e.target.value)}
+                    />
+                  )}
                   {supportsAuthFileUsageCap(editor.providerKey) && (
                     <Input
                       label={t('auth_files.usage_cap_label')}

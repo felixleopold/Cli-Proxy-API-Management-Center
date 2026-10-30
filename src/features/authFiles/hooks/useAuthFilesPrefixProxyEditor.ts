@@ -18,8 +18,10 @@ import {
   applyAuthFileUsingApi,
   normalizeProviderKey,
   parsePriorityValue,
+  parsePlanMultiplierText,
   parseUsageCapPercentText,
   readAuthFileDisableCooling,
+  readAuthFilePlanMultiplier,
   readAuthFileUsageCapPercent,
   readAuthFileWebsockets,
   readAuthFileUsingApi,
@@ -43,7 +45,10 @@ type AuthFileContentErrorKey =
   'auth_files.prefix_proxy_invalid_json' | 'auth_files.prefix_proxy_html_challenge';
 type AuthFileWeightErrorKey = 'auth_files.weight_invalid_integer' | 'auth_files.weight_invalid_max';
 type AuthFileEditorErrorKey =
-  AuthFileHeadersErrorKey | AuthFileWeightErrorKey | 'auth_files.usage_cap_invalid';
+  | AuthFileHeadersErrorKey
+  | AuthFileWeightErrorKey
+  | 'auth_files.usage_cap_invalid'
+  | 'auth_files.plan_multiplier_invalid';
 
 export type PrefixProxyEditorField =
   | CredentialPolicyField
@@ -52,6 +57,7 @@ export type PrefixProxyEditorField =
   | 'priority'
   | 'weight'
   | 'usageCapPercent'
+  | 'planMultiplier'
   | 'disableCooling'
   | 'websockets'
   | 'usingApi'
@@ -80,6 +86,8 @@ export type PrefixProxyEditorState = {
   weightError: string | null;
   usageCapPercent: string;
   usageCapPercentError: string | null;
+  planMultiplier: string;
+  planMultiplierError: string | null;
   disableCooling: boolean;
   disableCoolingTouched: boolean;
   websockets: boolean;
@@ -349,6 +357,18 @@ export const buildAuthFileFieldsPatch = (
         patch.usage_cap_percent = nextUsageCap;
       }
     }
+
+    const originalMultiplier = readAuthFilePlanMultiplier(original);
+    // Compared as text, like the cap, so an untouched value is never rewritten.
+    if (editor.planMultiplier.trim() !== String(originalMultiplier ?? '')) {
+      const nextMultiplier = parsePlanMultiplierText(editor.planMultiplier);
+      if (nextMultiplier === undefined) {
+        throw new Error(resolveError('auth_files.plan_multiplier_invalid'));
+      }
+      if (nextMultiplier !== originalMultiplier) {
+        patch.plan_multiplier = nextMultiplier;
+      }
+    }
   }
 
   if (editor.disableCoolingTouched) {
@@ -456,6 +476,11 @@ const buildPrefixProxyUpdatedText = (
     next.usage_cap_percent = patch.usage_cap_percent;
   }
 
+  if (patch.plan_multiplier !== undefined) {
+    // As with the cap, null means not set.
+    next.plan_multiplier = patch.plan_multiplier;
+  }
+
   if (patch.disable_cooling !== undefined) {
     next.disable_cooling = patch.disable_cooling;
   }
@@ -507,6 +532,7 @@ export function useAuthFilesPrefixProxyEditor(
     (prefixProxyEditor?.headersTouched && prefixProxyEditor.headersError) ||
     prefixProxyEditor?.weightError ||
     prefixProxyEditor?.usageCapPercentError ||
+    prefixProxyEditor?.planMultiplierError ||
     credentialPolicyError(prefixProxyEditor?.policy)
   );
   const prefixProxyUpdatedText =
@@ -560,6 +586,8 @@ export function useAuthFilesPrefixProxyEditor(
       weightError: null,
       usageCapPercent: '',
       usageCapPercentError: null,
+      planMultiplier: '',
+      planMultiplierError: null,
       disableCooling: false,
       disableCoolingTouched: false,
       websockets: false,
@@ -615,6 +643,7 @@ export function useAuthFilesPrefixProxyEditor(
       const priority = parsePriorityValue(json.priority);
       const weight = readCredentialWeight(json.weight);
       const usageCapPercent = readAuthFileUsageCapPercent(json);
+      const planMultiplier = readAuthFilePlanMultiplier(json);
       const disableCooling = readAuthFileDisableCooling(json);
       const websockets = supportsAuthFileWebsockets(providerKey)
         ? readAuthFileWebsockets(json)
@@ -649,6 +678,8 @@ export function useAuthFilesPrefixProxyEditor(
           weightError: null,
           usageCapPercent: usageCapPercent !== null ? String(usageCapPercent) : '',
           usageCapPercentError: null,
+          planMultiplier: planMultiplier !== null ? String(planMultiplier) : '',
+          planMultiplierError: null,
           disableCooling,
           disableCoolingTouched: false,
           websockets,
@@ -713,6 +744,17 @@ export function useAuthFilesPrefixProxyEditor(
           usageCapPercentError:
             parseUsageCapPercentText(usageCapPercent) === undefined
               ? t('auth_files.usage_cap_invalid')
+              : null,
+        };
+      }
+      if (field === 'planMultiplier') {
+        const planMultiplier = String(value);
+        return {
+          ...prev,
+          planMultiplier,
+          planMultiplierError:
+            parsePlanMultiplierText(planMultiplier) === undefined
+              ? t('auth_files.plan_multiplier_invalid')
               : null,
         };
       }

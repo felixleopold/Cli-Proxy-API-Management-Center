@@ -3,9 +3,10 @@
  * all its credentials, where it is heading, and how fast it has been draining.
  *
  * QuotaTimeline answers "when does each credential come back"; this answers
- * "how much do I have, in total, over the next days". On the All tab each
- * provider gets its own row in absolute pool percent (seven Claude credentials
- * vs two Codex ones would not share one axis well), all on one time axis.
+ * "how much do I have, in total, over the next days". Pools read in plan
+ * multipliers (11× of Claude vs 3.4× of Codex), with the share of our
+ * multiplier second. On the All tab each provider gets its own row on its own
+ * scale, all on one time axis.
  */
 
 import { useCallback, useId, useMemo, useState } from 'react';
@@ -37,6 +38,7 @@ import {
   type ResetCreditLike,
   type SleepHours,
 } from '../quotaForecastModel';
+import { formatMultiplier, shareLeft } from '../planMultipliers';
 import type { QuotaHistoryState } from '../hooks/useQuotaHistory';
 import { readQuotaUiState, writeQuotaUiState } from '../uiState';
 import {
@@ -126,13 +128,21 @@ export function QuotaForecast({
     const clockHour = new Intl.DateTimeFormat(language, { hour: 'numeric', minute: '2-digit' });
     return {
       percent: (value: number) => whole.format(value),
+      multiplier: (value: number) => formatMultiplier(value, language),
+      /** Remaining as a whole percent of `of`. */
+      share: (remaining: number, of: number) => whole.format((shareLeft(remaining, of) ?? 0) * 100),
       rate: (value: number) => (value >= 10 ? whole.format(value) : tenth.format(value)),
       when: (ms: number) => (ms - nowMs < 6 * DAY_MS ? when : whenWithDate).format(ms),
       hour: (hour: number) => clockHour.format(new Date(2000, 0, 1, hour)),
     };
   }, [language, nowMs]);
-  const formatPercent = useCallback((value: number) => `${numbers.percent(value)}%`, [numbers]);
   const formatRate = useCallback((value: number) => `${numbers.rate(value)}%`, [numbers]);
+  const formatMultiplierValue = numbers.multiplier;
+  const formatPoint = useCallback(
+    (value: number, capacity: number) =>
+      `${numbers.multiplier(value)} · ${numbers.share(value, capacity)}%`,
+    [numbers]
+  );
 
   // Learned from every pool, not just the visible ones: one person sleeps once.
   const activity = useMemo(
@@ -166,7 +176,7 @@ export function QuotaForecast({
         const facts = [
           summary.nextReset &&
             t('quota_management.forecast_next_reset', {
-              percent: numbers.percent(summary.nextReset.restorePercent),
+              amount: numbers.multiplier(summary.nextReset.restore),
               when: numbers.when(summary.nextReset.atMs),
             }),
           // A quiet pace may outlast the view or a reset; then only the soonest is known.
@@ -211,6 +221,7 @@ export function QuotaForecast({
         key: pool.provider,
         label: getTypeLabel(t, pool.provider),
         color: SERIES_COLOR[pool.provider],
+        // Several pools compare as shares of each; one pool reads in multipliers.
         values: comparative ? values.map((value) => (value / pool.capacity) * 100) : values,
       };
     });
@@ -325,15 +336,18 @@ export function QuotaForecast({
                   aria-hidden="true"
                 />
                 <span className={styles.poolName}>{getTypeLabel(t, pool.provider)}</span>
-                <strong className={styles.poolValue}>{formatPercent(summary.remaining)}</strong>
+                <strong className={styles.poolValue}>
+                  {numbers.multiplier(summary.remaining)}
+                </strong>
                 <span className={styles.poolOf}>
                   {t('quota_management.forecast_remaining_of', {
-                    capacity: numbers.percent(summary.capacity),
+                    capacity: numbers.multiplier(summary.capacity),
+                    percent: numbers.share(summary.remaining, summary.capacity),
                   })}
                 </span>
                 <span className={styles.pace} title={paceHint}>
                   {t('quota_management.forecast_pace_short', {
-                    pace: numbers.rate(summary.pacePerHour * 24),
+                    pace: numbers.multiplier(summary.pacePerHour * 24),
                   })}
                 </span>
                 {creditCount(credits)}
@@ -342,15 +356,18 @@ export function QuotaForecast({
           </div>
         ) : (
           <div className={styles.hero}>
-            <strong className={styles.heroValue}>{formatPercent(single.summary.remaining)}</strong>
+            <strong className={styles.heroValue}>
+              {numbers.multiplier(single.summary.remaining)}
+            </strong>
             <span className={styles.heroOf}>
               {t('quota_management.forecast_remaining_of', {
-                capacity: numbers.percent(single.summary.capacity),
+                capacity: numbers.multiplier(single.summary.capacity),
+                percent: numbers.share(single.summary.remaining, single.summary.capacity),
               })}
             </span>
             <span className={styles.pace} title={paceHint}>
               {t('quota_management.forecast_pace', {
-                pace: numbers.rate(single.summary.pacePerHour * 24),
+                pace: numbers.multiplier(single.summary.pacePerHour * 24),
               })}
             </span>
             {creditCount(single.credits)}
@@ -454,7 +471,7 @@ export function QuotaForecast({
                         <span className={styles.legendItem}>
                           {legendKey('dashed', 'var(--text-secondary)')}
                           {t('quota_management.forecast_pace_line', {
-                            pace: numbers.rate(drainPace),
+                            pace: numbers.multiplier(drainPace),
                           })}
                         </span>
                       )}
@@ -485,7 +502,8 @@ export function QuotaForecast({
                 fromMs={startMs}
                 toMs={endMs}
                 nowMs={nowMs}
-                formatValue={formatPercent}
+                formatValue={formatMultiplierValue}
+                formatPoint={formatPoint}
                 ariaLabel={t('quota_management.forecast_aria_remaining', { count: horizon })}
                 remainingLabel={t('quota_management.forecast_legend_remaining')}
                 projectedLabel={t('quota_management.forecast_legend_projected')}
@@ -498,7 +516,7 @@ export function QuotaForecast({
                 edges={drain.edges}
                 partialIndex={drain.partialIndex}
                 pace={drainPace}
-                formatValue={formatRate}
+                formatValue={comparative ? formatRate : formatMultiplierValue}
                 ariaLabel={
                   drain.hourly
                     ? t('quota_management.forecast_used_per_hour')

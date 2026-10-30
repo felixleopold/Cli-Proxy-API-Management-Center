@@ -21,9 +21,10 @@ Current base: upstream `v1.25.6`.
   quota, so its edge can be compared with the now line (past it means usage is ahead of pace),
   while the label shows remaining. A legend entry (`quota_management.windows_legend_used`) says so.
 - **Usage & quota page** (`/usage-quota`, OBSERVE; `/usage` and `/quota` redirect there). One page
-  and one provider filter, in order: *Accounts* (one card per credential merging upstream's quota card
-  with its spend: email title with the file name on hover, provider and plan, "resets in …" chip, the
-  limit bars as % left, then "$X this window ≈ $Y at 100%" with the user split, then renewal, credit
+  and one provider filter, in order: *Accounts* (per-provider plan multiplier totals above the cards,
+  then one card per credential merging upstream's quota card with its spend: email title with the file
+  name on hover, provider, plan and plan multiplier badge, "resets in …" chip, the weekly headline in
+  multipliers ("0.25× of 0.75× left this week"), the limit bars as % left of that account, then "$X this window ≈ $Y at 100%" with the user split, then renewal, credit
   balance and manual reset expiries behind a "N manual resets ›" disclosure, then Reset / Refresh),
   *Current quota windows* (the pooled forecast and the window timeline), *Spend history* (the
   24h/7d/30d/90d control lives in its header and only drives the KPIs, chart and users table; clicking
@@ -74,8 +75,11 @@ Current base: upstream `v1.25.6`.
   and revoked there too. A 409 means `client-keys.enabled` (or, for spend, `usage-ledger.enabled`)
   is off, and the page says so. Logic: `clientKeysModel.ts`; tests: `tests/clientKeysModel.test.ts`.
 - **Quota forecast** (`src/features/quota/quotaForecastModel.ts`, `components/QuotaForecast*`).
-  Per-provider pool chart of remaining quota with a projection to the next resets, drain history
-  and a horizon picker, for Claude, Codex and Muse (`meta`), each shown only once one of its
+  Per-provider pool chart of remaining quota in plan multipliers (each credential contributes what
+  is left of its share, refilling to its effective multiplier at reset; the pool is ΣE; values read
+  "1.4× / 3.4× ours · 41% left", tooltips add the % of our multiplier) with a projection to the next
+  resets, drain history (× per hour/day for one pool, % of each pool when comparing) and a horizon
+  picker, for Claude, Codex and Muse (`meta`), each shown only once one of its
   credentials reports quota. The projection is sleep-aware: each credential's daily rate is its own
   trailing-7-day drain or its last-24h drain, whichever is higher (below 24h, the drain so far
   over its activity-weighted time; below 3h, the window pace), spread over a local hour-of-day
@@ -86,7 +90,20 @@ Current base: upstream `v1.25.6`.
   (`AUTH_FILE_USAGE_CAP_PROVIDERS`, the providers whose windows the gateway observes) edits the fork-only
   gateway field `usage_cap_percent`; the gateway stops picking the credential once any credential-wide
   window's usage (5-hour, daily or weekly) reaches the cap, until that window resets. Logic: `constants.ts` (`parseUsageCapPercentText`), saved by
-  `hooks/useAuthFilesPrefixProxyEditor.ts`; tests: `tests/authFileWeight.test.ts`.
+  `hooks/useAuthFilesPrefixProxyEditor.ts`; tests: `tests/authFileWeight.test.ts`. The cap is also our
+  share of the account in plan multiplier reporting.
+- **Plan multipliers** (`src/features/quota/planMultipliers.ts`, `components/PlanMultipliers.tsx`).
+  Usage reads in units of the base $20 plan. Each credential's `plan_multiplier` m (Max $200 = 10,
+  Pro/Plus = 1; missing = 1, shown "not set") and `usage_cap_percent` c (missing = 100) come from
+  `/credentials` (normalized in `src/services/api/authFiles.ts` to `planMultiplier`/`usageCapPercent`).
+  Our effective multiplier is E = m·c/100, and with u% of a window used R = m·max(0, c − u)/100; the
+  same m applies to every window. The Usage & quota page shows per-provider totals (Σm plans, ΣE ours,
+  ΣR left of the weekly window with ΣR/ΣE, and the 5-hour figure when every account reports one),
+  each card's "1× plan · 75% ours = 0.75×" badge and weekly headline, and the forecast pool in ×.
+  Readings come from the same pools as the forecast (live signals, else latest history). The
+  credential details sheet edits `plan_multiplier` (positive, up to 100, empty = null) via
+  `PATCH /credentials/fields` on the usage-cap providers (`constants.ts`
+  `parsePlanMultiplierText`). Tests: `tests/planMultipliers.test.ts`, `tests/quotaForecast.test.ts`.
 
 ## Sync from upstream
 

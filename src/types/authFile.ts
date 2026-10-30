@@ -64,6 +64,10 @@ export interface AuthFileItem {
   modified?: number;
   priority?: number;
   weight?: number;
+  /** Plan size in base-plan units (Max $200 = 10, Pro/Plus = 1); absent when not set. */
+  planMultiplier?: number;
+  /** The gateway's usage cap, strictly between 0 and 100; absent without a cap. */
+  usageCapPercent?: number;
   note?: string;
   success?: unknown;
   failed?: unknown;

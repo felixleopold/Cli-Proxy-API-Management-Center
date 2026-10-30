@@ -51,7 +51,16 @@ import {
   sortQuotaEntries,
   type QuotaFileEntry,
 } from './logic';
-import { gatewayResetCredits, hasForecastCredentials } from './quotaForecastModel';
+import {
+  buildPools,
+  credentialNow,
+  gatewayResetCredits,
+  hasForecastCredentials,
+  poolMultipliers,
+} from './quotaForecastModel';
+import { planShareOf, remainingMultiplier, type AccountMultiplier } from './planMultipliers';
+import { supportsAuthFileUsageCap } from '@/features/authFiles/constants';
+import { PlanMultiplierTotals } from './components/PlanMultipliers';
 import { nextRecoveryMs } from './resetSchedule';
 import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from './providers';
 import type { QuotaProviderType } from './providers/types';
@@ -228,6 +237,41 @@ export function UsageQuotaPage() {
   // Shared by the forecast and the subscription cards (windows for credentials without live signals).
   const history = useQuotaHistory(hasForecastCredentials(files), files);
 
+  /* ---------- Plan multipliers ----------
+   * The same pools as the forecast: live signals, else the latest history reading. */
+
+  const multiplierNow = useNow();
+  const historySamples = history.status === 'ok' ? history.samples : null;
+  const pools = useMemo(() => buildPools(files, historySamples ?? []), [files, historySamples]);
+  const providerMultipliers = useMemo(
+    () =>
+      pools
+        .filter((pool) => tab === 'all' || pool.provider === tab)
+        .map((pool) => ({
+          provider: pool.provider,
+          multipliers: poolMultipliers(pool, files, multiplierNow),
+        })),
+    [pools, files, tab, multiplierNow]
+  );
+  const multiplierFor = useMemo(() => {
+    const pooled = new Map(
+      pools.flatMap((pool) => pool.credentials.map((credential) => [credential.authId, credential]))
+    );
+    // Providers whose windows the gateway observes are the ones with a cap, and so a share.
+    return (entry: QuotaFileEntry): AccountMultiplier | null => {
+      if (!supportsAuthFileUsageCap(entry.type)) return null;
+      const share = planShareOf(entry.file);
+      const credential = typeof entry.file.id === 'string' ? pooled.get(entry.file.id) : undefined;
+      return {
+        share,
+        remaining: credential
+          ? remainingMultiplier(share, credentialNow(credential, multiplierNow).usedPercent)
+          : null,
+        weekly: credential?.window === 'weekly',
+      };
+    };
+  }, [pools, multiplierNow]);
+
   const { loadedCount, attentionCount } = useMemo(() => {
     let loaded = 0;
     let attention = 0;
@@ -345,6 +389,7 @@ export function UsageQuotaPage() {
     const isEmpty = !loading && filteredEntries.length === 0 && spendOnlyCards.length === 0;
     return (
       <>
+        <PlanMultiplierTotals providers={providerMultipliers} resolvedTheme={resolvedTheme} />
         <div className={styles.toolbar}>
           <div className={styles.search}>
             <IconSearch size={16} className={styles.searchIcon} aria-hidden="true" />
@@ -436,6 +481,7 @@ export function UsageQuotaPage() {
                 entranceDelayMs={cardEntranceDelay(index)}
                 summary={spendFor(entry)}
                 spend={spend}
+                multiplier={multiplierFor(entry)}
                 onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
                 onReset={() => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
               />
