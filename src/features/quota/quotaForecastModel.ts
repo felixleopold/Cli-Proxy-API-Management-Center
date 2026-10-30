@@ -298,8 +298,8 @@ export const hasForecastCredentials = (files: AuthFileItem[]): boolean =>
 
 /**
  * One pool per provider that has at least one enabled credential reporting a
- * window: live, else from its loaded quota card (a credential the gateway has
- * not routed to yet has no signals), else from its latest history reading.
+ * window: live, else from its latest history reading, else from its loaded
+ * quota card (a credential the gateway has not routed to yet has neither).
  */
 export function buildPools(
   files: AuthFileItem[],
@@ -311,10 +311,11 @@ export function buildPools(
     if (file.disabled) return;
     const provider = providerOf(file);
     if (!isForecastProvider(provider)) return;
+    // A card reading has no observation time, so newer history must win over it.
     const credential =
       readPoolCredential(file) ??
-      cardCredential(file, typeof file.id === 'string' ? cardReadings.get(file.id) : undefined) ??
-      historyCredential(file, samples);
+      historyCredential(file, samples) ??
+      cardCredential(file, typeof file.id === 'string' ? cardReadings.get(file.id) : undefined);
     if (!credential) return;
     byProvider.set(provider, [...(byProvider.get(provider) ?? []), credential]);
   });

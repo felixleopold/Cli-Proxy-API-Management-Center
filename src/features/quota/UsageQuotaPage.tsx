@@ -239,8 +239,8 @@ export function UsageQuotaPage() {
   const history = useQuotaHistory(hasForecastCredentials(files), files);
 
   /* ---------- Plan multipliers ----------
-   * The same pools as the forecast: live signals, else the loaded card, else the latest history
-   * reading. */
+   * The same pools as the forecast: live signals, else the latest history reading, else the
+   * loaded card. */
 
   const multiplierNow = useNow();
   const historySamples = history.status === 'ok' ? history.samples : null;

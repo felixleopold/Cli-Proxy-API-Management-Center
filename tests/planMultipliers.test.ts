@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { AuthFileItem } from '../src/types';
+import type { QuotaHistorySample } from '../src/services/api/quotaHistory';
 import {
   formatMultiplier,
   multiplierTotals,
@@ -210,6 +211,21 @@ describe('provider totals', () => {
       usedPercent: 17,
       resetAtMs: NOW + 4 * DAY_MS,
     });
+    // History is timestamped and the card is not, so a history reading wins.
+    const history: QuotaHistorySample[] = [
+      {
+        authId: 'hanna',
+        provider: 'claude',
+        atMs: NOW - HOUR_MS,
+        window: 'weekly',
+        windowMinutes: 7 * 24 * 60,
+        usedPercent: 60,
+        resetAtMs: NOW + 4 * DAY_MS,
+      },
+    ];
+    const [historyPool] = buildPools([live, fresh], history, readings);
+    expect(historyPool.credentials.find((c) => c.authId === 'hanna')?.usedPercent).toBe(60);
+
     const [{ multipliers }] = providerMultipliers([live, fresh], [pool], NOW, readings);
     expect(multipliers.totals.unread).toBe(0);
     // 10 × 0.3 + 1 × (0.75 − 0.17)

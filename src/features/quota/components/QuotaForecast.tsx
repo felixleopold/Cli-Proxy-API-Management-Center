@@ -91,7 +91,7 @@ export function QuotaForecast({
 
   const samples = history.status === 'ok' ? history.samples : null;
   const ledger = history.status === 'ok' ? history.ledger : null;
-  // Credentials without live signals join from their loaded card, else their latest history reading.
+  // Credentials without live signals join from their latest history reading, else their loaded card.
   const pools = useMemo(
     () => buildPools(files, samples ?? [], cardReadings),
     [files, samples, cardReadings]
