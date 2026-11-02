@@ -52,14 +52,14 @@ const codex = (
 
 describe('plan share', () => {
   test('E = m × c/100, with an unset multiplier counted as 1 and no cap as 100', () => {
-    expect(planShareOf({ planMultiplier: 10 })).toEqual({
+    expect(planShareOf({ planMultiplier: 10 }, 'weekly')).toEqual({
       multiplier: 10,
       multiplierSet: true,
       capPercent: 100,
       effective: 10,
     });
-    expect(planShareOf({ planMultiplier: 1, usageCapPercent: 75 }).effective).toBe(0.75);
-    expect(planShareOf({})).toEqual({
+    expect(planShareOf({ planMultiplier: 1, usageCapPercent: 75 }, 'weekly').effective).toBe(0.75);
+    expect(planShareOf({}, 'weekly')).toEqual({
       multiplier: 1,
       multiplierSet: false,
       capPercent: 100,
@@ -67,8 +67,38 @@ describe('plan share', () => {
     });
   });
 
+  test("uses the gateway's per-window weights and reserves over plan_multiplier", () => {
+    const { files } = normalizeAuthFilesResponse({
+      files: [
+        {
+          name: 'ultra.json',
+          type: 'claude',
+          plan: 'ultra',
+          plan_multiplier: 10,
+          plan_weight_five_hour: 20,
+          plan_weight_weekly: 10,
+          reserve_five_hour_percent: 0,
+          reserve_weekly_percent: 30,
+          usage_cap_percent: 50,
+        },
+        // Older listing: one weight for both windows.
+        { name: 'old.json', type: 'claude', plan: 'max', plan_weight: 5 },
+      ],
+    });
+    const byName = (name: string) => files.find((file) => file.name === name)!;
+    const [ultra, old] = [byName('ultra.json'), byName('old.json')];
+    expect(planShareOf(ultra, 'five_hour')).toEqual({
+      multiplier: 20,
+      multiplierSet: true,
+      capPercent: 100,
+      effective: 20,
+    });
+    expect(planShareOf(ultra, 'weekly')).toMatchObject({ multiplier: 10, effective: 7 });
+    expect(planShareOf(old, 'weekly')).toMatchObject({ multiplier: 5, multiplierSet: true });
+  });
+
   test('what is left to us stops at the cap: R = m × max(0, c − u)/100', () => {
-    const share = planShareOf({ planMultiplier: 2, usageCapPercent: 75 });
+    const share = planShareOf({ planMultiplier: 2, usageCapPercent: 75 }, 'weekly');
     expect(remainingMultiplier(share, 25)).toBe(1);
     expect(remainingMultiplier(share, 75)).toBe(0);
     // Usage past the cap (the gateway stops at it, a reading may overshoot) is not negative.
@@ -94,8 +124,8 @@ describe('plan share', () => {
 describe('provider totals', () => {
   test('live Claude: Max 10× uncapped plus Pro 1× capped at 75 is 11× plans, 10.75× ours', () => {
     const totals = multiplierTotals([
-      { share: planShareOf({ planMultiplier: 10 }), usedPercent: 40 },
-      { share: planShareOf({ planMultiplier: 1, usageCapPercent: 75 }), usedPercent: 30 },
+      { share: planShareOf({ planMultiplier: 10 }, 'weekly'), usedPercent: 40 },
+      { share: planShareOf({ planMultiplier: 1, usageCapPercent: 75 }, 'weekly'), usedPercent: 30 },
     ]);
     expect(totals.plans).toBe(11);
     expect(totals.effective).toBe(10.75);
@@ -106,8 +136,8 @@ describe('provider totals', () => {
 
   test('a credential without a reading counts toward plans but not toward what is left', () => {
     const totals = multiplierTotals([
-      { share: planShareOf({ planMultiplier: 1 }), usedPercent: 50 },
-      { share: planShareOf({}), usedPercent: null },
+      { share: planShareOf({ planMultiplier: 1 }, 'weekly'), usedPercent: 50 },
+      { share: planShareOf({}, 'weekly'), usedPercent: null },
     ]);
     expect(totals).toMatchObject({ plans: 2, effective: 2, unset: 1, unread: 1 });
     expect(totals.remaining).toBe(0.5);
@@ -276,6 +306,10 @@ describe('plan multiplier field', () => {
       weight: '',
       usageCapPercent: String(json.usage_cap_percent ?? ''),
       planMultiplier,
+      plan: '',
+      lender: '',
+      reserveFiveHour: '',
+      reserveWeekly: '',
     }) as PrefixProxyEditorState;
   const resolveError = (key: string) => key;
 

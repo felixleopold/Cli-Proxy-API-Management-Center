@@ -19,3 +19,4 @@ export * from './transformers';
 export * from './vertex';
 export * from './quotaHistory';
 export * from './clientKeys';
+export * from './usagePool';

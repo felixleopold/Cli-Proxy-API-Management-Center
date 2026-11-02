@@ -13,7 +13,22 @@ export type CodexLiveICEServerDraft = {
   credential: string;
 };
 
+export type UsageReservePersonDraft = {
+  id: string;
+  /** A usage-ledger user label, matched case-insensitively by the gateway. */
+  name: string;
+  reservePercent: string;
+};
+
 export type VisualConfigFieldPath =
+  | 'usageReservesTimezone'
+  | 'usageReservesQuietStart'
+  | 'usageReservesQuietEnd'
+  | 'usageReservesLeadFiveHour'
+  | 'usageReservesLeadWeekly'
+  | 'usageReservesFloorFiveHour'
+  | 'usageReservesFloorWeekly'
+  | 'usageReservesPeople'
   | 'trustedProxies'
   | 'discoveryServiceType'
   | 'transientErrorCooldownSeconds'
@@ -45,6 +60,9 @@ export type VisualConfigValidationErrorCode =
   | 'invalid_duration'
   | 'positive_duration'
   | 'invalid_timezone'
+  | 'invalid_clock_pair'
+  | 'invalid_people'
+  | 'percent_range_0_100'
   | 'invalid_ip'
   | 'udp_port_pair'
   | 'udp_port_capacity'
@@ -191,6 +209,15 @@ export type VisualConfigValues = {
   quotaSwitchPreviewModel: boolean;
   /** OAuth-only: oauth.providers.antigravity.antigravity-credits. */
   quotaAntigravityCredits: boolean;
+  /** usage-reserves.*; empty strings mean the gateway default. */
+  usageReservesTimezone: string;
+  usageReservesQuietStart: string;
+  usageReservesQuietEnd: string;
+  usageReservesLeadFiveHour: string;
+  usageReservesLeadWeekly: string;
+  usageReservesFloorFiveHour: string;
+  usageReservesFloorWeekly: string;
+  usageReservesPeople: UsageReservePersonDraft[];
   routingStrategy: RoutingStrategy;
   routingSessionAffinity: boolean;
   routingSessionAffinityTTL: string;
@@ -294,6 +321,14 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   quotaSwitchProject: false,
   quotaSwitchPreviewModel: false,
   quotaAntigravityCredits: false,
+  usageReservesTimezone: '',
+  usageReservesQuietStart: '',
+  usageReservesQuietEnd: '',
+  usageReservesLeadFiveHour: '',
+  usageReservesLeadWeekly: '',
+  usageReservesFloorFiveHour: '',
+  usageReservesFloorWeekly: '',
+  usageReservesPeople: [],
   routingStrategy: 'round-robin',
   routingSessionAffinity: false,
   routingSessionAffinityTTL: '',

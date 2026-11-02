@@ -1,34 +1,64 @@
 /**
- * Plan multipliers: quota in units of the base $20 plan.
+ * Plan multipliers: quota in units of the base plan.
  *
- * A credential's plan multiplier m is its plan's size in base plans (Max $200 =
- * 10, Pro/Plus = 1). Its usage cap c stops the gateway using it once a window
- * reaches c%, so c% of the account is ours: our effective multiplier is
- * E = m × c/100. With u% of a window used, what is left to us is
- * R = m × max(0, c − u)/100. The same multiplier applies to every window.
+ * A credential's multiplier m is its plan's size in base plans for one window.
+ * The gateway reports it per window (plan_weight_five_hour / plan_weight_weekly):
+ * Claude plans have fixed weights (Pro 1/1, Max 5/5, Ultra 20 five-hour but 10
+ * weekly), other credentials use their price-based plan_multiplier in both
+ * windows. Older gateways without weights fall back to plan_multiplier here.
+ * The lender reserve r of that window is kept for the account's owner, so
+ * c = 100 − r percent is ours (legacy usage_cap_percent: c = cap): our effective
+ * multiplier is E = m × c/100. With u% of a window used, what is left to us is
+ * R = m × max(0, c − u)/100.
  */
 
 import type { AuthFileItem } from '@/types';
 
+/** The gateway's window kinds: Claude 5h / Codex primary / Muse session, and weekly. */
+export type PlanWindow = 'five_hour' | 'weekly';
+
 export interface PlanShare {
-  /** Base-plan units; 1 when not set. */
+  /** Base-plan units for the window; 1 when not set. */
   multiplier: number;
-  /** False when the credential has no plan multiplier and 1 is assumed. */
+  /** False when the credential has neither a known plan nor a multiplier and 1 is assumed. */
   multiplierSet: boolean;
-  /** Our share of the account in percent: its usage cap, else 100. */
+  /** Our share of the account in percent: 100 − its lender reserve, else 100. */
   capPercent: number;
   /** m × c / 100. */
   effective: number;
 }
 
-/** The credential's plan multiplier and our share of it; the API layer has validated both. */
-export function planShareOf(
-  file: Pick<AuthFileItem, 'planMultiplier' | 'usageCapPercent'>
-): PlanShare {
-  const multiplierSet = file.planMultiplier !== undefined;
-  const multiplier = file.planMultiplier ?? 1;
-  const capPercent = file.usageCapPercent ?? 100;
-  return { multiplier, multiplierSet, capPercent, effective: (multiplier * capPercent) / 100 };
+/** Claude plan names the gateway weighs, canonical as the listing reports them. */
+const CLAUDE_WEIGHED_PLANS = new Set(['pro', 'max', 'ultra']);
+
+type PlanShareSource = Pick<
+  AuthFileItem,
+  | 'type'
+  | 'provider'
+  | 'plan'
+  | 'planMultiplier'
+  | 'usageCapPercent'
+  | 'planWeightFiveHour'
+  | 'planWeightWeekly'
+  | 'reserveFiveHourPercent'
+  | 'reserveWeeklyPercent'
+>;
+
+/** A credential's multiplier and our share of it in one window; the API layer has validated all fields. */
+export function planShareOf(file: PlanShareSource, window: PlanWindow): PlanShare {
+  const weekly = window === 'weekly';
+  const weight = weekly ? file.planWeightWeekly : file.planWeightFiveHour;
+  const reserve = weekly ? file.reserveWeeklyPercent : file.reserveFiveHourPercent;
+  const provider = String(file.type ?? file.provider ?? '').toLowerCase();
+  const knownPlan = provider === 'claude' && CLAUDE_WEIGHED_PLANS.has(file.plan ?? '');
+  const multiplier = weight ?? file.planMultiplier ?? 1;
+  const capPercent = reserve !== undefined ? 100 - reserve : (file.usageCapPercent ?? 100);
+  return {
+    multiplier,
+    multiplierSet: knownPlan || file.planMultiplier !== undefined,
+    capPercent,
+    effective: (multiplier * capPercent) / 100,
+  };
 }
 
 /** What is left to us of a window with usedPercent used: m × max(0, c − u)/100. */

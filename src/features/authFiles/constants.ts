@@ -267,6 +267,48 @@ export const readAuthFilePlanMultiplier = (value: Record<string, unknown>): numb
   return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : null;
 };
 
+/** Claude plans the gateway weighs per window, in Pro-plan units (5-hour / weekly). */
+export const CLAUDE_PLAN_WEIGHTS = {
+  pro: { fiveHour: 1, weekly: 1 },
+  max: { fiveHour: 5, weekly: 5 },
+  ultra: { fiveHour: 20, weekly: 10 },
+} as const;
+export type ClaudePlan = keyof typeof CLAUDE_PLAN_WEIGHTS;
+
+/** Reads `plan` as the gateway does for Claude: max5x and max20x are aliases; other values as typed. */
+export const readAuthFilePlan = (value: Record<string, unknown>): string => {
+  const raw = typeof value.plan === 'string' ? value.plan.trim().toLowerCase() : '';
+  const key = raw.replace(/[\s_-]/g, '');
+  if (key === 'max5x') return 'max';
+  if (key === 'max20x') return 'ultra';
+  return key in CLAUDE_PLAN_WEIGHTS ? key : raw;
+};
+
+/** Parses a lender reserve from 0 to 100 percent: null for empty text (not set), undefined if invalid. */
+export const parseReservePercentText = (text: string): number | null | undefined => {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  if (!/^(\d+(\.\d*)?|\.\d+)$/.test(trimmed)) return undefined;
+  const value = Number(trimmed);
+  return value <= 100 ? value : undefined;
+};
+
+export const AUTH_FILE_RESERVE_KEYS = {
+  fiveHour: 'reserve_five_hour_percent',
+  weekly: 'reserve_weekly_percent',
+} as const;
+
+/** Reads an explicit lender reserve as the gateway does: a number from 0 to 100, else null. */
+export const readAuthFileReservePercent = (
+  value: Record<string, unknown>,
+  key: (typeof AUTH_FILE_RESERVE_KEYS)[keyof typeof AUTH_FILE_RESERVE_KEYS]
+): number | null => {
+  const raw = value[key];
+  const reserve =
+    typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() ? Number(raw) : NaN;
+  return reserve >= 0 && reserve <= 100 ? reserve : null;
+};
+
 export const supportsAuthFileUsingApi = (providerKey: string): boolean =>
   AUTH_FILE_USING_API_PROVIDERS.has(normalizeProviderKey(providerKey));
 

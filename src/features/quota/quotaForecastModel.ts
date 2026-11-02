@@ -22,6 +22,7 @@ import {
   remainingMultiplier,
   type MultiplierTotals,
   type PlanShare,
+  type PlanWindow,
 } from './planMultipliers';
 
 export const HOUR_MS = 60 * 60 * 1000;
@@ -45,6 +46,10 @@ const SAME_RESET_TOLERANCE_MS = 60 * 1000;
  * minutes ago would turn one request into an absurd hourly rate.
  */
 const MIN_PACE_ELAPSED_MS = HOUR_MS;
+
+/** The gateway's window kind of a history window: weekly, else the session (5-hour) one. */
+const planWindowOf = (window: QuotaHistoryWindow): PlanWindow =>
+  window === 'weekly' ? 'weekly' : 'five_hour';
 
 export interface PoolCredential {
   authId: string;
@@ -188,14 +193,15 @@ export function readPoolCredential(file: AuthFileItem): PoolCredential | null {
   const chosen = windows.find((window) => window.minutes >= WEEKLY_MIN_MINUTES) ?? windows[0];
   if (!chosen) return null;
 
+  const kind = chosen.minutes >= WEEKLY_MIN_MINUTES ? 'weekly' : 'session';
   return {
     authId,
-    window: chosen.minutes >= WEEKLY_MIN_MINUTES ? 'weekly' : 'session',
+    window: kind,
     periodMs: chosen.minutes * 60 * 1000,
     usedPercent: chosen.usedPercent,
     resetAtMs: chosen.resetAtMs,
     observedAtMs,
-    share: planShareOf(file),
+    share: planShareOf(file, planWindowOf(kind)),
   };
 }
 
@@ -221,7 +227,7 @@ const historyCredential = (
     usedPercent: chosen.usedPercent,
     resetAtMs: chosen.resetAtMs,
     observedAtMs: chosen.atMs,
-    share: planShareOf(file),
+    share: planShareOf(file, planWindowOf(chosen.window)),
   };
 };
 
@@ -281,14 +287,15 @@ const cardCredential = (
   reading: CardReading | undefined
 ): PoolCredential | null => {
   if (!reading || typeof file.id !== 'string' || !file.id) return null;
+  const kind = reading.periodMs >= WEEKLY_MIN_MINUTES * 60 * 1000 ? 'weekly' : 'session';
   return {
     authId: file.id,
-    window: reading.periodMs >= WEEKLY_MIN_MINUTES * 60 * 1000 ? 'weekly' : 'session',
+    window: kind,
     periodMs: reading.periodMs,
     usedPercent: reading.usedPercent,
     resetAtMs: reading.resetAtMs,
     observedAtMs: null,
-    share: planShareOf(file),
+    share: planShareOf(file, planWindowOf(kind)),
   };
 };
 
@@ -424,7 +431,8 @@ function poolMultipliers(
     own.map((file) => {
       const credential = typeof file.id === 'string' ? pooled.get(file.id) : undefined;
       return {
-        share: planShareOf(file),
+        // Unread credentials count in the pooled (weekly) window.
+        share: credential?.share ?? planShareOf(file, 'weekly'),
         usedPercent: credential
           ? usedNow(credential.usedPercent, credential.resetAtMs, nowMs)
           : null,
@@ -433,7 +441,12 @@ function poolMultipliers(
   );
   const shorts = own.flatMap((file) =>
     typeof file.id === 'string' && pooled.has(file.id)
-      ? [{ share: planShareOf(file), window: shortWindowOf(file, nowMs, cardReadings) }]
+      ? [
+          {
+            share: planShareOf(file, 'five_hour'),
+            window: shortWindowOf(file, nowMs, cardReadings),
+          },
+        ]
       : []
   );
   const minutes = shorts[0]?.window?.minutes;

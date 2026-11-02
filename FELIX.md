@@ -86,27 +86,43 @@ Current base: upstream `v1.25.6`.
   over its activity-weighted time; below 3h, the window pace), spread over a local hour-of-day
   profile learned from drain and blended into a configurable sleep baseline. Unused Codex manual resets show as amber expiry markers and a count,
   but the projection never assumes one is redeemed. Tests: `tests/quotaForecast.test.ts`.
-- **Usage cap per credential** (`src/features/authFiles/`, the credential's details sheet).
-  A "Usage cap" field (1-99 %, empty for no cap) on Claude, Codex, Muse (`meta`) and Devin credentials
-  (`AUTH_FILE_USAGE_CAP_PROVIDERS`, the providers whose windows the gateway observes) edits the fork-only
-  gateway field `usage_cap_percent`; the gateway stops picking the credential once any credential-wide
-  window's usage (5-hour, daily or weekly) reaches the cap, until that window resets. Logic: `constants.ts` (`parseUsageCapPercentText`), saved by
-  `hooks/useAuthFilesPrefixProxyEditor.ts`; tests: `tests/authFileWeight.test.ts`. The cap is also our
-  share of the account in plan multiplier reporting.
+- **Usage reserves** (gateway `usage-reserves`, f-squared/CLIProxyAPI#29). Three surfaces:
+  *Credential sheet* (`src/features/authFiles/components/AuthFileReserveFields.tsx`), on Claude, Codex,
+  Muse (`meta`) and Devin credentials (`AUTH_FILE_USAGE_CAP_PROVIDERS`): Claude plan (`plan`: pro,
+  max, ultra; weights 5-hour/weekly 1/1, 5/5, 20/10), `lender`, and the lender reserves
+  `reserve_five_hour_percent` / `reserve_weekly_percent` (0-100). The gateway stops routing to a
+  credential once a window's usage reaches 100 − the reserve held now; over the release lead before
+  the reset that reserve tapers linearly down to the floor (f-squared/CLIProxyAPI#31). The legacy "Usage cap" `usage_cap_percent` (1-99) still works and stands
+  for a reserve of 100 − cap in both windows; an explicit reserve wins for its window (gateway
+  `LenderReservePercent`). `plan_multiplier` stays the price-based size in base $20 plans (Max $200 =
+  10) and is the pool weight only without a known Claude plan. All saved with `PATCH
+  /credentials/fields` by `hooks/useAuthFilesPrefixProxyEditor.ts`; parsing in `constants.ts`; tests:
+  `tests/authFileWeight.test.ts`.
+  *Config › Quota › Usage reserves* (`src/features/config/visualConfigUsageReserves.ts`,
+  `components/sections/SectionUsageReserves.tsx`): people with a reserve % (names suggested from the
+  usage-ledger client user labels, `/observability/usage/clients`), quiet hours, time zone, and per
+  window the taper length (`release-lead`) and the lender floor (`floor-percent`, 0-100); empty fields
+  are removed so the gateway defaults apply (23:00-07:00, Europe/Vienna, 1h/12h, 5%/2%).
+  *Pooled usage* on `/usage-quota` (`src/features/quota/components/UsagePool.tsx`, above the forecast):
+  per provider and window from `GET /usage/pool?provider=&user=`: pool size, left, left for the chosen
+  person, burn, forecast, refills and each account's reserve (kept, tapering as "reserve 20% → 8%
+  now" from `reserve_now_percent`, or reached), plus the
+  person's override (`POST /usage/override` for 5h, `DELETE` to end) with its expiry. Hidden on
+  gateways without the endpoint. Logic: `usagePoolModel.ts`, `src/services/api/usagePool.ts`; tests:
+  `tests/usageReserves.test.ts`.
 - **Plan multipliers** (`src/features/quota/planMultipliers.ts`, `components/PlanMultipliers.tsx`).
-  Usage reads in units of the base $20 plan. Each credential's `plan_multiplier` m (Max $200 = 10,
-  Pro/Plus = 1; missing = 1, shown "not set") and `usage_cap_percent` c (missing = 100) come from
-  `/credentials` (normalized in `src/services/api/authFiles.ts` to `planMultiplier`/`usageCapPercent`).
-  Our effective multiplier is E = m·c/100, and with u% of a window used R = m·max(0, c − u)/100; the
-  same m applies to every window. The Usage & quota page shows per-provider totals (Σm plans, ΣE ours,
-  ΣR left of the weekly window with ΣR/ΣE, and the 5-hour figure when every account reports one;
-  every provider with an enabled credential gets totals, and "left" reads unavailable without readings),
-  each card's "1× plan · 75% ours = 0.75×" badge and weekly headline, and the forecast pool in ×.
-  Readings come from the same pools as the forecast (live signals, else latest history, else the
-  loaded quota card, for a credential the gateway has not routed to yet). The
-  credential details sheet edits `plan_multiplier` (positive, up to 100, empty = null) via
-  `PATCH /credentials/fields` on the usage-cap providers (`constants.ts`
-  `parsePlanMultiplierText`). Tests: `tests/planMultipliers.test.ts`, `tests/quotaForecast.test.ts`.
+  Usage reads in base-plan units, per window. A credential's multiplier m for a window is the gateway's
+  plan weight (`plan_weight_five_hour` / `plan_weight_weekly`, or the older single `plan_weight`,
+  normalized in `src/services/api/authFiles.ts`), else its `plan_multiplier`, else 1 ("not set"); so a
+  Claude Ultra counts 20× in the 5-hour figures and 10× in the weekly ones. Our share c of that window
+  is 100 − its lender reserve (else the usage cap, else 100). Our effective multiplier is E = m·c/100,
+  and with u% of a window used R = m·max(0, c − u)/100. The Usage & quota page shows per-provider totals
+  (Σm plans, ΣE ours, ΣR left of the weekly window with ΣR/ΣE, and the 5-hour figure when every account
+  reports one; every provider with an enabled credential gets totals, and "left" reads unavailable
+  without readings), each card's "1× plan · 75% ours = 0.75×" badge and weekly headline, and the
+  forecast pool in ×. Readings come from the same pools as the forecast (live signals, else latest
+  history, else the loaded quota card, for a credential the gateway has not routed to yet). Tests:
+  `tests/planMultipliers.test.ts`, `tests/quotaForecast.test.ts`.
 
 ## Sync from upstream
 

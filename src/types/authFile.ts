@@ -68,6 +68,19 @@ export interface AuthFileItem {
   planMultiplier?: number;
   /** The gateway's usage cap, strictly between 0 and 100; absent without a cap. */
   usageCapPercent?: number;
+  /** Subscription plan name; Claude's pro, max and ultra set the gateway's plan weights. */
+  plan?: string;
+  /** The gateway's pool weight per window in Pro-plan units; absent on older gateways. */
+  planWeightFiveHour?: number;
+  planWeightWeekly?: number;
+  /**
+   * Lender reserve per window, 0..100, as the gateway applies it: the explicit
+   * reserve, else 100 − usage cap. Absent when neither is set.
+   */
+  reserveFiveHourPercent?: number;
+  reserveWeeklyPercent?: number;
+  /** Who lends this account to the pool. */
+  lender?: string;
   note?: string;
   success?: unknown;
   failed?: unknown;

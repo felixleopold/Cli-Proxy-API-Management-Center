@@ -42,6 +42,10 @@ export type AuthFileFieldsPatch = {
   weight?: number | null;
   usage_cap_percent?: number | null;
   plan_multiplier?: number | null;
+  plan?: string | null;
+  lender?: string | null;
+  reserve_five_hour_percent?: number | null;
+  reserve_weekly_percent?: number | null;
   disable_cooling?: boolean;
   'disable-cooling'?: boolean;
   websockets?: boolean;
@@ -282,6 +286,21 @@ const normalizeAuthFileEntry = (
   const weight = readIntegerField(entry['weight']);
   const planMultiplier = readNumberField(entry['plan_multiplier']);
   const usageCapPercent = readNumberField(entry['usage_cap_percent']);
+  // Older gateways send one plan_weight for both windows; newer ones one per window.
+  const planWeight = readNumberField(entry['plan_weight']);
+  const positive = (value: number) => (Number.isFinite(value) && value > 0 ? value : undefined);
+  const planWeightFiveHour =
+    positive(readNumberField(entry['plan_weight_five_hour'])) ?? positive(planWeight);
+  const planWeightWeekly =
+    positive(readNumberField(entry['plan_weight_weekly'])) ?? positive(planWeight);
+  const reserve = (key: string) => {
+    const value = readNumberField(entry[key]);
+    return value >= 0 && value <= 100 ? value : undefined;
+  };
+  const reserveFiveHourPercent = reserve('reserve_five_hour_percent');
+  const reserveWeeklyPercent = reserve('reserve_weekly_percent');
+  const plan = readTextField(entry, 'plan');
+  const lender = readTextField(entry, 'lender');
 
   return {
     ...entry,
@@ -297,6 +316,12 @@ const normalizeAuthFileEntry = (
     weight,
     ...(Number.isFinite(planMultiplier) && planMultiplier > 0 ? { planMultiplier } : {}),
     ...(usageCapPercent > 0 && usageCapPercent < 100 ? { usageCapPercent } : {}),
+    ...(planWeightFiveHour !== undefined ? { planWeightFiveHour } : {}),
+    ...(planWeightWeekly !== undefined ? { planWeightWeekly } : {}),
+    ...(reserveFiveHourPercent !== undefined ? { reserveFiveHourPercent } : {}),
+    ...(reserveWeeklyPercent !== undefined ? { reserveWeeklyPercent } : {}),
+    ...(plan ? { plan } : {}),
+    ...(lender ? { lender } : {}),
     ...(note ? { note } : {}),
     ...(email ? { email } : {}),
     ...(projectId ? { projectId } : {}),

@@ -397,11 +397,11 @@
     "weight_hint": "Defaults to 1. Values at or below 0 exclude this credential from weighted scheduling; maximum 1,000,000. After entering a value, enable <settingsLink>weighted round robin</settingsLink> for it to take effect.",
     "weight_invalid_integer": "Weight must be an integer.",
     "weight_invalid_max": "Weight cannot exceed 1,000,000.",
-    "plan_multiplier_label": "Plan multiplier (plan_multiplier)",
-    "plan_multiplier_hint": "This account's plan size in base $20 plans: Max $200 = 10, Pro or Plus = 1. Usage & quota reports usage in these multipliers. Leave empty if unknown; it then counts as 1.",
+    "plan_multiplier_label": "Plan multiplier, price-based (plan_multiplier)",
+    "plan_multiplier_hint": "This account's price in base $20 plans: Max $200 = 10, Pro or Plus = 1. The gateway uses it as the pool weight in both windows, and Usage & quota reports in it. Leave empty if unknown; it then counts as 1.",
     "plan_multiplier_invalid": "Plan multiplier must be a number above 0 and at most 100.",
-    "usage_cap_label": "Usage cap (usage_cap_percent)",
-    "usage_cap_hint": "Stop routing to this account once the usage of any of its limit windows (such as 5-hour or weekly) reaches this percentage. Leave empty for no cap. The cap is also our share of the account in multiplier reporting: a 75% cap on a 1× plan counts as 0.75× ours.",
+    "usage_cap_label": "Usage cap, legacy (usage_cap_percent)",
+    "usage_cap_hint": "Older form of the reserves: a cap of C stands for a reserve of 100 − C in both windows. A 5-hour or weekly reserve above wins for its window. Leave empty for no cap.",
     "usage_cap_invalid": "Usage cap must be a whole number from 1 to 99.",
     "disable_cooling_label": "Disable exponential cooldown (disable_cooling)",
     "disable_cooling_hint": "Skip failure cooldown and exponential backoff only for this credential; other credentials are unaffected.",
@@ -443,7 +443,23 @@
     "quota_refresh_single": "Refresh quota",
     "quota_refresh_hint": "Refresh quota only for this credential",
     "quota_refresh_success": "Quota refreshed for \"{{name}}\"",
-    "quota_refresh_failed": "Failed to refresh quota for \"{{name}}\": {{message}}"
+    "quota_refresh_failed": "Failed to refresh quota for \"{{name}}\": {{message}}",
+    "reserve_group_label": "Usage pool",
+    "reserve_group_hint": "How this account joins the shared pool. Reserves keep part of each window for the account's owner; shortly before the window resets the gateway shrinks them toward a floor, outside quiet hours (Config › Quota › Usage reserves).",
+    "plan_label": "Claude plan (plan)",
+    "plan_hint": "Sets the pool weight per window in Pro units: 5-hour / weekly. Ultra counts 20× in the 5-hour window but 10× weekly. Takes precedence over the plan multiplier.",
+    "plan_unset": "Not set (uses the plan multiplier)",
+    "plan_pro": "Pro · {{fiveHour}}× / {{weekly}}×",
+    "plan_max": "Max · {{fiveHour}}× / {{weekly}}×",
+    "plan_ultra": "Ultra · {{fiveHour}}× / {{weekly}}×",
+    "lender_label": "Lender (lender)",
+    "lender_placeholder": "e.g. Ferdinand",
+    "lender_hint": "Who lends this account to the pool. Shown next to the account in pooled usage.",
+    "reserve_five_hour_label": "5-hour reserve (reserve_five_hour_percent)",
+    "reserve_weekly_label": "Weekly reserve (reserve_weekly_percent)",
+    "reserve_hint": "Kept for the lender: the gateway stops routing here once a window's usage reaches 100 − the reserve held now, which tapers toward the floor before the reset. A reserve set here takes precedence over the usage cap for its window; empty falls back to the cap (reserve = 100 − cap), else no reserve.",
+    "reserve_invalid": "Reserve must be a number from 0 to 100.",
+    "plan_multiplier_hint_claude": "This account's price in base $20 plans (Max $200 = 10). Only used as the pool weight when no Claude plan is set above; a plan's per-window weights replace it."
   },
   "antigravity_subscription": {
     "plan_unknown": "Unknown",
@@ -1543,7 +1559,10 @@
         "integer_range_1_3600": "Enter a whole number between 1 and 3600",
         "payload_invalid_number": "Enter a valid number",
         "payload_invalid_boolean": "Choose true or false",
-        "payload_invalid_json": "Enter valid JSON"
+        "payload_invalid_json": "Enter valid JSON",
+        "invalid_clock_pair": "Enter both quiet-hour times as HH:MM, or leave both empty",
+        "invalid_people": "Each person needs a unique name and a reserve from 0 to 100",
+        "percent_range_0_100": "Enter a number from 0 to 100"
       },
       "common": {
         "edit": "Edit",
@@ -1551,6 +1570,46 @@
         "cancel": "Cancel",
         "update": "Update",
         "add": "Add"
+      },
+      "usageReserves": {
+        "title": "Usage reserves (usage-reserves)",
+        "description": "Keep a share of each provider's pool for others, and decide when reserves are released before a window resets. Lender reserves are set per credential on Auth Files.",
+        "people": {
+          "label": "People",
+          "hint": "A person stops using a provider once its pool has less than their reserve left in any window, unless they turn on an override on Usage & quota. Names are usage-ledger user labels, matched case-insensitively.",
+          "name": "Person",
+          "reserve": "Reserve for {{name}}",
+          "remove": "Remove {{name}}",
+          "add": "Add person"
+        },
+        "quietStart": {
+          "label": "Quiet hours start",
+          "hint": "HH:MM. Quiet hours don't count as waking time before a reset. Both empty: 23:00–07:00; equal times turn quiet hours off."
+        },
+        "quietEnd": {
+          "label": "Quiet hours end",
+          "hint": "HH:MM; may be past midnight."
+        },
+        "leadFiveHour": {
+          "label": "Taper length, 5-hour",
+          "hint": "Waking time before a 5-hour window resets over which its reserves shrink linearly from the full reserve to the floor. Default 1h."
+        },
+        "leadWeekly": {
+          "label": "Taper length, weekly",
+          "hint": "The same for weekly windows. Default 12h."
+        },
+        "timezone": {
+          "label": "Time zone",
+          "hint": "IANA name for quiet hours. Default Europe/Vienna."
+        },
+        "floorFiveHour": {
+          "label": "Reserve floor, 5-hour (%)",
+          "hint": "The share of a 5-hour window a lender always keeps, however far the reserve has tapered (never above the reserve itself). 0–100, default 5."
+        },
+        "floorWeekly": {
+          "label": "Reserve floor, weekly (%)",
+          "hint": "The same for weekly windows. 0–100, default 2."
+        }
       }
     }
   },
@@ -1601,8 +1660,8 @@
     "multiplier_plan": "{{value}} plan",
     "multiplier_plan_unset": "{{value}} (not set)",
     "multiplier_capped": "{{percent}}% ours = {{value}}",
-    "multiplier_badge_hint": "Plan multiplier: this plan's size in base $20 plans. The usage cap sets how much of it is ours.",
-    "multiplier_unset_hint": "No plan multiplier is set, so this account counts as 1×. Set it in the credential's details on Auth Files.",
+    "multiplier_badge_hint": "Plan weight for this window in Pro units: a Claude plan's weight, else the price-based plan multiplier. The lender reserve sets how much of it is ours.",
+    "multiplier_unset_hint": "No plan or plan multiplier is set, so this account counts as 1×. Set it in the credential's details on Auth Files.",
     "multiplier_account_left_week": "of {{value}} left this week",
     "multiplier_account_left_window": "of {{value}} left this window",
     "windows_legend_upcoming": "upcoming",
@@ -2614,5 +2673,45 @@
     "off_title": "Client keys are turned off",
     "off_text": "Turn them on in the gateway's config.yaml; it reloads on save. Budgets and spend also need the usage ledger.",
     "off_note": "Keys live in their own state file (client-keys.json next to the config), never in config.yaml. Without access.api-keys, turning this on makes every request need a key."
+  },
+  "usage_pool": {
+    "title": "Pooled usage",
+    "description": "The gateway's view of each provider's pool in Pro-plan units, after lender reserves. Pick a person to see what is left for them.",
+    "person_label": "Person",
+    "person_everyone": "Everyone",
+    "person_reserve": "{{name}} keeps {{percent}}% for others",
+    "person_no_reserve": "No reserve configured; uses the whole pool",
+    "person_stopped": "Paused on {{providers}}: the pool is below their reserve",
+    "person_using": "Using the pool",
+    "person_override_until": "Override on until {{time}}",
+    "override_label": "Override for 5 hours",
+    "override_aria": "Let {{name}} ignore their reserve for 5 hours",
+    "override_failed": "Could not change the override: {{message}}",
+    "load_failed": "Could not load the pool: {{message}}",
+    "active_account": "Now on {{label}}",
+    "no_accounts": "No pooled accounts",
+    "five_hour": "5-hour",
+    "weekly": "Weekly",
+    "pool_size": "Pool {{value}}",
+    "left": "left · {{percent}}%",
+    "left_for_person": "{{percent}}% for them",
+    "burn": "Burning {{value}}/h",
+    "forecast_unknown": "No forecast yet",
+    "forecast_empty": "Runs out {{time}}",
+    "forecast_lasts": "Lasts past the refills",
+    "forecast_idle": "Not in use",
+    "refills_next": "+{{value}} at {{time}}",
+    "refills_next_more": "+{{value}} at {{time}}, +{{total}} over {{n}} refills",
+    "accounts_summary_one": "{{count}} account",
+    "accounts_summary_other": "{{count}} accounts",
+    "col_account": "Account",
+    "col_weight": "Plan · weight",
+    "col_used": "Used",
+    "col_reserve": "Reserve",
+    "col_resets": "Resets",
+    "lent_by": "lent by {{name}}",
+    "reserve_held": "reserve {{percent}}%",
+    "reserve_reached": "reserve {{now}}% reached",
+    "reserve_tapering": "reserve {{percent}}% → {{now}}% now"
   }
 }

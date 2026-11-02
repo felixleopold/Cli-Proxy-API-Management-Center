@@ -395,11 +395,11 @@
     "weight_hint": "默认值为 1；小于或等于 0 时不参与加权调度；最大值为 1,000,000。填入后打开<settingsLink>加权轮询设置</settingsLink>即可生效。",
     "weight_invalid_integer": "权重必须是整数。",
     "weight_invalid_max": "权重不能超过 1,000,000。",
-    "plan_multiplier_label": "套餐倍数（plan_multiplier）",
-    "plan_multiplier_hint": "此账号的套餐相当于多少个 $20 基础套餐：Max $200 = 10，Pro 或 Plus = 1。用量与额度页按此倍数报告用量。未知时留空，按 1 计。",
+    "plan_multiplier_label": "套餐倍数，按价格（plan_multiplier）",
+    "plan_multiplier_hint": "此账号的价格相当于多少个 $20 基础套餐：Max $200 = 10，Pro 或 Plus = 1。网关将其作为两个窗口的池权重，用量与额度页按此倍数报告。未知时留空，按 1 计。",
     "plan_multiplier_invalid": "套餐倍数必须是大于 0 且不超过 100 的数字。",
-    "usage_cap_label": "用量上限（usage_cap_percent）",
-    "usage_cap_hint": "当此账号任一限额窗口（如 5 小时或每周）的用量达到该百分比时，停止向其路由请求。留空表示不设上限。该上限也是倍数报告中我们所占的份额：1× 套餐设 75% 上限即计为我们的 0.75×。",
+    "usage_cap_label": "用量上限，旧版（usage_cap_percent）",
+    "usage_cap_hint": "预留的旧形式：上限 C 等于两个窗口各预留 100 − C。上方的 5 小时或每周预留在其窗口优先。留空表示不设上限。",
     "usage_cap_invalid": "用量上限必须是 1 到 99 之间的整数。",
     "disable_cooling_label": "禁用指数冷却（disable_cooling）",
     "disable_cooling_hint": "开启后，仅当前凭证跳过失败后的冷却与指数退避；其他凭证不受影响。",
@@ -441,7 +441,23 @@
     "quota_refresh_single": "刷新额度",
     "quota_refresh_hint": "仅刷新该认证文件的额度",
     "quota_refresh_success": "已刷新 \"{{name}}\" 的额度",
-    "quota_refresh_failed": "刷新 \"{{name}}\" 的额度失败：{{message}}"
+    "quota_refresh_failed": "刷新 \"{{name}}\" 的额度失败：{{message}}",
+    "reserve_group_label": "用量池",
+    "reserve_group_hint": "此账号如何加入共享池。预留为账号所有者保留每个窗口的一部分；窗口重置前不久（安静时段之外），网关会把预留逐渐减少到下限（配置 › 配额 › 用量预留）。",
+    "plan_label": "Claude 套餐（plan）",
+    "plan_hint": "按窗口设置池权重（Pro 单位）：5 小时 / 每周。Ultra 在 5 小时窗口计 20×，每周计 10×。优先于套餐倍数。",
+    "plan_unset": "未设置（使用套餐倍数）",
+    "plan_pro": "Pro · {{fiveHour}}× / {{weekly}}×",
+    "plan_max": "Max · {{fiveHour}}× / {{weekly}}×",
+    "plan_ultra": "Ultra · {{fiveHour}}× / {{weekly}}×",
+    "lender_label": "出借人（lender）",
+    "lender_placeholder": "例如 Ferdinand",
+    "lender_hint": "谁把此账号借给共享池。会显示在池用量中该账号旁边。",
+    "reserve_five_hour_label": "5 小时预留（reserve_five_hour_percent）",
+    "reserve_weekly_label": "每周预留（reserve_weekly_percent）",
+    "reserve_hint": "为出借人保留：窗口用量达到 100 − 当前预留 时，网关停止向此账号路由；当前预留在重置前逐渐减少到下限。此处设置的预留在对应窗口优先于用量上限；留空则回退到上限（预留 = 100 − 上限），否则无预留。",
+    "reserve_invalid": "预留必须是 0 到 100 之间的数字。",
+    "plan_multiplier_hint_claude": "此账号的价格相当于多少个 $20 基础套餐（Max $200 = 10）。仅在上方未设置 Claude 套餐时用作池权重；套餐的分窗口权重会取代它。"
   },
   "antigravity_subscription": {
     "plan_unknown": "未知",
@@ -1541,7 +1557,10 @@
         "integer_range_1_3600": "请输入 1 到 3600 之间的整数",
         "payload_invalid_number": "请输入有效数字",
         "payload_invalid_boolean": "请选择 true 或 false",
-        "payload_invalid_json": "请输入有效的 JSON"
+        "payload_invalid_json": "请输入有效的 JSON",
+        "invalid_clock_pair": "请以 HH:MM 填写两个安静时段时间，或都留空",
+        "invalid_people": "每个人员需要唯一的名称，以及 0 到 100 之间的预留",
+        "percent_range_0_100": "请输入 0 到 100 之间的数字"
       },
       "common": {
         "edit": "编辑",
@@ -1549,6 +1568,46 @@
         "cancel": "取消",
         "update": "更新",
         "add": "添加"
+      },
+      "usageReserves": {
+        "title": "用量预留（usage-reserves）",
+        "description": "为他人保留每个提供方池的一部分，并决定窗口重置前何时释放预留。出借人预留在认证文件页按凭证设置。",
+        "people": {
+          "label": "人员",
+          "hint": "当某提供方的池在任一窗口剩余少于此人的预留时，此人停止使用该提供方，除非在用量与额度页开启覆盖。名称为用量账本的用户标签，不区分大小写。",
+          "name": "人员",
+          "reserve": "{{name}} 的预留",
+          "remove": "移除 {{name}}",
+          "add": "添加人员"
+        },
+        "quietStart": {
+          "label": "安静时段开始",
+          "hint": "HH:MM。安静时段不计入重置前的清醒时间。两者都留空：23:00–07:00；两者相同则关闭安静时段。"
+        },
+        "quietEnd": {
+          "label": "安静时段结束",
+          "hint": "HH:MM，可跨越午夜。"
+        },
+        "leadFiveHour": {
+          "label": "渐减时长，5 小时",
+          "hint": "5 小时窗口重置前的这段清醒时间内，预留从完整值线性减少到下限。默认 1h。"
+        },
+        "leadWeekly": {
+          "label": "渐减时长，每周",
+          "hint": "每周窗口同理。默认 12h。"
+        },
+        "timezone": {
+          "label": "时区",
+          "hint": "安静时段使用的 IANA 时区名。默认 Europe/Vienna。"
+        },
+        "floorFiveHour": {
+          "label": "预留下限，5 小时（%）",
+          "hint": "无论预留减少到多少，出借人始终保留的 5 小时窗口份额（不超过预留本身）。0–100，默认 5。"
+        },
+        "floorWeekly": {
+          "label": "预留下限，每周（%）",
+          "hint": "每周窗口同理。0–100，默认 2。"
+        }
       }
     }
   },
@@ -1597,8 +1656,8 @@
     "multiplier_plan": "{{value}} 套餐",
     "multiplier_plan_unset": "{{value}}（未设置）",
     "multiplier_capped": "我们占 {{percent}}% = {{value}}",
-    "multiplier_badge_hint": "套餐倍数：该套餐相当于多少个 $20 基础套餐。用量上限决定其中属于我们的部分。",
-    "multiplier_unset_hint": "未设置套餐倍数，此账号按 1× 计。可在认证文件的凭证详情中设置。",
+    "multiplier_badge_hint": "此窗口的套餐权重（Pro 单位）：Claude 套餐的权重，否则为按价格的套餐倍数。出借人预留决定其中有多少属于我们。",
+    "multiplier_unset_hint": "未设置套餐或套餐倍数，此账号按 1× 计。可在认证文件页的凭证详情中设置。",
     "multiplier_account_left_week": "/ {{value}} 本周剩余",
     "multiplier_account_left_window": "/ {{value}} 本窗口剩余",
     "windows_legend_upcoming": "即将开始",
@@ -2596,5 +2655,44 @@
     "off_title": "客户端密钥未开启",
     "off_text": "在网关的 config.yaml 中开启，保存后自动重新加载。预算和花费还需要开启用量账本。",
     "off_note": "密钥保存在独立的状态文件中（配置旁的 client-keys.json），不会写入 config.yaml。若未设置 access.api-keys，开启后所有请求都需要密钥。"
+  },
+  "usage_pool": {
+    "title": "池用量",
+    "description": "网关视角下各提供方的池（Pro 套餐单位，已扣除出借人预留）。选择人员可查看其剩余可用量。",
+    "person_label": "人员",
+    "person_everyone": "所有人",
+    "person_reserve": "{{name}} 为他人保留 {{percent}}%",
+    "person_no_reserve": "未配置预留；可使用整个池",
+    "person_stopped": "已在 {{providers}} 暂停：池低于其预留",
+    "person_using": "正在使用池",
+    "person_override_until": "覆盖已开启，至 {{time}}",
+    "override_label": "覆盖 5 小时",
+    "override_aria": "让 {{name}} 在 5 小时内忽略其预留",
+    "override_failed": "无法更改覆盖：{{message}}",
+    "load_failed": "无法加载池：{{message}}",
+    "active_account": "当前：{{label}}",
+    "no_accounts": "没有加入池的账号",
+    "five_hour": "5 小时",
+    "weekly": "每周",
+    "pool_size": "池 {{value}}",
+    "left": "剩余 · {{percent}}%",
+    "left_for_person": "其可用 {{percent}}%",
+    "burn": "消耗 {{value}}/小时",
+    "forecast_unknown": "暂无预测",
+    "forecast_empty": "{{time}} 耗尽",
+    "forecast_lasts": "可撑过补充",
+    "forecast_idle": "未在使用",
+    "refills_next": "{{time}} +{{value}}",
+    "refills_next_more": "{{time}} +{{value}}，{{n}} 次补充共 +{{total}}",
+    "accounts_summary": "{{count}} 个账号",
+    "col_account": "账号",
+    "col_weight": "套餐 · 权重",
+    "col_used": "已用",
+    "col_reserve": "预留",
+    "col_resets": "重置",
+    "lent_by": "由 {{name}} 出借",
+    "reserve_held": "预留 {{percent}}%",
+    "reserve_reached": "已达预留 {{now}}%",
+    "reserve_tapering": "预留 {{percent}}% → 当前 {{now}}%"
   }
 }
