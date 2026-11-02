@@ -20,6 +20,10 @@ import {
   parsePriorityValue,
   parsePlanMultiplierText,
   parseUsageCapPercentText,
+  parseReservePercentText,
+  readAuthFilePlan,
+  readAuthFileReservePercent,
+  AUTH_FILE_RESERVE_KEYS,
   readAuthFileDisableCooling,
   readAuthFilePlanMultiplier,
   readAuthFileUsageCapPercent,
@@ -48,7 +52,8 @@ type AuthFileEditorErrorKey =
   | AuthFileHeadersErrorKey
   | AuthFileWeightErrorKey
   | 'auth_files.usage_cap_invalid'
-  | 'auth_files.plan_multiplier_invalid';
+  | 'auth_files.plan_multiplier_invalid'
+  | 'auth_files.reserve_invalid';
 
 export type PrefixProxyEditorField =
   | CredentialPolicyField
@@ -58,6 +63,10 @@ export type PrefixProxyEditorField =
   | 'weight'
   | 'usageCapPercent'
   | 'planMultiplier'
+  | 'plan'
+  | 'lender'
+  | 'reserveFiveHour'
+  | 'reserveWeekly'
   | 'disableCooling'
   | 'websockets'
   | 'usingApi'
@@ -88,6 +97,13 @@ export type PrefixProxyEditorState = {
   usageCapPercentError: string | null;
   planMultiplier: string;
   planMultiplierError: string | null;
+  /** Claude plan name ('' when unset); other providers keep theirs untouched. */
+  plan: string;
+  lender: string;
+  reserveFiveHour: string;
+  reserveFiveHourError: string | null;
+  reserveWeekly: string;
+  reserveWeeklyError: string | null;
   disableCooling: boolean;
   disableCoolingTouched: boolean;
   websockets: boolean;
@@ -369,6 +385,28 @@ export const buildAuthFileFieldsPatch = (
         patch.plan_multiplier = nextMultiplier;
       }
     }
+
+    // The gateway weighs plan names only for Claude.
+    if (editor.providerKey === 'claude' && editor.plan !== readAuthFilePlan(original)) {
+      patch.plan = editor.plan || null;
+    }
+
+    const nextLender = editor.lender.trim();
+    if (nextLender !== normalizeTextField(original.lender)) {
+      patch.lender = nextLender || null;
+    }
+
+    for (const [field, key] of [
+      ['reserveFiveHour', AUTH_FILE_RESERVE_KEYS.fiveHour],
+      ['reserveWeekly', AUTH_FILE_RESERVE_KEYS.weekly],
+    ] as const) {
+      const originalReserve = readAuthFileReservePercent(original, key);
+      // Compared as text, like the cap, so an untouched value is never rewritten.
+      if (editor[field].trim() === String(originalReserve ?? '')) continue;
+      const nextReserve = parseReservePercentText(editor[field]);
+      if (nextReserve === undefined) throw new Error(resolveError('auth_files.reserve_invalid'));
+      if (nextReserve !== originalReserve) patch[key] = nextReserve;
+    }
   }
 
   if (editor.disableCoolingTouched) {
@@ -481,6 +519,15 @@ const buildPrefixProxyUpdatedText = (
     next.plan_multiplier = patch.plan_multiplier;
   }
 
+  for (const key of [
+    'plan',
+    'lender',
+    AUTH_FILE_RESERVE_KEYS.fiveHour,
+    AUTH_FILE_RESERVE_KEYS.weekly,
+  ] as const) {
+    if (patch[key] !== undefined) next[key] = patch[key];
+  }
+
   if (patch.disable_cooling !== undefined) {
     next.disable_cooling = patch.disable_cooling;
   }
@@ -533,6 +580,8 @@ export function useAuthFilesPrefixProxyEditor(
     prefixProxyEditor?.weightError ||
     prefixProxyEditor?.usageCapPercentError ||
     prefixProxyEditor?.planMultiplierError ||
+    prefixProxyEditor?.reserveFiveHourError ||
+    prefixProxyEditor?.reserveWeeklyError ||
     credentialPolicyError(prefixProxyEditor?.policy)
   );
   const prefixProxyUpdatedText =
@@ -588,6 +637,12 @@ export function useAuthFilesPrefixProxyEditor(
       usageCapPercentError: null,
       planMultiplier: '',
       planMultiplierError: null,
+      plan: '',
+      lender: '',
+      reserveFiveHour: '',
+      reserveFiveHourError: null,
+      reserveWeekly: '',
+      reserveWeeklyError: null,
       disableCooling: false,
       disableCoolingTouched: false,
       websockets: false,
@@ -644,6 +699,8 @@ export function useAuthFilesPrefixProxyEditor(
       const weight = readCredentialWeight(json.weight);
       const usageCapPercent = readAuthFileUsageCapPercent(json);
       const planMultiplier = readAuthFilePlanMultiplier(json);
+      const reserveFiveHour = readAuthFileReservePercent(json, AUTH_FILE_RESERVE_KEYS.fiveHour);
+      const reserveWeekly = readAuthFileReservePercent(json, AUTH_FILE_RESERVE_KEYS.weekly);
       const disableCooling = readAuthFileDisableCooling(json);
       const websockets = supportsAuthFileWebsockets(providerKey)
         ? readAuthFileWebsockets(json)
@@ -680,6 +737,12 @@ export function useAuthFilesPrefixProxyEditor(
           usageCapPercentError: null,
           planMultiplier: planMultiplier !== null ? String(planMultiplier) : '',
           planMultiplierError: null,
+          plan: readAuthFilePlan(json),
+          lender: normalizeTextField(json.lender),
+          reserveFiveHour: reserveFiveHour !== null ? String(reserveFiveHour) : '',
+          reserveFiveHourError: null,
+          reserveWeekly: reserveWeekly !== null ? String(reserveWeekly) : '',
+          reserveWeeklyError: null,
           disableCooling,
           disableCoolingTouched: false,
           websockets,
@@ -756,6 +819,17 @@ export function useAuthFilesPrefixProxyEditor(
             parsePlanMultiplierText(planMultiplier) === undefined
               ? t('auth_files.plan_multiplier_invalid')
               : null,
+        };
+      }
+      if (field === 'plan') return { ...prev, plan: String(value) };
+      if (field === 'lender') return { ...prev, lender: String(value) };
+      if (field === 'reserveFiveHour' || field === 'reserveWeekly') {
+        const text = String(value);
+        return {
+          ...prev,
+          [field]: text,
+          [`${field}Error`]:
+            parseReservePercentText(text) === undefined ? t('auth_files.reserve_invalid') : null,
         };
       }
       if (field === 'disableCooling') {

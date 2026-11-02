@@ -1,0 +1,66 @@
+/**
+ * Pooled usage from the gateway's usage reserves (GET /usage/pool): pure
+ * helpers for the Usage & quota page's pool panel (components/UsagePool.tsx).
+ * Units are Pro-plan units with the per-window plan weights the gateway uses.
+ */
+
+import type {
+  UsagePoolAccount,
+  UsagePoolRefill,
+  UsagePoolUser,
+  UsagePoolWindow,
+} from '@/services/api/usagePool';
+import { AUTH_FILE_USAGE_CAP_PROVIDERS } from '@/features/authFiles/constants';
+import type { AuthFileItem } from '@/types';
+
+/**
+ * A credential's lender reserve in a window: `none` without one, `released`
+ * once the gateway frees it before the reset, `reached` when usage is at the
+ * ceiling (100 − reserve) so the gateway holds the account back, else `held`.
+ */
+export type ReserveState = 'none' | 'held' | 'reached' | 'released';
+
+export function reserveStateOf(account: UsagePoolAccount): ReserveState {
+  if (account.reservePercent <= 0) return 'none';
+  if (account.reserveReleased) return 'released';
+  return account.usedPercent >= 100 - account.reservePercent ? 'reached' : 'held';
+}
+
+/** The person's override end while it lasts, else null. */
+export function activeOverrideUntil(user: UsagePoolUser | null, nowMs: number): number | null {
+  const until = user?.overrideUntilMs ?? null;
+  return until !== null && until > nowMs ? until : null;
+}
+
+/** Refills still ahead, soonest first, with their total. */
+export function upcomingRefills(window: UsagePoolWindow, nowMs: number) {
+  const refills: UsagePoolRefill[] = window.refills.filter((refill) => refill.atMs > nowMs);
+  return { refills, total: refills.reduce((sum, refill) => sum + refill.units, 0) };
+}
+
+/** Providers whose windows the gateway pools, with an enabled credential, in a stable order. */
+export function poolProviders(files: AuthFileItem[], tab: string): string[] {
+  const providers = new Set(
+    files
+      .filter((file) => !file.disabled)
+      .map((file) => String(file.type ?? file.provider ?? '').toLowerCase())
+      .filter((provider) => AUTH_FILE_USAGE_CAP_PROVIDERS.has(provider))
+  );
+  return [...AUTH_FILE_USAGE_CAP_PROVIDERS].filter(
+    (provider) => providers.has(provider) && (tab === 'all' || tab === provider)
+  );
+}
+
+/** "14:05" today, "Tue 14:05" within a week, else a short date with the time. */
+export function formatPoolTime(atMs: number, nowMs: number, language?: string): string {
+  const at = new Date(atMs);
+  const clock = { hour: '2-digit', minute: '2-digit' } as const;
+  if (at.toDateString() === new Date(nowMs).toDateString()) {
+    return new Intl.DateTimeFormat(language, clock).format(at);
+  }
+  const withinWeek = Math.abs(atMs - nowMs) < 6 * 24 * 60 * 60 * 1000;
+  return new Intl.DateTimeFormat(
+    language,
+    withinWeek ? { weekday: 'short', ...clock } : { month: 'short', day: 'numeric', ...clock }
+  ).format(at);
+}

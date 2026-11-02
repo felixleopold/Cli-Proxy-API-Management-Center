@@ -397,11 +397,11 @@
     "weight_hint": "기본값은 1입니다. 0 이하의 값은 가중치 스케줄링에서 이 자격 증명을 제외합니다. 최대값은 1,000,000입니다. 값을 입력한 후 <settingsLink>가중 라운드 로빈</settingsLink>을 활성화해야 적용됩니다.",
     "weight_invalid_integer": "가중치는 정수여야 합니다.",
     "weight_invalid_max": "가중치는 1,000,000을 초과할 수 없습니다.",
-    "plan_multiplier_label": "요금제 배수 (plan_multiplier)",
-    "plan_multiplier_hint": "이 계정의 요금제가 $20 기본 요금제 몇 개에 해당하는지입니다: Max $200 = 10, Pro 또는 Plus = 1. 사용량 및 할당량 페이지는 이 배수로 사용량을 보고합니다. 모르면 비워 두세요. 그러면 1로 계산됩니다.",
+    "plan_multiplier_label": "요금제 배수, 가격 기준 (plan_multiplier)",
+    "plan_multiplier_hint": "이 계정의 가격을 $20 기본 요금제 단위로 나타냅니다: Max $200 = 10, Pro 또는 Plus = 1. 게이트웨이는 이를 두 창의 풀 가중치로 쓰고, 사용량 및 할당량 페이지는 이 단위로 보고합니다. 모르면 비워 두세요. 그러면 1로 계산합니다.",
     "plan_multiplier_invalid": "요금제 배수는 0보다 크고 100 이하인 숫자여야 합니다.",
-    "usage_cap_label": "사용량 한도 (usage_cap_percent)",
-    "usage_cap_hint": "이 계정의 사용량 한도 기간(예: 5시간 또는 주간) 중 하나의 사용량이 이 비율에 도달하면 라우팅을 중지합니다. 비워 두면 한도가 없습니다. 이 한도는 배수 보고에서 계정의 우리 몫이기도 합니다. 1× 요금제에 75% 한도면 우리 몫은 0.75×입니다.",
+    "usage_cap_label": "사용량 한도, 이전 방식 (usage_cap_percent)",
+    "usage_cap_hint": "예약의 이전 형태입니다: 한도 C는 두 창 모두에서 예약 100 − C를 뜻합니다. 위의 5시간 또는 주간 예약이 해당 창에서 우선합니다. 한도가 없으면 비워 두세요.",
     "usage_cap_invalid": "사용량 한도는 1에서 99 사이의 정수여야 합니다.",
     "disable_cooling_label": "지수 쿨다운 비활성화 (disable_cooling)",
     "disable_cooling_hint": "이 자격 증명에 대해서만 실패 쿨다운 및 지수 백오프를 건너뜁니다. 다른 자격 증명에는 영향을 주지 않습니다.",
@@ -443,7 +443,23 @@
     "quota_refresh_single": "할당량 새로 고침",
     "quota_refresh_hint": "이 자격 증명의 할당량만 새로 고침합니다",
     "quota_refresh_success": "\"{{name}}\"의 할당량을 새로 고쳤습니다",
-    "quota_refresh_failed": "\"{{name}}\"의 할당량 새로 고침 실패: {{message}}"
+    "quota_refresh_failed": "\"{{name}}\"의 할당량 새로 고침 실패: {{message}}",
+    "reserve_group_label": "사용량 풀",
+    "reserve_group_hint": "이 계정이 공유 풀에 참여하는 방식입니다. 예약은 각 창의 일부를 계정 소유자에게 남겨 두며, 게이트웨이는 창이 초기화되기 직전(조용한 시간 외)에 예약을 해제합니다(설정 › 할당량 › 사용량 예약).",
+    "plan_label": "Claude 요금제 (plan)",
+    "plan_hint": "창별 풀 가중치를 Pro 단위로 정합니다: 5시간 / 주간. Ultra는 5시간 창에서 20×, 주간에서 10×입니다. 요금제 배수보다 우선합니다.",
+    "plan_unset": "설정 안 함 (요금제 배수 사용)",
+    "plan_pro": "Pro · {{fiveHour}}× / {{weekly}}×",
+    "plan_max": "Max · {{fiveHour}}× / {{weekly}}×",
+    "plan_ultra": "Ultra · {{fiveHour}}× / {{weekly}}×",
+    "lender_label": "대여자 (lender)",
+    "lender_placeholder": "예: Ferdinand",
+    "lender_hint": "이 계정을 풀에 빌려주는 사람입니다. 풀 사용량에서 계정 옆에 표시됩니다.",
+    "reserve_five_hour_label": "5시간 예약 (reserve_five_hour_percent)",
+    "reserve_weekly_label": "주간 예약 (reserve_weekly_percent)",
+    "reserve_hint": "대여자 몫으로 남깁니다: 창 사용량이 100 − 예약에 도달하면 게이트웨이가 이 계정으로의 라우팅을 멈춥니다. 여기서 설정한 예약은 해당 창에서 사용량 한도보다 우선하며, 비워 두면 한도(예약 = 100 − 한도)를 따르고 없으면 예약이 없습니다.",
+    "reserve_invalid": "예약은 0에서 100 사이의 숫자여야 합니다.",
+    "plan_multiplier_hint_claude": "이 계정의 가격을 $20 기본 요금제 단위로 나타냅니다(Max $200 = 10). 위에서 Claude 요금제를 설정하지 않았을 때만 풀 가중치로 쓰이며, 요금제의 창별 가중치가 이를 대신합니다."
   },
   "antigravity_subscription": {
     "plan_unknown": "알 수 없음",
@@ -1543,7 +1559,9 @@
         "integer_range_1_3600": "1에서 3600 사이의 정수를 입력하세요",
         "payload_invalid_number": "유효한 숫자를 입력하세요",
         "payload_invalid_boolean": "true 또는 false를 선택하세요",
-        "payload_invalid_json": "유효한 JSON을 입력하세요"
+        "payload_invalid_json": "유효한 JSON을 입력하세요",
+        "invalid_clock_pair": "조용한 시간 두 개를 모두 HH:MM으로 입력하거나 둘 다 비워 두세요",
+        "invalid_people": "각 사람에게는 고유한 이름과 0보다 크고 100 이하인 예약이 필요합니다"
       },
       "common": {
         "edit": "편집",
@@ -1551,6 +1569,38 @@
         "cancel": "취소",
         "update": "업데이트",
         "add": "추가"
+      },
+      "usageReserves": {
+        "title": "사용량 예약 (usage-reserves)",
+        "description": "각 제공자 풀의 일부를 다른 사람을 위해 남겨 두고, 창이 초기화되기 전 언제 예약을 해제할지 정합니다. 대여자 예약은 인증 파일 페이지에서 자격 증명별로 설정합니다.",
+        "people": {
+          "label": "사람",
+          "hint": "어느 창에서든 제공자 풀의 남은 양이 그 사람의 예약보다 적으면, 사용량 및 할당량 페이지에서 재정의를 켜지 않는 한 그 제공자 사용을 멈춥니다. 이름은 사용량 원장의 사용자 라벨이며 대소문자를 구분하지 않습니다.",
+          "name": "사람",
+          "reserve": "{{name}}의 예약",
+          "remove": "{{name}} 제거",
+          "add": "사람 추가"
+        },
+        "quietStart": {
+          "label": "조용한 시간 시작",
+          "hint": "HH:MM. 조용한 시간은 초기화 전 활동 시간에 포함되지 않습니다. 둘 다 비우면 23:00–07:00, 같은 시간이면 조용한 시간을 끕니다."
+        },
+        "quietEnd": {
+          "label": "조용한 시간 종료",
+          "hint": "HH:MM, 자정을 넘을 수 있습니다."
+        },
+        "leadFiveHour": {
+          "label": "해제 선행 시간, 5시간",
+          "hint": "5시간 창이 초기화되기 전 이 활동 시간부터 예약을 해제합니다. 기본값 15m."
+        },
+        "leadWeekly": {
+          "label": "해제 선행 시간, 주간",
+          "hint": "주간 창도 같습니다. 기본값 1h."
+        },
+        "timezone": {
+          "label": "시간대",
+          "hint": "조용한 시간에 쓰는 IANA 이름입니다. 기본값 Europe/Vienna."
+        }
       }
     }
   },
@@ -1601,8 +1651,8 @@
     "multiplier_plan": "{{value}} 요금제",
     "multiplier_plan_unset": "{{value}} (미설정)",
     "multiplier_capped": "우리 몫 {{percent}}% = {{value}}",
-    "multiplier_badge_hint": "요금제 배수: 이 요금제가 $20 기본 요금제 몇 개에 해당하는지입니다. 사용량 한도가 그중 우리 몫을 정합니다.",
-    "multiplier_unset_hint": "요금제 배수가 설정되지 않아 이 계정은 1×로 계산됩니다. 인증 파일의 자격 증명 상세에서 설정하세요.",
+    "multiplier_badge_hint": "이 창의 요금제 가중치(Pro 단위): Claude 요금제의 가중치, 없으면 가격 기준 요금제 배수입니다. 대여자 예약이 그중 우리 몫을 정합니다.",
+    "multiplier_unset_hint": "요금제나 요금제 배수가 설정되지 않아 이 계정은 1×로 계산됩니다. 인증 파일 페이지의 자격 증명 세부 정보에서 설정하세요.",
     "multiplier_account_left_week": "/ {{value}} 이번 주 남음",
     "multiplier_account_left_window": "/ {{value}} 이번 기간 남음",
     "windows_legend_upcoming": "예정",
@@ -2614,5 +2664,45 @@
     "off_title": "클라이언트 키가 꺼져 있습니다",
     "off_text": "게이트웨이의 config.yaml에서 켜세요. 저장하면 다시 로드됩니다. 예산과 비용에는 사용량 원장도 필요합니다.",
     "off_note": "키는 별도 상태 파일(설정 옆의 client-keys.json)에 저장되며 config.yaml에는 저장되지 않습니다. access.api-keys가 없으면 켜는 즉시 모든 요청에 키가 필요합니다."
+  },
+  "usage_pool": {
+    "title": "풀 사용량",
+    "description": "게이트웨이가 보는 제공자별 풀입니다(Pro 요금제 단위, 대여자 예약 제외). 사람을 선택하면 그 사람에게 남은 양을 볼 수 있습니다.",
+    "person_label": "사람",
+    "person_everyone": "모두",
+    "person_reserve": "{{name}}은(는) 다른 사람을 위해 {{percent}}%를 남깁니다",
+    "person_no_reserve": "예약이 설정되지 않음, 풀 전체를 사용",
+    "person_stopped": "{{providers}}에서 일시 중지: 풀이 예약보다 적습니다",
+    "person_using": "풀 사용 중",
+    "person_override_until": "{{time}}까지 재정의 켜짐",
+    "override_label": "5시간 재정의",
+    "override_aria": "{{name}}이(가) 5시간 동안 예약을 무시하도록 허용",
+    "override_failed": "재정의를 변경하지 못했습니다: {{message}}",
+    "load_failed": "풀을 불러오지 못했습니다: {{message}}",
+    "active_account": "현재 {{label}}",
+    "no_accounts": "풀에 속한 계정 없음",
+    "five_hour": "5시간",
+    "weekly": "주간",
+    "pool_size": "풀 {{value}}",
+    "left": "남음 · {{percent}}%",
+    "left_for_person": "본인 몫 {{percent}}%",
+    "burn": "시간당 {{value}} 소모",
+    "forecast_unknown": "아직 예측 없음",
+    "forecast_empty": "{{time}}에 소진",
+    "forecast_lasts": "충전 후까지 유지",
+    "forecast_idle": "사용 안 함",
+    "refills_next": "{{time}}에 +{{value}}",
+    "refills_next_more": "{{time}}에 +{{value}}, {{n}}회 충전으로 +{{total}}",
+    "accounts_summary_one": "계정 {{count}}개",
+    "accounts_summary_other": "계정 {{count}}개",
+    "col_account": "계정",
+    "col_weight": "요금제 · 가중치",
+    "col_used": "사용",
+    "col_reserve": "예약",
+    "col_resets": "초기화",
+    "lent_by": "대여자 {{name}}",
+    "reserve_held": "{{percent}}% 보존",
+    "reserve_reached": "{{percent}}% 도달",
+    "reserve_released": "{{percent}}% 해제"
   }
 }

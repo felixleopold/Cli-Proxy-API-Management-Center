@@ -348,11 +348,11 @@
     "weight_hint": "Mặc định là 1. Giá trị ≤ 0 sẽ loại credential này khỏi điều phối có trọng số; tối đa 1.000.000.",
     "weight_invalid_integer": "Trọng số phải là số nguyên.",
     "weight_invalid_max": "Trọng số không được vượt quá 1.000.000.",
-    "plan_multiplier_label": "Hệ số gói (plan_multiplier)",
-    "plan_multiplier_hint": "Quy mô gói của tài khoản này tính theo gói cơ bản $20: Max $200 = 10, Pro hoặc Plus = 1. Trang sử dụng và hạn mức báo cáo theo các hệ số này. Để trống nếu chưa biết; khi đó tính là 1.",
+    "plan_multiplier_label": "Hệ số gói, theo giá (plan_multiplier)",
+    "plan_multiplier_hint": "Giá của tài khoản này tính theo gói cơ bản $20: Max $200 = 10, Pro hoặc Plus = 1. Gateway dùng nó làm trọng số trong nhóm ở cả hai cửa sổ, và trang Sử dụng & hạn mức báo cáo theo hệ số này. Để trống nếu không rõ; khi đó tính là 1.",
     "plan_multiplier_invalid": "Hệ số gói phải là số lớn hơn 0 và không quá 100.",
-    "usage_cap_label": "Giới hạn sử dụng (usage_cap_percent)",
-    "usage_cap_hint": "Ngừng định tuyến đến tài khoản này khi mức sử dụng của bất kỳ khung giới hạn nào (ví dụ 5 giờ hoặc hằng tuần) đạt đến tỷ lệ phần trăm này. Để trống nếu không giới hạn. Giới hạn này cũng là phần của chúng ta trong báo cáo hệ số: giới hạn 75% trên gói 1× được tính là 0.75× của chúng ta.",
+    "usage_cap_label": "Giới hạn sử dụng, kiểu cũ (usage_cap_percent)",
+    "usage_cap_hint": "Dạng cũ của dự trữ: giới hạn C tương đương dự trữ 100 − C ở cả hai cửa sổ. Dự trữ 5 giờ hoặc hằng tuần ở trên được ưu tiên cho cửa sổ của nó. Để trống nếu không giới hạn.",
     "usage_cap_invalid": "Giới hạn sử dụng phải là số nguyên từ 1 đến 99.",
     "disable_cooling_label": "Tắt cooldown lũy thừa (disable_cooling)",
     "disable_cooling_hint": "Bỏ qua cooldown thất bại và backoff lũy thừa chỉ cho credential này; các credential khác không bị ảnh hưởng.",
@@ -443,7 +443,23 @@
     "policy_rules_hint": "Các quy tắc tùy chỉnh được ưu tiên theo thứ tự danh sách. Kế thừa hoặc danh sách trống sẽ sử dụng quy tắc kế thừa; điều này không vô hiệu hóa chúng. Mẫu biểu thức chính quy (Regex) dùng cú pháp của Go.",
     "policy_retry_invalid": "Nhập một số nguyên an toàn không âm, hoặc chọn Kế thừa.",
     "policy_aliases_invalid": "Nhập tên model và bí danh không để trống cho mỗi hàng mới hoặc đã chỉnh sửa.",
-    "policy_rules_invalid": "Hoàn thành mỗi quy tắc đã chỉnh sửa với mã trạng thái dương, một hành động và ít nhất một điều kiện khớp không để trống."
+    "policy_rules_invalid": "Hoàn thành mỗi quy tắc đã chỉnh sửa với mã trạng thái dương, một hành động và ít nhất một điều kiện khớp không để trống.",
+    "reserve_group_label": "Nhóm sử dụng chung",
+    "reserve_group_hint": "Cách tài khoản này tham gia nhóm chung. Phần dự trữ giữ một phần mỗi cửa sổ cho chủ tài khoản; gateway giải phóng chúng ngay trước khi cửa sổ đặt lại, ngoài giờ yên tĩnh (Cấu hình › Hạn mức › Dự trữ sử dụng).",
+    "plan_label": "Gói Claude (plan)",
+    "plan_hint": "Đặt trọng số trong nhóm theo từng cửa sổ, tính bằng đơn vị Pro: 5 giờ / tuần. Ultra tính 20× trong cửa sổ 5 giờ nhưng 10× theo tuần. Ưu tiên hơn hệ số gói.",
+    "plan_unset": "Chưa đặt (dùng hệ số gói)",
+    "plan_pro": "Pro · {{fiveHour}}× / {{weekly}}×",
+    "plan_max": "Max · {{fiveHour}}× / {{weekly}}×",
+    "plan_ultra": "Ultra · {{fiveHour}}× / {{weekly}}×",
+    "lender_label": "Người cho mượn (lender)",
+    "lender_placeholder": "ví dụ Ferdinand",
+    "lender_hint": "Người cho nhóm mượn tài khoản này. Hiển thị cạnh tài khoản trong mục sử dụng chung.",
+    "reserve_five_hour_label": "Dự trữ 5 giờ (reserve_five_hour_percent)",
+    "reserve_weekly_label": "Dự trữ hằng tuần (reserve_weekly_percent)",
+    "reserve_hint": "Giữ lại cho người cho mượn: gateway ngừng định tuyến đến đây khi mức dùng của cửa sổ đạt 100 − dự trữ. Dự trữ đặt ở đây ưu tiên hơn giới hạn sử dụng cho cửa sổ đó; để trống thì dùng giới hạn (dự trữ = 100 − giới hạn), nếu không thì không có dự trữ.",
+    "reserve_invalid": "Dự trữ phải là số từ 0 đến 100.",
+    "plan_multiplier_hint_claude": "Giá của tài khoản này tính theo gói cơ bản $20 (Max $200 = 10). Chỉ dùng làm trọng số trong nhóm khi chưa đặt gói Claude ở trên; trọng số theo cửa sổ của gói sẽ thay thế nó."
   },
   "antigravity_subscription": {
     "plan_unknown": "Không rõ",
@@ -1336,7 +1352,9 @@
         "udp_port_capacity": "Phạm vi UDP phải chứa số cổng tối thiểu bằng hai lần số lượng phiên tối đa hiệu dụng (0 phiên sẽ tính là 32)",
         "invalid_ice_servers": "Mỗi máy chủ ICE cần ít nhất một URL stun:, stuns:, turn:, hoặc turns: hợp lệ",
         "integer_range_0_65535": "Nhập số nguyên từ 0 đến 65535",
-        "integer": "Nhập một số nguyên"
+        "integer": "Nhập một số nguyên",
+        "invalid_clock_pair": "Nhập cả hai giờ yên tĩnh dạng HH:MM, hoặc để trống cả hai",
+        "invalid_people": "Mỗi người cần một tên riêng và phần dự trữ lớn hơn 0, tối đa 100"
       },
       "common": {
         "edit": "Chỉnh sửa",
@@ -1504,6 +1522,38 @@
           "label": "Máy chủ ICE",
           "hint": "Các máy chủ STUN/TURN tùy chọn dùng URL stun:, stuns:, turn:, hoặc turns:. Thông tin xác thực TURN được bỏ qua trong API cấu hình JSON. Nhập thông tin xác thực dưới dạng mật khẩu và không để lộ bí mật trong ảnh chụp màn hình hay log."
         }
+      },
+      "usageReserves": {
+        "title": "Dự trữ sử dụng (usage-reserves)",
+        "description": "Giữ một phần nhóm của mỗi nhà cung cấp cho người khác, và quyết định khi nào giải phóng dự trữ trước khi cửa sổ đặt lại. Dự trữ của người cho mượn được đặt theo từng thông tin xác thực trên trang Auth Files.",
+        "people": {
+          "label": "Mọi người",
+          "hint": "Một người ngừng dùng nhà cung cấp khi nhóm của nó còn ít hơn phần dự trữ của họ ở bất kỳ cửa sổ nào, trừ khi họ bật ghi đè trên trang Sử dụng & hạn mức. Tên là nhãn người dùng của sổ cái sử dụng, không phân biệt hoa thường.",
+          "name": "Người",
+          "reserve": "Dự trữ cho {{name}}",
+          "remove": "Xóa {{name}}",
+          "add": "Thêm người"
+        },
+        "quietStart": {
+          "label": "Bắt đầu giờ yên tĩnh",
+          "hint": "HH:MM. Giờ yên tĩnh không tính là thời gian thức trước khi đặt lại. Cả hai trống: 23:00–07:00; hai giờ bằng nhau sẽ tắt giờ yên tĩnh."
+        },
+        "quietEnd": {
+          "label": "Kết thúc giờ yên tĩnh",
+          "hint": "HH:MM; có thể qua nửa đêm."
+        },
+        "leadFiveHour": {
+          "label": "Thời gian giải phóng trước, 5 giờ",
+          "hint": "Thời gian thức trước khi cửa sổ 5 giờ đặt lại mà từ đó dự trữ được giải phóng. Mặc định 15m."
+        },
+        "leadWeekly": {
+          "label": "Thời gian giải phóng trước, hằng tuần",
+          "hint": "Tương tự cho cửa sổ hằng tuần. Mặc định 1h."
+        },
+        "timezone": {
+          "label": "Múi giờ",
+          "hint": "Tên IANA cho giờ yên tĩnh. Mặc định Europe/Vienna."
+        }
       }
     },
     "source_changes_before_visual": "Lưu hoặc hủy các chỉnh sửa mã nguồn chưa lưu trước khi chuyển sang chế độ trực quan.",
@@ -1553,8 +1603,8 @@
     "multiplier_plan": "gói {{value}}",
     "multiplier_plan_unset": "{{value}} (chưa đặt)",
     "multiplier_capped": "của chúng ta {{percent}}% = {{value}}",
-    "multiplier_badge_hint": "Hệ số gói: quy mô gói này tính theo gói cơ bản $20. Giới hạn sử dụng xác định phần của chúng ta.",
-    "multiplier_unset_hint": "Chưa đặt hệ số gói nên tài khoản này được tính là 1×. Hãy đặt trong chi tiết thông tin xác thực ở Auth Files.",
+    "multiplier_badge_hint": "Trọng số gói cho cửa sổ này theo đơn vị Pro: trọng số của gói Claude, nếu không thì hệ số gói theo giá. Dự trữ của người cho mượn quyết định phần của chúng ta.",
+    "multiplier_unset_hint": "Chưa đặt gói hoặc hệ số gói, nên tài khoản này tính là 1×. Đặt nó trong chi tiết thông tin xác thực trên trang Auth Files.",
     "multiplier_account_left_week": "trên {{value}} còn lại tuần này",
     "multiplier_account_left_window": "trên {{value}} còn lại chu kỳ này",
     "windows_legend_upcoming": "sắp tới",
@@ -2620,5 +2670,45 @@
     "off_title": "Khóa client đang tắt",
     "off_text": "Bật trong config.yaml của gateway; file được tải lại khi lưu. Ngân sách và chi phí cũng cần sổ usage.",
     "off_note": "Khóa nằm trong file trạng thái riêng (client-keys.json cạnh file cấu hình), không bao giờ trong config.yaml. Nếu không có access.api-keys, bật tính năng này sẽ khiến mọi request cần khóa."
+  },
+  "usage_pool": {
+    "title": "Sử dụng chung",
+    "description": "Nhóm của từng nhà cung cấp theo góc nhìn của gateway, tính bằng đơn vị gói Pro, sau khi trừ dự trữ của người cho mượn. Chọn một người để xem phần còn lại cho họ.",
+    "person_label": "Người",
+    "person_everyone": "Mọi người",
+    "person_reserve": "{{name}} giữ {{percent}}% cho người khác",
+    "person_no_reserve": "Chưa cấu hình dự trữ; dùng toàn bộ nhóm",
+    "person_stopped": "Tạm dừng trên {{providers}}: nhóm thấp hơn phần dự trữ của họ",
+    "person_using": "Đang dùng nhóm",
+    "person_override_until": "Ghi đè bật đến {{time}}",
+    "override_label": "Ghi đè trong 5 giờ",
+    "override_aria": "Cho {{name}} bỏ qua phần dự trữ trong 5 giờ",
+    "override_failed": "Không thể thay đổi ghi đè: {{message}}",
+    "load_failed": "Không thể tải nhóm: {{message}}",
+    "active_account": "Đang dùng {{label}}",
+    "no_accounts": "Không có tài khoản trong nhóm",
+    "five_hour": "5 giờ",
+    "weekly": "Hằng tuần",
+    "pool_size": "Nhóm {{value}}",
+    "left": "còn lại · {{percent}}%",
+    "left_for_person": "{{percent}}% cho họ",
+    "burn": "Tiêu thụ {{value}}/giờ",
+    "forecast_unknown": "Chưa có dự báo",
+    "forecast_empty": "Hết lúc {{time}}",
+    "forecast_lasts": "Đủ dùng qua các lần nạp lại",
+    "forecast_idle": "Không sử dụng",
+    "refills_next": "+{{value}} lúc {{time}}",
+    "refills_next_more": "+{{value}} lúc {{time}}, +{{total}} qua {{n}} lần nạp lại",
+    "accounts_summary_one": "{{count}} tài khoản",
+    "accounts_summary_other": "{{count}} tài khoản",
+    "col_account": "Tài khoản",
+    "col_weight": "Gói · trọng số",
+    "col_used": "Đã dùng",
+    "col_reserve": "Dự trữ",
+    "col_resets": "Đặt lại",
+    "lent_by": "{{name}} cho mượn",
+    "reserve_held": "giữ {{percent}}%",
+    "reserve_reached": "đã đạt {{percent}}%",
+    "reserve_released": "đã giải phóng {{percent}}%"
   }
 }

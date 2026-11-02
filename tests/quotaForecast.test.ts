@@ -53,7 +53,7 @@ const credential = (overrides: Partial<PoolCredential> = {}): PoolCredential => 
   usedPercent: 0,
   resetAtMs: NOW + 3 * DAY_MS,
   observedAtMs: NOW,
-  share: planShareOf({}),
+  share: planShareOf({}, 'weekly'),
   ...overrides,
 });
 
@@ -647,7 +647,10 @@ describe('likely range and shared sleep', () => {
         sample({ atMs: NOW - 2 * DAY_MS, usedPercent: 40 }),
         sample({ atMs: NOW - HOUR_MS, usedPercent: 40 }),
       ];
-      const capped = credential({ usedPercent: 40, share: planShareOf({ usageCapPercent: 40 }) });
+      const capped = credential({
+        usedPercent: 40,
+        share: planShareOf({ usageCapPercent: 40 }, 'weekly'),
+      });
       const activity = learnActivity([pool(capped)], samples, NOW, DEFAULT_SLEEP_HOURS);
       // Rationed from 34% (85% of the cap): 36% over four days, not 40% over seven.
       const drained = used
@@ -730,7 +733,7 @@ describe('likely range and shared sleep', () => {
       usedPercent: 40,
       resetAtMs: NOW + 3 * DAY_MS,
       observedAtMs: NOW - HOUR_MS,
-      share: planShareOf({}),
+      share: planShareOf({}, 'weekly'),
     });
   });
 });
@@ -846,7 +849,11 @@ describe('usage ledger', () => {
       const b = spell('b', 0.05);
       const unequal = pool(
         credential({ usedPercent: 20 }),
-        credential({ authId: 'b', usedPercent: 2, share: planShareOf({ planMultiplier: 10 }) })
+        credential({
+          authId: 'b',
+          usedPercent: 2,
+          share: planShareOf({ planMultiplier: 10 }, 'weekly'),
+        })
       );
       const activity = learnActivity(
         [unequal],

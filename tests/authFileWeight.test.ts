@@ -25,6 +25,12 @@ const makeEditor = (json: Record<string, unknown>, weight: string): PrefixProxyE
   usageCapPercentError: null,
   planMultiplier: '',
   planMultiplierError: null,
+  plan: '',
+  lender: '',
+  reserveFiveHour: '',
+  reserveFiveHourError: null,
+  reserveWeekly: '',
+  reserveWeeklyError: null,
   disableCooling: false,
   disableCoolingTouched: false,
   websockets: false,
@@ -109,6 +115,54 @@ describe('auth-file usage cap patch', () => {
       );
     }
     expect(buildAuthFileFieldsPatch(withCap({}, '80', 'antigravity'), resolveError)).toEqual({});
+  });
+});
+
+describe('auth-file usage reserve patch', () => {
+  const claude = (json: Record<string, unknown>, fields: Partial<PrefixProxyEditorState>) => ({
+    ...makeEditor(json, ''),
+    providerKey: 'claude',
+    plan: 'max',
+    lender: 'Ferdinand',
+    reserveFiveHour: '0',
+    reserveWeekly: '25',
+    ...fields,
+  });
+  const existing = {
+    plan: 'Max 5x',
+    lender: 'Ferdinand',
+    reserve_five_hour_percent: 0,
+    reserve_weekly_percent: 25,
+  };
+
+  test('keeps untouched values, including a plan alias the gateway reads as max', () => {
+    expect(buildAuthFileFieldsPatch(claude(existing, {}), resolveError)).toEqual({});
+  });
+
+  test('writes changes and clears empty fields with null', () => {
+    expect(
+      buildAuthFileFieldsPatch(
+        claude(existing, { plan: 'ultra', lender: '', reserveFiveHour: '', reserveWeekly: '12.5' }),
+        resolveError
+      )
+    ).toEqual({
+      plan: 'ultra',
+      lender: null,
+      reserve_five_hour_percent: null,
+      reserve_weekly_percent: 12.5,
+    });
+  });
+
+  test('rejects a reserve outside 0..100 and leaves the plan of other providers alone', () => {
+    expect(() =>
+      buildAuthFileFieldsPatch(claude(existing, { reserveWeekly: '101' }), resolveError)
+    ).toThrow('auth_files.reserve_invalid');
+    expect(
+      buildAuthFileFieldsPatch(
+        claude({ ...existing, plan: 'plus' }, { providerKey: 'codex', plan: '' }),
+        resolveError
+      )
+    ).toEqual({});
   });
 });
 

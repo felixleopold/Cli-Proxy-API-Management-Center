@@ -35,6 +35,7 @@ import { QuotaHeader } from './components/QuotaHeader';
 import { QuotaCard, SpendOnlyCard } from './components/QuotaCard';
 import { QuotaForecast } from './components/QuotaForecast';
 import { QuotaTimeline } from './components/QuotaTimeline';
+import { UsagePool } from './components/UsagePool';
 import {
   CARD_ENTRANCE_BUDGET_MS,
   QUOTA_PAGE_SIZE,
@@ -273,8 +274,8 @@ export function UsageQuotaPage() {
     // Providers whose windows the gateway observes are the ones with a cap, and so a share.
     return (entry: QuotaFileEntry): AccountMultiplier | null => {
       if (!supportsAuthFileUsageCap(entry.type)) return null;
-      const share = planShareOf(entry.file);
       const credential = typeof entry.file.id === 'string' ? pooled.get(entry.file.id) : undefined;
+      const share = credential?.share ?? planShareOf(entry.file, 'weekly');
       return {
         share,
         remaining: credential
@@ -565,6 +566,8 @@ export function UsageQuotaPage() {
         accounts={renderAccounts}
         forecast={
           <>
+            {/* The gateway's reserve pool; hidden on gateways without usage reserves. */}
+            <UsagePool files={files} tab={tab} resolvedTheme={resolvedTheme} />
             {/* Pooled across every credential of the provider, independent of search and paging. */}
             <QuotaForecast
               files={files}

@@ -20,6 +20,7 @@ import {
 import { MAX_CREDENTIAL_WEIGHT } from '@/utils/credentialWeight';
 import { AuthFileExcludedModelsField } from './AuthFileExcludedModelsField';
 import { AuthFilePolicyFields } from './AuthFilePolicyFields';
+import { AuthFileReserveFields } from './AuthFileReserveFields';
 import { credentialPolicyError, readCredentialPolicy } from '../credentialPolicy';
 import styles from './AuthFileDetailsSheet.module.scss';
 
@@ -34,6 +35,10 @@ const DERIVED_INFO_KEYS = [
   'modified',
   // 'email' 不在此列：后端原始键名与 camelCase 同形，删掉会藏起真实数据。
   'projectId',
+  'planWeightFiveHour',
+  'planWeightWeekly',
+  'reserveFiveHourPercent',
+  'reserveWeeklyPercent',
 ];
 
 export type AuthFileDetailsSheetProps = {
@@ -159,6 +164,8 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
               Boolean(editor?.weightError) ||
               Boolean(editor?.usageCapPercentError) ||
               Boolean(editor?.planMultiplierError) ||
+              Boolean(editor?.reserveFiveHourError) ||
+              Boolean(editor?.reserveWeeklyError) ||
               Boolean(credentialPolicyError(editor?.policy))
             }
           >
@@ -242,37 +249,10 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
                     onChange={(e) => onChange('weight', e.target.value)}
                   />
                   {supportsAuthFileUsageCap(editor.providerKey) && (
-                    <Input
-                      label={t('auth_files.plan_multiplier_label')}
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      max={100}
-                      step="any"
-                      value={editor.planMultiplier}
-                      hint={t('auth_files.plan_multiplier_hint')}
-                      error={editor.planMultiplierError ?? undefined}
-                      className={styles.suffixedInput}
-                      rightElement={<span className={styles.inputSuffix}>×</span>}
+                    <AuthFileReserveFields
+                      editor={editor}
                       disabled={disableControls || editor.saving || !editor.json}
-                      onChange={(e) => onChange('planMultiplier', e.target.value)}
-                    />
-                  )}
-                  {supportsAuthFileUsageCap(editor.providerKey) && (
-                    <Input
-                      label={t('auth_files.usage_cap_label')}
-                      type="number"
-                      inputMode="numeric"
-                      min={1}
-                      max={99}
-                      step="1"
-                      value={editor.usageCapPercent}
-                      hint={t('auth_files.usage_cap_hint')}
-                      error={editor.usageCapPercentError ?? undefined}
-                      className={styles.suffixedInput}
-                      rightElement={<span className={styles.inputSuffix}>%</span>}
-                      disabled={disableControls || editor.saving || !editor.json}
-                      onChange={(e) => onChange('usageCapPercent', e.target.value)}
+                      onChange={onChange}
                     />
                   )}
                   <div className="form-group">

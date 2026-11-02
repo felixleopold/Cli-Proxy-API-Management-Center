@@ -395,11 +395,11 @@
     "weight_hint": "預設值為 1；小於或等於 0 時不參與加權調度；最大值為 1,000,000。填入後開啟<settingsLink>加權輪詢設定</settingsLink>即可生效。",
     "weight_invalid_integer": "權重必須是整數。",
     "weight_invalid_max": "權重不能超過 1,000,000。",
-    "plan_multiplier_label": "方案倍數（plan_multiplier）",
-    "plan_multiplier_hint": "此帳號的方案相當於多少個 $20 基礎方案：Max $200 = 10，Pro 或 Plus = 1。用量與額度頁按此倍數報告用量。未知時留空，按 1 計。",
+    "plan_multiplier_label": "方案倍數，依價格（plan_multiplier）",
+    "plan_multiplier_hint": "此帳號的價格相當於多少個 $20 基礎方案：Max $200 = 10，Pro 或 Plus = 1。閘道將其作為兩個視窗的池權重，用量與額度頁依此倍數報告。未知時留空，按 1 計。",
     "plan_multiplier_invalid": "方案倍數必須是大於 0 且不超過 100 的數字。",
-    "usage_cap_label": "用量上限（usage_cap_percent）",
-    "usage_cap_hint": "當此帳號任一限額視窗（如 5 小時或每週）的用量達到該百分比時，停止向其路由請求。留空表示不設上限。該上限也是倍數報告中我們所占的份額：1× 方案設 75% 上限即計為我們的 0.75×。",
+    "usage_cap_label": "用量上限，舊版（usage_cap_percent）",
+    "usage_cap_hint": "預留的舊形式：上限 C 等於兩個視窗各預留 100 − C。上方的 5 小時或每週預留在其視窗優先。留空表示不設上限。",
     "usage_cap_invalid": "用量上限必須是 1 到 99 之間的整數。",
     "disable_cooling_label": "停用指數冷卻（disable_cooling）",
     "disable_cooling_hint": "開啟後，僅目前憑證會略過失敗後的冷卻與指數退避；其他憑證不受影響。",
@@ -441,7 +441,23 @@
     "quota_refresh_single": "重新整理配額",
     "quota_refresh_hint": "僅重新整理該驗證檔案的配額",
     "quota_refresh_success": "已重新整理「{{name}}」的配額",
-    "quota_refresh_failed": "重新整理「{{name}}」的配額失敗：{{message}}"
+    "quota_refresh_failed": "重新整理「{{name}}」的配額失敗：{{message}}",
+    "reserve_group_label": "用量池",
+    "reserve_group_hint": "此帳號如何加入共享池。預留為帳號擁有者保留每個視窗的一部分；閘道會在視窗重置前不久（安靜時段之外）釋放預留（設定 › 配額 › 用量預留）。",
+    "plan_label": "Claude 方案（plan）",
+    "plan_hint": "依視窗設定池權重（Pro 單位）：5 小時 / 每週。Ultra 在 5 小時視窗計 20×，每週計 10×。優先於方案倍數。",
+    "plan_unset": "未設定（使用方案倍數）",
+    "plan_pro": "Pro · {{fiveHour}}× / {{weekly}}×",
+    "plan_max": "Max · {{fiveHour}}× / {{weekly}}×",
+    "plan_ultra": "Ultra · {{fiveHour}}× / {{weekly}}×",
+    "lender_label": "出借人（lender）",
+    "lender_placeholder": "例如 Ferdinand",
+    "lender_hint": "誰把此帳號借給共享池。會顯示在池用量中該帳號旁邊。",
+    "reserve_five_hour_label": "5 小時預留（reserve_five_hour_percent）",
+    "reserve_weekly_label": "每週預留（reserve_weekly_percent）",
+    "reserve_hint": "為出借人保留：視窗用量達到 100 − 預留 時，閘道停止向此帳號路由。此處設定的預留在對應視窗優先於用量上限；留空則回退到上限（預留 = 100 − 上限），否則無預留。",
+    "reserve_invalid": "預留必須是 0 到 100 之間的數字。",
+    "plan_multiplier_hint_claude": "此帳號的價格相當於多少個 $20 基礎方案（Max $200 = 10）。僅在上方未設定 Claude 方案時用作池權重；方案的分視窗權重會取代它。"
   },
   "antigravity_subscription": {
     "plan_unknown": "未知",
@@ -1567,7 +1583,9 @@
         "integer_range_1_3600": "請輸入 1 到 3600 之間的整數",
         "payload_invalid_number": "請輸入有效數字",
         "payload_invalid_boolean": "請選擇 true 或 false",
-        "payload_invalid_json": "請輸入有效的 JSON"
+        "payload_invalid_json": "請輸入有效的 JSON",
+        "invalid_clock_pair": "請以 HH:MM 填寫兩個安靜時段時間，或都留空",
+        "invalid_people": "每個人員需要唯一的名稱，以及大於 0 且不超過 100 的預留"
       },
       "common": {
         "edit": "編輯",
@@ -1575,6 +1593,38 @@
         "cancel": "取消",
         "update": "更新",
         "add": "新增"
+      },
+      "usageReserves": {
+        "title": "用量預留（usage-reserves）",
+        "description": "為他人保留每個提供方池的一部分，並決定視窗重置前何時釋放預留。出借人預留在認證檔案頁依憑證設定。",
+        "people": {
+          "label": "人員",
+          "hint": "當某提供方的池在任一視窗剩餘少於此人的預留時，此人停止使用該提供方，除非在用量與額度頁開啟覆寫。名稱為用量帳本的使用者標籤，不區分大小寫。",
+          "name": "人員",
+          "reserve": "{{name}} 的預留",
+          "remove": "移除 {{name}}",
+          "add": "新增人員"
+        },
+        "quietStart": {
+          "label": "安靜時段開始",
+          "hint": "HH:MM。安靜時段不計入重置前的清醒時間。兩者都留空：23:00–07:00；兩者相同則關閉安靜時段。"
+        },
+        "quietEnd": {
+          "label": "安靜時段結束",
+          "hint": "HH:MM，可跨越午夜。"
+        },
+        "leadFiveHour": {
+          "label": "釋放提前量，5 小時",
+          "hint": "5 小時視窗重置前的清醒時間達到該值時釋放其預留。預設 15m。"
+        },
+        "leadWeekly": {
+          "label": "釋放提前量，每週",
+          "hint": "每週視窗同理。預設 1h。"
+        },
+        "timezone": {
+          "label": "時區",
+          "hint": "安靜時段使用的 IANA 時區名。預設 Europe/Vienna。"
+        }
       }
     }
   },
@@ -1623,8 +1673,8 @@
     "multiplier_plan": "{{value}} 方案",
     "multiplier_plan_unset": "{{value}}（未設定）",
     "multiplier_capped": "我們占 {{percent}}% = {{value}}",
-    "multiplier_badge_hint": "方案倍數：此方案相當於多少個 $20 基礎方案。用量上限決定其中屬於我們的部分。",
-    "multiplier_unset_hint": "未設定方案倍數，此帳號按 1× 計。可在認證檔案的憑證詳情中設定。",
+    "multiplier_badge_hint": "此視窗的方案權重（Pro 單位）：Claude 方案的權重，否則為依價格的方案倍數。出借人預留決定其中有多少屬於我們。",
+    "multiplier_unset_hint": "未設定方案或方案倍數，此帳號按 1× 計。可在認證檔案頁的憑證詳情中設定。",
     "multiplier_account_left_week": "/ {{value}} 本週剩餘",
     "multiplier_account_left_window": "/ {{value}} 本視窗剩餘",
     "windows_legend_upcoming": "即將開始",
@@ -2622,5 +2672,44 @@
     "off_title": "用戶端金鑰未開啟",
     "off_text": "在閘道的 config.yaml 中開啟，儲存後自動重新載入。預算和花費還需要開啟用量帳本。",
     "off_note": "金鑰儲存在獨立的狀態檔中（設定檔旁的 client-keys.json），不會寫入 config.yaml。若未設定 access.api-keys，開啟後所有請求都需要金鑰。"
+  },
+  "usage_pool": {
+    "title": "池用量",
+    "description": "閘道視角下各提供方的池（Pro 方案單位，已扣除出借人預留）。選擇人員可查看其剩餘可用量。",
+    "person_label": "人員",
+    "person_everyone": "所有人",
+    "person_reserve": "{{name}} 為他人保留 {{percent}}%",
+    "person_no_reserve": "未設定預留；可使用整個池",
+    "person_stopped": "已在 {{providers}} 暫停：池低於其預留",
+    "person_using": "正在使用池",
+    "person_override_until": "覆寫已開啟，至 {{time}}",
+    "override_label": "覆寫 5 小時",
+    "override_aria": "讓 {{name}} 在 5 小時內忽略其預留",
+    "override_failed": "無法變更覆寫：{{message}}",
+    "load_failed": "無法載入池：{{message}}",
+    "active_account": "目前：{{label}}",
+    "no_accounts": "沒有加入池的帳號",
+    "five_hour": "5 小時",
+    "weekly": "每週",
+    "pool_size": "池 {{value}}",
+    "left": "剩餘 · {{percent}}%",
+    "left_for_person": "其可用 {{percent}}%",
+    "burn": "消耗 {{value}}/小時",
+    "forecast_unknown": "暫無預測",
+    "forecast_empty": "{{time}} 耗盡",
+    "forecast_lasts": "可撐過補充",
+    "forecast_idle": "未在使用",
+    "refills_next": "{{time}} +{{value}}",
+    "refills_next_more": "{{time}} +{{value}}，{{n}} 次補充共 +{{total}}",
+    "accounts_summary": "{{count}} 個帳號",
+    "col_account": "帳號",
+    "col_weight": "方案 · 權重",
+    "col_used": "已用",
+    "col_reserve": "預留",
+    "col_resets": "重置",
+    "lent_by": "由 {{name}} 出借",
+    "reserve_held": "保留 {{percent}}%",
+    "reserve_reached": "已達 {{percent}}%",
+    "reserve_released": "已釋放 {{percent}}%"
   }
 }

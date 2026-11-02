@@ -33,6 +33,14 @@ import {
   writeVisualServer,
   validateVisualServer,
 } from '@/features/config/visualConfigServer';
+import {
+  PEOPLE_KEY,
+  USAGE_RESERVE_FIELDS,
+  readVisualUsageReserves,
+  samePeople,
+  validateVisualUsageReserves,
+  writeVisualUsageReserves,
+} from '@/features/config/visualConfigUsageReserves';
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -190,6 +198,7 @@ export function getVisualConfigValidationErrors(
   return {
     ...validateVisualAdditions(values, dirtyFields),
     ...validateVisualServer(values),
+    ...validateVisualUsageReserves(values),
     port: getPortError(values.port),
     errorLogsMaxFiles: getNonNegativeIntegerError(values.errorLogsMaxFiles),
     logsMaxTotalSizeMb: getNonNegativeIntegerError(values.logsMaxTotalSizeMb),
@@ -1199,6 +1208,10 @@ function getNextDirtyFields(
     }
   });
   ADDITION_FIELDS.forEach(({ key }) => updateScalarDirty(key));
+  USAGE_RESERVE_FIELDS.forEach(({ key }) => updateScalarDirty(key));
+  if (Object.prototype.hasOwnProperty.call(patch, PEOPLE_KEY)) {
+    updateDirty(PEOPLE_KEY, samePeople(nextValues[PEOPLE_KEY], baselineValues[PEOPLE_KEY]));
+  }
   if (Object.prototype.hasOwnProperty.call(patch, ICE_KEY)) {
     updateDirty(
       ICE_KEY,
@@ -1439,6 +1452,7 @@ function parseVisualValuesFromYaml(yamlContent: string): VisualConfigValues {
   const newValues: VisualConfigValues = {
     ...readVisualAdditions(document),
     ...readVisualServer(document),
+    ...readVisualUsageReserves(document),
     host: typeof v8Server?.['host'] === 'string' ? v8Server?.['host'] : '',
     port: String(v8Server?.['port'] ?? ''),
 
@@ -1643,6 +1657,7 @@ export function useVisualConfig() {
         }
         const values = visualValues;
         writeVisualAdditions(doc, values, dirtyFields);
+        writeVisualUsageReserves(doc, values, dirtyFields);
         writeVisualServer(
           doc,
           values,
