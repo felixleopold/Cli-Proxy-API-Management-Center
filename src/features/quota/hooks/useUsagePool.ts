@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usagePoolApi } from '@/services/api';
-import { reportsFor, type ScopedPoolReports } from '../usagePoolModel';
+import { changeOverride, reportsFor, type ScopedPoolReports } from '../usagePoolModel';
 import { useAuthStore } from '@/stores';
 import { MINUTE_MS } from '@/utils/time/durations';
 
@@ -21,6 +21,11 @@ export function useUsagePool(providers: string[], user: string) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const requestRef = useRef(0);
+  // The selection now, for work that outlives the render that started it.
+  const selectedRef = useRef(user);
+  useEffect(() => {
+    selectedRef.current = user;
+  }, [user]);
   const providerKey = providers.join(',');
 
   const load = useCallback(async () => {
@@ -71,12 +76,17 @@ export function useUsagePool(providers: string[], user: string) {
       if (!target || target !== user) return;
       setSaving(true);
       try {
-        if (on) await usagePoolApi.setOverride(target, OVERRIDE_DURATION);
-        else await usagePoolApi.clearOverride(target);
+        await changeOverride(target, on, {
+          set: (name, enable) =>
+            enable
+              ? usagePoolApi.setOverride(name, OVERRIDE_DURATION)
+              : usagePoolApi.clearOverride(name),
+          selected: () => selectedRef.current,
+          refresh: load,
+        });
       } finally {
         setSaving(false);
       }
-      await load();
     },
     [load, user]
   );

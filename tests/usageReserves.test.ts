@@ -6,7 +6,12 @@ import {
   writeVisualUsageReserves,
 } from '@/features/config/visualConfigUsageReserves';
 import { normalizeUsagePoolReport } from '@/services/api/usagePool';
-import { overrideTarget, reportsFor, reserveStateOf } from '@/features/quota/usagePoolModel';
+import {
+  changeOverride,
+  overrideTarget,
+  reportsFor,
+  reserveStateOf,
+} from '@/features/quota/usagePoolModel';
 import { DEFAULT_VISUAL_VALUES, type VisualConfigValues } from '@/types/visualConfig';
 
 const SOURCE = `usage-reserves:
@@ -141,6 +146,41 @@ describe('usage pool person scope', () => {
     expect(overrideTarget([report('Felix')], 'Ferdinand')).toBeNull();
     expect(overrideTarget([report('felix')], 'Felix')).toBe('Felix');
     expect(overrideTarget([report(null)], '')).toBeNull();
+  });
+});
+
+describe('usage pool override change', () => {
+  test('skips the refresh when the person was switched while the change was in flight', async () => {
+    let selected = 'Felix';
+    let finish = () => {};
+    const calls: string[] = [];
+    const deps = {
+      set: (user: string, on: boolean) => {
+        calls.push(`set ${user} ${on}`);
+        return new Promise<void>((resolve) => {
+          finish = resolve;
+        });
+      },
+      selected: () => selected,
+      refresh: async () => {
+        calls.push(`refresh ${selected}`);
+      },
+    };
+
+    // Felix turns his override on, the panel switches to Ferdinand, and
+    // Ferdinand's report loads before Felix's change returns.
+    const change = changeOverride('Felix', true, deps);
+    selected = 'Ferdinand';
+    finish();
+    await change;
+    expect(calls).toEqual(['set Felix true']);
+
+    // Without a switch the change still refreshes the shown person.
+    selected = 'Felix';
+    const unchanged = changeOverride('Felix', false, deps);
+    finish();
+    await unchanged;
+    expect(calls).toEqual(['set Felix true', 'set Felix false', 'refresh Felix']);
   });
 });
 

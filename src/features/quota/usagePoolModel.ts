@@ -56,6 +56,27 @@ export function overrideTarget(reports: UsagePoolReport[], user: string): string
   return user && shown && shown.name.toLowerCase() === user.toLowerCase() ? user : null;
 }
 
+/** What an override change needs: the gateway call, the current selection and its refresh. */
+export interface OverrideChangeDeps {
+  set: (user: string, on: boolean) => Promise<unknown>;
+  selected: () => string;
+  refresh: () => Promise<void>;
+}
+
+/**
+ * Changes target's override, then refreshes only if target is still the
+ * selected person. A refresh for someone the panel has switched away from would
+ * replace the new person's reports with target's, which reportsFor then hides.
+ */
+export async function changeOverride(
+  target: string,
+  on: boolean,
+  { set, selected, refresh }: OverrideChangeDeps
+): Promise<void> {
+  await set(target, on);
+  if (selected() === target) await refresh();
+}
+
 /** Refills still ahead, soonest first, with their total. */
 export function upcomingRefills(window: UsagePoolWindow, nowMs: number) {
   const refills: UsagePoolRefill[] = window.refills.filter((refill) => refill.atMs > nowMs);
