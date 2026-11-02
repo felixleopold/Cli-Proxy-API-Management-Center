@@ -21,6 +21,7 @@ import { bindQuotaClasses } from '../types';
 import {
   activeOverrideUntil,
   formatPoolTime,
+  overrideTarget,
   poolProviders,
   reserveStateOf,
   upcomingRefills,
@@ -58,11 +59,12 @@ export function UsagePool({
   const when = (atMs: number) => formatPoolTime(atMs, nowMs, language);
   const person = reports.find((report) => report.user)?.user ?? null;
   const overrideUntil = activeOverrideUntil(person, nowMs);
+  const target = overrideTarget(reports, user);
   const stopped = reports.filter((report) => report.user?.softStopped);
 
   const toggleOverride = async (on: boolean) => {
     try {
-      await setOverride(on);
+      if (target) await setOverride(target, on);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('common.unknown_error');
       showNotification(t('usage_pool.override_failed', { message }), 'error');
@@ -130,7 +132,7 @@ export function UsagePool({
               <ToggleSwitch
                 checked={overrideUntil !== null}
                 onChange={(on) => void toggleOverride(on)}
-                disabled={saving}
+                disabled={saving || target === null}
                 ariaLabel={t('usage_pool.override_aria', { name: person.name })}
               />
             </label>

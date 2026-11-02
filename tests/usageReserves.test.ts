@@ -6,7 +6,7 @@ import {
   writeVisualUsageReserves,
 } from '@/features/config/visualConfigUsageReserves';
 import { normalizeUsagePoolReport } from '@/services/api/usagePool';
-import { reserveStateOf } from '@/features/quota/usagePoolModel';
+import { overrideTarget, reportsFor, reserveStateOf } from '@/features/quota/usagePoolModel';
 import { DEFAULT_VISUAL_VALUES, type VisualConfigValues } from '@/types/visualConfig';
 
 const SOURCE = `usage-reserves:
@@ -63,7 +63,7 @@ describe('usage-reserves config', () => {
     });
   });
 
-  test('validates as the gateway parses: quiet hours as a pair, unique people, 0 < reserve ≤ 100', () => {
+  test('validates as the gateway parses: quiet hours as a pair, unique people, 0 ≤ reserve ≤ 100', () => {
     const errors = (patch: Partial<VisualConfigValues>) =>
       Object.entries(validateVisualUsageReserves({ ...DEFAULT_VISUAL_VALUES, ...patch })).filter(
         ([, error]) => error
@@ -82,9 +82,39 @@ describe('usage-reserves config', () => {
     expect(errors({ usageReservesPeople: [person('Felix', '10'), person('felix', '5')] })).toEqual([
       ['usageReservesPeople', 'invalid_people'],
     ]);
-    expect(errors({ usageReservesPeople: [person('Felix', '0')] })).toEqual([
+    expect(errors({ usageReservesPeople: [person('Felix', '100.5')] })).toEqual([
       ['usageReservesPeople', 'invalid_people'],
     ]);
+  });
+
+  test('accepts a person reserve of 0, which the gateway reads as no active reserve', () => {
+    const values = {
+      ...DEFAULT_VISUAL_VALUES,
+      usageReservesPeople: [{ id: 'felix', name: 'Felix', reservePercent: '0' }],
+    };
+    expect(validateVisualUsageReserves(values).usageReservesPeople).toBeUndefined();
+  });
+});
+
+describe('usage pool person scope', () => {
+  const report = (name: string | null) =>
+    normalizeUsagePoolReport({
+      provider: 'claude',
+      user: name === null ? null : { name, reserve_percent: 10 },
+      windows: [],
+    });
+
+  test("never shows or targets the previous person's report after switching", () => {
+    const loaded = { user: 'Felix', reports: [report('Felix')] };
+    // Switched to Ferdinand; his fetch is pending or failed.
+    const shown = reportsFor(loaded, 'Ferdinand');
+    expect(shown).toEqual([]);
+    expect(overrideTarget(shown, 'Ferdinand')).toBeNull();
+    // Felix's own reports enable his switch; a stale mismatch never does.
+    expect(overrideTarget(reportsFor(loaded, 'Felix'), 'Felix')).toBe('Felix');
+    expect(overrideTarget([report('Felix')], 'Ferdinand')).toBeNull();
+    expect(overrideTarget([report('felix')], 'Felix')).toBe('Felix');
+    expect(overrideTarget([report(null)], '')).toBeNull();
   });
 });
 

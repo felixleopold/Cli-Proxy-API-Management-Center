@@ -1354,7 +1354,7 @@
         "integer_range_0_65535": "Nhập số nguyên từ 0 đến 65535",
         "integer": "Nhập một số nguyên",
         "invalid_clock_pair": "Nhập cả hai giờ yên tĩnh dạng HH:MM, hoặc để trống cả hai",
-        "invalid_people": "Mỗi người cần một tên riêng và phần dự trữ lớn hơn 0, tối đa 100"
+        "invalid_people": "Mỗi người cần một tên riêng và phần dự trữ từ 0 đến 100"
       },
       "common": {
         "edit": "Chỉnh sửa",

@@ -1585,7 +1585,7 @@
         "payload_invalid_boolean": "請選擇 true 或 false",
         "payload_invalid_json": "請輸入有效的 JSON",
         "invalid_clock_pair": "請以 HH:MM 填寫兩個安靜時段時間，或都留空",
-        "invalid_people": "每個人員需要唯一的名稱，以及大於 0 且不超過 100 的預留"
+        "invalid_people": "每個人員需要唯一的名稱，以及 0 到 100 之間的預留"
       },
       "common": {
         "edit": "編輯",

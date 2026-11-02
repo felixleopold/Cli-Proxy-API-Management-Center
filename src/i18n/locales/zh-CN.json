@@ -1559,7 +1559,7 @@
         "payload_invalid_boolean": "请选择 true 或 false",
         "payload_invalid_json": "请输入有效的 JSON",
         "invalid_clock_pair": "请以 HH:MM 填写两个安静时段时间，或都留空",
-        "invalid_people": "每个人员需要唯一的名称，以及大于 0 且不超过 100 的预留"
+        "invalid_people": "每个人员需要唯一的名称，以及 0 到 100 之间的预留"
       },
       "common": {
         "edit": "编辑",

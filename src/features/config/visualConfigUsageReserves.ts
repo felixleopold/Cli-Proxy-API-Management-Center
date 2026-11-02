@@ -121,10 +121,10 @@ const validClock = (text: string) => {
   return match !== null && Number(match[1]) < 24 && Number(match[2]) < 60;
 };
 
-/** A person's reserve as the gateway applies it: above 0 and at most 100. */
+/** A person's reserve as the gateway reads it: 0 (no active reserve) to 100. */
 export const validPersonReserve = (text: string) => {
   const trimmed = text.trim();
-  return /^(\d+(\.\d*)?|\.\d+)$/.test(trimmed) && Number(trimmed) > 0 && Number(trimmed) <= 100;
+  return /^(\d+(\.\d*)?|\.\d+)$/.test(trimmed) && Number(trimmed) <= 100;
 };
 
 export function validateVisualUsageReserves(

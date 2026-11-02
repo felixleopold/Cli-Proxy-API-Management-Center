@@ -1561,7 +1561,7 @@
         "payload_invalid_boolean": "Choose true or false",
         "payload_invalid_json": "Enter valid JSON",
         "invalid_clock_pair": "Enter both quiet-hour times as HH:MM, or leave both empty",
-        "invalid_people": "Each person needs a unique name and a reserve above 0 and at most 100"
+        "invalid_people": "Each person needs a unique name and a reserve from 0 to 100"
       },
       "common": {
         "edit": "Edit",

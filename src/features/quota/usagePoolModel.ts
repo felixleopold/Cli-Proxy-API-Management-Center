@@ -7,6 +7,7 @@
 import type {
   UsagePoolAccount,
   UsagePoolRefill,
+  UsagePoolReport,
   UsagePoolUser,
   UsagePoolWindow,
 } from '@/services/api/usagePool';
@@ -30,6 +31,28 @@ export function reserveStateOf(account: UsagePoolAccount): ReserveState {
 export function activeOverrideUntil(user: UsagePoolUser | null, nowMs: number): number | null {
   const until = user?.overrideUntilMs ?? null;
   return until !== null && until > nowMs ? until : null;
+}
+
+/** Pool reports together with the person they were fetched for ('' for everyone). */
+export interface ScopedPoolReports {
+  user: string;
+  reports: UsagePoolReport[];
+}
+
+/**
+ * The reports fetched for user, else none, so a previous person's reports are
+ * never shown (or acted on) while the next person's are loading or failed.
+ */
+export const reportsFor = (loaded: ScopedPoolReports | null, user: string): UsagePoolReport[] =>
+  loaded !== null && loaded.user === user ? loaded.reports : [];
+
+/**
+ * Whose override the switch may change: the selected user, only once the shown
+ * reports are that person's (the gateway matches names case-insensitively).
+ */
+export function overrideTarget(reports: UsagePoolReport[], user: string): string | null {
+  const shown = reports.find((report) => report.user)?.user;
+  return user && shown && shown.name.toLowerCase() === user.toLowerCase() ? user : null;
 }
 
 /** Refills still ahead, soonest first, with their total. */

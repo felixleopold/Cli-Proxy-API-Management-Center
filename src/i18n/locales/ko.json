@@ -1561,7 +1561,7 @@
         "payload_invalid_boolean": "true 또는 false를 선택하세요",
         "payload_invalid_json": "유효한 JSON을 입력하세요",
         "invalid_clock_pair": "조용한 시간 두 개를 모두 HH:MM으로 입력하거나 둘 다 비워 두세요",
-        "invalid_people": "각 사람에게는 고유한 이름과 0보다 크고 100 이하인 예약이 필요합니다"
+        "invalid_people": "각 사람에게는 고유한 이름과 0에서 100 사이의 예약이 필요합니다"
       },
       "common": {
         "edit": "편집",

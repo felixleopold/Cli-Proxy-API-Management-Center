@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { usagePoolApi, type UsagePoolReport } from '@/services/api';
+import { usagePoolApi } from '@/services/api';
+import { reportsFor, type ScopedPoolReports } from '../usagePoolModel';
 import { useAuthStore } from '@/stores';
 import { MINUTE_MS } from '@/utils/time/durations';
 
@@ -13,7 +14,8 @@ export const OVERRIDE_DURATION = '5h';
  */
 export function useUsagePool(providers: string[], user: string) {
   const connected = useAuthStore((state) => state.connectionStatus === 'connected');
-  const [reports, setReports] = useState<UsagePoolReport[]>([]);
+  // Kept with the person they belong to; see reportsFor.
+  const [loaded, setLoaded] = useState<ScopedPoolReports | null>(null);
   const [supported, setSupported] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,14 +27,14 @@ export function useUsagePool(providers: string[], user: string) {
     const requestId = ++requestRef.current;
     const list = providerKey ? providerKey.split(',') : [];
     if (!connected || list.length === 0) {
-      setReports([]);
+      setLoaded(null);
       return;
     }
     setLoading(true);
     try {
       const next = await Promise.all(list.map((provider) => usagePoolApi.getPool(provider, user)));
       if (requestId !== requestRef.current) return;
-      setReports(next);
+      setLoaded({ user, reports: next });
       setSupported(true);
       setError(null);
     } catch (reason: unknown) {
@@ -60,14 +62,17 @@ export function useUsagePool(providers: string[], user: string) {
     };
   }, [load]);
 
-  /** Turns user's override on for OVERRIDE_DURATION or off; rejects on failure. */
+  /**
+   * Turns target's override on for OVERRIDE_DURATION or off; rejects on failure.
+   * Ignored unless target is the selected user (see overrideTarget).
+   */
   const setOverride = useCallback(
-    async (on: boolean) => {
-      if (!user) return;
+    async (target: string, on: boolean) => {
+      if (!target || target !== user) return;
       setSaving(true);
       try {
-        if (on) await usagePoolApi.setOverride(user, OVERRIDE_DURATION);
-        else await usagePoolApi.clearOverride(user);
+        if (on) await usagePoolApi.setOverride(target, OVERRIDE_DURATION);
+        else await usagePoolApi.clearOverride(target);
       } finally {
         setSaving(false);
       }
@@ -76,5 +81,5 @@ export function useUsagePool(providers: string[], user: string) {
     [load, user]
   );
 
-  return { reports, supported, loading, error, saving, setOverride };
+  return { reports: reportsFor(loaded, user), supported, loading, error, saving, setOverride };
 }
