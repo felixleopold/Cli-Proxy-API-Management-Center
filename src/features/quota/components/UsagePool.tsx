@@ -33,6 +33,8 @@ import styles from './UsagePool.module.scss';
 
 const quotaClasses = bindQuotaClasses(bodyStyles, 'QuotaBody.module.scss');
 const percent = (value: number) => Math.round(value);
+// Reserves taper by fractions of a percent; whole numbers would hide 2% → 1.6%.
+const tenths = (value: number) => Math.round(value * 10) / 10;
 
 export function UsagePool({
   files,
@@ -316,7 +318,10 @@ function PoolWindow({
                       '–'
                     ) : (
                       <span className={`${styles.reserve} ${styles[`reserve_${state}`]}`}>
-                        {t(`usage_pool.reserve_${state}`, { percent: account.reservePercent })}
+                        {t(`usage_pool.reserve_${state}`, {
+                          percent: tenths(account.reservePercent),
+                          now: tenths(account.reserveNowPercent),
+                        })}
                       </span>
                     )}
                   </td>

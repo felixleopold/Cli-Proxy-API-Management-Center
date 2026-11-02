@@ -18,6 +18,9 @@ export interface UsagePoolAccount {
   usedPercent: number;
   resetAtMs: number | null;
   reservePercent: number;
+  /** The reserve held now: reservePercent tapering toward the floor before the reset. */
+  reserveNowPercent: number;
+  /** The taper has started. */
   reserveReleased: boolean;
   lender: string;
 }
@@ -91,6 +94,13 @@ const normalizeWindow = (raw: Record<string, unknown>): UsagePoolWindow => ({
     usedPercent: num(account.used_percent),
     resetAtMs: time(account.reset_at),
     reservePercent: num(account.reserve_percent),
+    // Gateways before the taper released the whole reserve at once.
+    reserveNowPercent:
+      account.reserve_now_percent === undefined
+        ? account.reserve_released === true
+          ? 0
+          : num(account.reserve_percent)
+        : num(account.reserve_now_percent),
     reserveReleased: account.reserve_released === true,
     lender: str(account.lender),
   })),

@@ -5,7 +5,11 @@ import { Input } from '@/components/ui/Input';
 import { useLedgerUsers } from '@/features/usage/hooks/useLedgerUsers';
 import { makeClientId, type UsageReservePersonDraft } from '@/types/visualConfig';
 import type { ConfigSectionProps } from '../../types';
-import { USAGE_RESERVE_DEFAULTS, validPersonReserve } from '../../visualConfigUsageReserves';
+import {
+  USAGE_RESERVE_DEFAULTS,
+  validPersonReserve,
+  type UsageReserveField,
+} from '../../visualConfigUsageReserves';
 import {
   FieldAnchor,
   FieldGrid,
@@ -39,15 +43,7 @@ export function SectionUsageReserves({
   const taken = new Set(people.map((person) => person.name.trim().toLowerCase()));
   const suggestions = ledgerUsers.filter((user) => !taken.has(user.toLowerCase()));
 
-  const textField = (
-    key:
-      | 'usageReservesTimezone'
-      | 'usageReservesQuietStart'
-      | 'usageReservesQuietEnd'
-      | 'usageReservesLeadFiveHour'
-      | 'usageReservesLeadWeekly',
-    i18nKey: string
-  ) => (
+  const textField = (key: UsageReserveField, i18nKey: string) => (
     <Input
       type="text"
       label={t(L(`${i18nKey}.label`))}
@@ -154,6 +150,12 @@ export function SectionUsageReserves({
           </FieldAnchor>
           <FieldAnchor fieldId="usageReservesLeadWeekly">
             {textField('usageReservesLeadWeekly', 'leadWeekly')}
+          </FieldAnchor>
+          <FieldAnchor fieldId="usageReservesFloorFiveHour">
+            {textField('usageReservesFloorFiveHour', 'floorFiveHour')}
+          </FieldAnchor>
+          <FieldAnchor fieldId="usageReservesFloorWeekly">
+            {textField('usageReservesFloorWeekly', 'floorWeekly')}
           </FieldAnchor>
           <FieldAnchor fieldId="usageReservesTimezone">
             {textField('usageReservesTimezone', 'timezone')}

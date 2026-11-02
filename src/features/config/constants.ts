@@ -87,6 +87,8 @@ export const SECTION_VALIDATION_FIELDS: Record<VisualSectionId, readonly VisualC
       'usageReservesQuietEnd',
       'usageReservesLeadFiveHour',
       'usageReservesLeadWeekly',
+      'usageReservesFloorFiveHour',
+      'usageReservesFloorWeekly',
       'usageReservesTimezone',
     ],
     streaming: [
@@ -196,6 +198,8 @@ export const FIELD_VALUE_KEYS: Record<string, readonly string[]> = {
   usageReservesQuietEnd: ['usageReservesQuietEnd'],
   usageReservesLeadFiveHour: ['usageReservesLeadFiveHour'],
   usageReservesLeadWeekly: ['usageReservesLeadWeekly'],
+  usageReservesFloorFiveHour: ['usageReservesFloorFiveHour'],
+  usageReservesFloorWeekly: ['usageReservesFloorWeekly'],
   usageReservesTimezone: ['usageReservesTimezone'],
   // ── streaming ─────────────────────────────────────────────────────────────
   streamingKeepaliveSeconds: ['streaming.keepaliveSeconds'],

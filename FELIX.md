@@ -91,8 +91,8 @@ Current base: upstream `v1.25.6`.
   Muse (`meta`) and Devin credentials (`AUTH_FILE_USAGE_CAP_PROVIDERS`): Claude plan (`plan`: pro,
   max, ultra; weights 5-hour/weekly 1/1, 5/5, 20/10), `lender`, and the lender reserves
   `reserve_five_hour_percent` / `reserve_weekly_percent` (0-100). The gateway stops routing to a
-  credential once a window's usage reaches 100 − reserve, until the reset or until it releases the
-  reserve shortly before it. The legacy "Usage cap" `usage_cap_percent` (1-99) still works and stands
+  credential once a window's usage reaches 100 − the reserve held now; over the release lead before
+  the reset that reserve tapers linearly down to the floor (f-squared/CLIProxyAPI#31). The legacy "Usage cap" `usage_cap_percent` (1-99) still works and stands
   for a reserve of 100 − cap in both windows; an explicit reserve wins for its window (gateway
   `LenderReservePercent`). `plan_multiplier` stays the price-based size in base $20 plans (Max $200 =
   10) and is the pool weight only without a known Claude plan. All saved with `PATCH
@@ -100,12 +100,13 @@ Current base: upstream `v1.25.6`.
   `tests/authFileWeight.test.ts`.
   *Config › Quota › Usage reserves* (`src/features/config/visualConfigUsageReserves.ts`,
   `components/sections/SectionUsageReserves.tsx`): people with a reserve % (names suggested from the
-  usage-ledger client user labels, `/observability/usage/clients`), quiet hours, time zone and the
-  5-hour/weekly release leads; empty fields are removed so the gateway defaults apply (23:00-07:00,
-  Europe/Vienna, 15m, 1h).
+  usage-ledger client user labels, `/observability/usage/clients`), quiet hours, time zone, and per
+  window the taper length (`release-lead`) and the lender floor (`floor-percent`, 0-100); empty fields
+  are removed so the gateway defaults apply (23:00-07:00, Europe/Vienna, 1h/12h, 5%/2%).
   *Pooled usage* on `/usage-quota` (`src/features/quota/components/UsagePool.tsx`, above the forecast):
   per provider and window from `GET /usage/pool?provider=&user=`: pool size, left, left for the chosen
-  person, burn, forecast, refills and each account's reserve (kept, reached, released), plus the
+  person, burn, forecast, refills and each account's reserve (kept, tapering as "reserve 20% → 8%
+  now" from `reserve_now_percent`, or reached), plus the
   person's override (`POST /usage/override` for 5h, `DELETE` to end) with its expiry. Hidden on
   gateways without the endpoint. Logic: `usagePoolModel.ts`, `src/services/api/usagePool.ts`; tests:
   `tests/usageReserves.test.ts`.

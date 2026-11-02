@@ -26,6 +26,8 @@ export type VisualConfigFieldPath =
   | 'usageReservesQuietEnd'
   | 'usageReservesLeadFiveHour'
   | 'usageReservesLeadWeekly'
+  | 'usageReservesFloorFiveHour'
+  | 'usageReservesFloorWeekly'
   | 'usageReservesPeople'
   | 'trustedProxies'
   | 'discoveryServiceType'
@@ -60,6 +62,7 @@ export type VisualConfigValidationErrorCode =
   | 'invalid_timezone'
   | 'invalid_clock_pair'
   | 'invalid_people'
+  | 'percent_range_0_100'
   | 'invalid_ip'
   | 'udp_port_pair'
   | 'udp_port_capacity'
@@ -212,6 +215,8 @@ export type VisualConfigValues = {
   usageReservesQuietEnd: string;
   usageReservesLeadFiveHour: string;
   usageReservesLeadWeekly: string;
+  usageReservesFloorFiveHour: string;
+  usageReservesFloorWeekly: string;
   usageReservesPeople: UsageReservePersonDraft[];
   routingStrategy: RoutingStrategy;
   routingSessionAffinity: boolean;
@@ -321,6 +326,8 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   usageReservesQuietEnd: '',
   usageReservesLeadFiveHour: '',
   usageReservesLeadWeekly: '',
+  usageReservesFloorFiveHour: '',
+  usageReservesFloorWeekly: '',
   usageReservesPeople: [],
   routingStrategy: 'round-robin',
   routingSessionAffinity: false,

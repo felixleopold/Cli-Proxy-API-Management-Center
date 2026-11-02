@@ -87,6 +87,32 @@ describe('usage-reserves config', () => {
     ]);
   });
 
+  test('writes reserve floors as YAML numbers and rejects values outside 0..100', () => {
+    const doc = parseDocument(SOURCE);
+    const values: VisualConfigValues = {
+      ...DEFAULT_VISUAL_VALUES,
+      ...readVisualUsageReserves(doc),
+      usageReservesFloorFiveHour: '0',
+      usageReservesFloorWeekly: '2.5',
+    };
+    writeVisualUsageReserves(
+      doc,
+      values,
+      new Set(['usageReservesFloorFiveHour', 'usageReservesFloorWeekly'])
+    );
+    expect(doc.toJS()['usage-reserves']['floor-percent']).toEqual({ 'five-hour': 0, weekly: 2.5 });
+    expect(readVisualUsageReserves(doc).usageReservesFloorWeekly).toBe('2.5');
+
+    const errors = validateVisualUsageReserves({
+      ...values,
+      usageReservesFloorFiveHour: '101',
+      usageReservesFloorWeekly: '-1',
+    });
+    expect(errors.usageReservesFloorFiveHour).toBe('percent_range_0_100');
+    expect(errors.usageReservesFloorWeekly).toBe('percent_range_0_100');
+    expect(validateVisualUsageReserves(values).usageReservesFloorFiveHour).toBeUndefined();
+  });
+
   test('accepts a person reserve of 0, which the gateway reads as no active reserve', () => {
     const values = {
       ...DEFAULT_VISUAL_VALUES,
@@ -136,9 +162,31 @@ describe('usage pool report', () => {
           empty_at: null,
           refills: [{ at: '2026-11-03T10:00:00Z', units: 3, account_id: 'a' }],
           accounts: [
-            { id: 'a', weight: 10, used_percent: 75, reserve_percent: 25, reserve_released: false },
-            { id: 'b', weight: 5, used_percent: 80, reserve_percent: 25, reserve_released: true },
-            { id: 'c', weight: 1, used_percent: 10, reserve_percent: 0 },
+            {
+              id: 'a',
+              used_percent: 75,
+              reserve_percent: 25,
+              reserve_now_percent: 25,
+              reserve_released: false,
+            },
+            {
+              id: 'b',
+              used_percent: 80,
+              reserve_percent: 20,
+              reserve_now_percent: 8,
+              reserve_released: true,
+            },
+            // At the ceiling of the tapered reserve: 100 − 8.
+            {
+              id: 'd',
+              used_percent: 92,
+              reserve_percent: 20,
+              reserve_now_percent: 8,
+              reserve_released: true,
+            },
+            { id: 'c', used_percent: 10, reserve_percent: 0, reserve_now_percent: 0 },
+            // A gateway before the taper: released meant the whole reserve.
+            { id: 'old', used_percent: 90, reserve_percent: 25, reserve_released: true },
           ],
         },
       ],
@@ -149,6 +197,13 @@ describe('usage pool report', () => {
     expect(weekly.refills).toEqual([
       { atMs: Date.parse('2026-11-03T10:00:00Z'), units: 3, accountId: 'a' },
     ]);
-    expect(weekly.accounts.map(reserveStateOf)).toEqual(['reached', 'released', 'none']);
+    expect(weekly.accounts.map(reserveStateOf)).toEqual([
+      'reached',
+      'tapering',
+      'reached',
+      'none',
+      'tapering',
+    ]);
+    expect(weekly.accounts.map((account) => account.reserveNowPercent)).toEqual([25, 8, 8, 0, 0]);
   });
 });

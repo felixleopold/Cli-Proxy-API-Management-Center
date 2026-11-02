@@ -445,7 +445,7 @@
     "policy_aliases_invalid": "Nhập tên model và bí danh không để trống cho mỗi hàng mới hoặc đã chỉnh sửa.",
     "policy_rules_invalid": "Hoàn thành mỗi quy tắc đã chỉnh sửa với mã trạng thái dương, một hành động và ít nhất một điều kiện khớp không để trống.",
     "reserve_group_label": "Nhóm sử dụng chung",
-    "reserve_group_hint": "Cách tài khoản này tham gia nhóm chung. Phần dự trữ giữ một phần mỗi cửa sổ cho chủ tài khoản; gateway giải phóng chúng ngay trước khi cửa sổ đặt lại, ngoài giờ yên tĩnh (Cấu hình › Hạn mức › Dự trữ sử dụng).",
+    "reserve_group_hint": "Cách tài khoản này tham gia nhóm chung. Phần dự trữ giữ một phần mỗi cửa sổ cho chủ tài khoản; ngay trước khi cửa sổ đặt lại, gateway giảm dần chúng xuống mức sàn, ngoài giờ yên tĩnh (Cấu hình › Hạn mức › Dự trữ sử dụng).",
     "plan_label": "Gói Claude (plan)",
     "plan_hint": "Đặt trọng số trong nhóm theo từng cửa sổ, tính bằng đơn vị Pro: 5 giờ / tuần. Ultra tính 20× trong cửa sổ 5 giờ nhưng 10× theo tuần. Ưu tiên hơn hệ số gói.",
     "plan_unset": "Chưa đặt (dùng hệ số gói)",
@@ -457,7 +457,7 @@
     "lender_hint": "Người cho nhóm mượn tài khoản này. Hiển thị cạnh tài khoản trong mục sử dụng chung.",
     "reserve_five_hour_label": "Dự trữ 5 giờ (reserve_five_hour_percent)",
     "reserve_weekly_label": "Dự trữ hằng tuần (reserve_weekly_percent)",
-    "reserve_hint": "Giữ lại cho người cho mượn: gateway ngừng định tuyến đến đây khi mức dùng của cửa sổ đạt 100 − dự trữ. Dự trữ đặt ở đây ưu tiên hơn giới hạn sử dụng cho cửa sổ đó; để trống thì dùng giới hạn (dự trữ = 100 − giới hạn), nếu không thì không có dự trữ.",
+    "reserve_hint": "Giữ lại cho người cho mượn: gateway ngừng định tuyến đến đây khi mức dùng của cửa sổ đạt 100 − dự trữ hiện tại, vốn giảm dần xuống mức sàn trước khi đặt lại. Dự trữ đặt ở đây ưu tiên hơn giới hạn sử dụng cho cửa sổ đó; để trống thì dùng giới hạn (dự trữ = 100 − giới hạn), nếu không thì không có dự trữ.",
     "reserve_invalid": "Dự trữ phải là số từ 0 đến 100.",
     "plan_multiplier_hint_claude": "Giá của tài khoản này tính theo gói cơ bản $20 (Max $200 = 10). Chỉ dùng làm trọng số trong nhóm khi chưa đặt gói Claude ở trên; trọng số theo cửa sổ của gói sẽ thay thế nó."
   },
@@ -1354,7 +1354,8 @@
         "integer_range_0_65535": "Nhập số nguyên từ 0 đến 65535",
         "integer": "Nhập một số nguyên",
         "invalid_clock_pair": "Nhập cả hai giờ yên tĩnh dạng HH:MM, hoặc để trống cả hai",
-        "invalid_people": "Mỗi người cần một tên riêng và phần dự trữ từ 0 đến 100"
+        "invalid_people": "Mỗi người cần một tên riêng và phần dự trữ từ 0 đến 100",
+        "percent_range_0_100": "Nhập một số từ 0 đến 100"
       },
       "common": {
         "edit": "Chỉnh sửa",
@@ -1543,16 +1544,24 @@
           "hint": "HH:MM; có thể qua nửa đêm."
         },
         "leadFiveHour": {
-          "label": "Thời gian giải phóng trước, 5 giờ",
-          "hint": "Thời gian thức trước khi cửa sổ 5 giờ đặt lại mà từ đó dự trữ được giải phóng. Mặc định 15m."
+          "label": "Thời gian giảm dần, 5 giờ",
+          "hint": "Thời gian thức trước khi cửa sổ 5 giờ đặt lại, trong đó dự trữ giảm tuyến tính từ mức đầy đủ xuống mức sàn. Mặc định 1h."
         },
         "leadWeekly": {
-          "label": "Thời gian giải phóng trước, hằng tuần",
-          "hint": "Tương tự cho cửa sổ hằng tuần. Mặc định 1h."
+          "label": "Thời gian giảm dần, hằng tuần",
+          "hint": "Tương tự cho cửa sổ hằng tuần. Mặc định 12h."
         },
         "timezone": {
           "label": "Múi giờ",
           "hint": "Tên IANA cho giờ yên tĩnh. Mặc định Europe/Vienna."
+        },
+        "floorFiveHour": {
+          "label": "Mức sàn dự trữ, 5 giờ (%)",
+          "hint": "Phần cửa sổ 5 giờ người cho mượn luôn giữ lại, dù dự trữ đã giảm đến đâu (không vượt quá chính dự trữ). 0–100, mặc định 5."
+        },
+        "floorWeekly": {
+          "label": "Mức sàn dự trữ, hằng tuần (%)",
+          "hint": "Tương tự cho cửa sổ hằng tuần. 0–100, mặc định 2."
         }
       }
     },
@@ -2707,8 +2716,8 @@
     "col_reserve": "Dự trữ",
     "col_resets": "Đặt lại",
     "lent_by": "{{name}} cho mượn",
-    "reserve_held": "giữ {{percent}}%",
-    "reserve_reached": "đã đạt {{percent}}%",
-    "reserve_released": "đã giải phóng {{percent}}%"
+    "reserve_held": "dự trữ {{percent}}%",
+    "reserve_reached": "đã đạt dự trữ {{now}}%",
+    "reserve_tapering": "dự trữ {{percent}}% → hiện {{now}}%"
   }
 }

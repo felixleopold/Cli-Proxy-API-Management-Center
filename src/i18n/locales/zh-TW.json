@@ -443,7 +443,7 @@
     "quota_refresh_success": "已重新整理「{{name}}」的配額",
     "quota_refresh_failed": "重新整理「{{name}}」的配額失敗：{{message}}",
     "reserve_group_label": "用量池",
-    "reserve_group_hint": "此帳號如何加入共享池。預留為帳號擁有者保留每個視窗的一部分；閘道會在視窗重置前不久（安靜時段之外）釋放預留（設定 › 配額 › 用量預留）。",
+    "reserve_group_hint": "此帳號如何加入共享池。預留為帳號擁有者保留每個視窗的一部分；視窗重置前不久（安靜時段之外），閘道會把預留逐漸減少到下限（設定 › 配額 › 用量預留）。",
     "plan_label": "Claude 方案（plan）",
     "plan_hint": "依視窗設定池權重（Pro 單位）：5 小時 / 每週。Ultra 在 5 小時視窗計 20×，每週計 10×。優先於方案倍數。",
     "plan_unset": "未設定（使用方案倍數）",
@@ -455,7 +455,7 @@
     "lender_hint": "誰把此帳號借給共享池。會顯示在池用量中該帳號旁邊。",
     "reserve_five_hour_label": "5 小時預留（reserve_five_hour_percent）",
     "reserve_weekly_label": "每週預留（reserve_weekly_percent）",
-    "reserve_hint": "為出借人保留：視窗用量達到 100 − 預留 時，閘道停止向此帳號路由。此處設定的預留在對應視窗優先於用量上限；留空則回退到上限（預留 = 100 − 上限），否則無預留。",
+    "reserve_hint": "為出借人保留：視窗用量達到 100 − 目前預留 時，閘道停止向此帳號路由；目前預留在重置前逐漸減少到下限。此處設定的預留在對應視窗優先於用量上限；留空則回退到上限（預留 = 100 − 上限），否則無預留。",
     "reserve_invalid": "預留必須是 0 到 100 之間的數字。",
     "plan_multiplier_hint_claude": "此帳號的價格相當於多少個 $20 基礎方案（Max $200 = 10）。僅在上方未設定 Claude 方案時用作池權重；方案的分視窗權重會取代它。"
   },
@@ -1585,7 +1585,8 @@
         "payload_invalid_boolean": "請選擇 true 或 false",
         "payload_invalid_json": "請輸入有效的 JSON",
         "invalid_clock_pair": "請以 HH:MM 填寫兩個安靜時段時間，或都留空",
-        "invalid_people": "每個人員需要唯一的名稱，以及 0 到 100 之間的預留"
+        "invalid_people": "每個人員需要唯一的名稱，以及 0 到 100 之間的預留",
+        "percent_range_0_100": "請輸入 0 到 100 之間的數字"
       },
       "common": {
         "edit": "編輯",
@@ -1614,16 +1615,24 @@
           "hint": "HH:MM，可跨越午夜。"
         },
         "leadFiveHour": {
-          "label": "釋放提前量，5 小時",
-          "hint": "5 小時視窗重置前的清醒時間達到該值時釋放其預留。預設 15m。"
+          "label": "漸減時長，5 小時",
+          "hint": "5 小時視窗重置前的這段清醒時間內，預留從完整值線性減少到下限。預設 1h。"
         },
         "leadWeekly": {
-          "label": "釋放提前量，每週",
-          "hint": "每週視窗同理。預設 1h。"
+          "label": "漸減時長，每週",
+          "hint": "每週視窗同理。預設 12h。"
         },
         "timezone": {
           "label": "時區",
           "hint": "安靜時段使用的 IANA 時區名。預設 Europe/Vienna。"
+        },
+        "floorFiveHour": {
+          "label": "預留下限，5 小時（%）",
+          "hint": "無論預留減少到多少，出借人始終保留的 5 小時視窗份額（不超過預留本身）。0–100，預設 5。"
+        },
+        "floorWeekly": {
+          "label": "預留下限，每週（%）",
+          "hint": "每週視窗同理。0–100，預設 2。"
         }
       }
     }
@@ -2708,8 +2717,8 @@
     "col_reserve": "預留",
     "col_resets": "重置",
     "lent_by": "由 {{name}} 出借",
-    "reserve_held": "保留 {{percent}}%",
-    "reserve_reached": "已達 {{percent}}%",
-    "reserve_released": "已釋放 {{percent}}%"
+    "reserve_held": "預留 {{percent}}%",
+    "reserve_reached": "已達預留 {{now}}%",
+    "reserve_tapering": "預留 {{percent}}% → 目前 {{now}}%"
   }
 }

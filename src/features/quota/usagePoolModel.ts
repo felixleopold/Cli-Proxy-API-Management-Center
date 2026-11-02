@@ -15,16 +15,17 @@ import { AUTH_FILE_USAGE_CAP_PROVIDERS } from '@/features/authFiles/constants';
 import type { AuthFileItem } from '@/types';
 
 /**
- * A credential's lender reserve in a window: `none` without one, `released`
- * once the gateway frees it before the reset, `reached` when usage is at the
- * ceiling (100 − reserve) so the gateway holds the account back, else `held`.
+ * A credential's lender reserve in a window: `none` without one, `reached`
+ * when usage is at the ceiling (100 − the reserve held now) so the gateway
+ * holds the account back, `tapering` once the reserve shrinks toward its floor
+ * before the reset, else `held`.
  */
-export type ReserveState = 'none' | 'held' | 'reached' | 'released';
+export type ReserveState = 'none' | 'held' | 'tapering' | 'reached';
 
 export function reserveStateOf(account: UsagePoolAccount): ReserveState {
   if (account.reservePercent <= 0) return 'none';
-  if (account.reserveReleased) return 'released';
-  return account.usedPercent >= 100 - account.reservePercent ? 'reached' : 'held';
+  if (account.usedPercent >= 100 - account.reserveNowPercent) return 'reached';
+  return account.reserveNowPercent < account.reservePercent ? 'tapering' : 'held';
 }
 
 /** The person's override end while it lasts, else null. */

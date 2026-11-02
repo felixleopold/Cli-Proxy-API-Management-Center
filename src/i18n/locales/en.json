@@ -445,7 +445,7 @@
     "quota_refresh_success": "Quota refreshed for \"{{name}}\"",
     "quota_refresh_failed": "Failed to refresh quota for \"{{name}}\": {{message}}",
     "reserve_group_label": "Usage pool",
-    "reserve_group_hint": "How this account joins the shared pool. Reserves keep part of each window for the account's owner; the gateway releases them shortly before the window resets, outside quiet hours (Config › Quota › Usage reserves).",
+    "reserve_group_hint": "How this account joins the shared pool. Reserves keep part of each window for the account's owner; shortly before the window resets the gateway shrinks them toward a floor, outside quiet hours (Config › Quota › Usage reserves).",
     "plan_label": "Claude plan (plan)",
     "plan_hint": "Sets the pool weight per window in Pro units: 5-hour / weekly. Ultra counts 20× in the 5-hour window but 10× weekly. Takes precedence over the plan multiplier.",
     "plan_unset": "Not set (uses the plan multiplier)",
@@ -457,7 +457,7 @@
     "lender_hint": "Who lends this account to the pool. Shown next to the account in pooled usage.",
     "reserve_five_hour_label": "5-hour reserve (reserve_five_hour_percent)",
     "reserve_weekly_label": "Weekly reserve (reserve_weekly_percent)",
-    "reserve_hint": "Kept for the lender: the gateway stops routing here once a window's usage reaches 100 − reserve. A reserve set here takes precedence over the usage cap for its window; empty falls back to the cap (reserve = 100 − cap), else no reserve.",
+    "reserve_hint": "Kept for the lender: the gateway stops routing here once a window's usage reaches 100 − the reserve held now, which tapers toward the floor before the reset. A reserve set here takes precedence over the usage cap for its window; empty falls back to the cap (reserve = 100 − cap), else no reserve.",
     "reserve_invalid": "Reserve must be a number from 0 to 100.",
     "plan_multiplier_hint_claude": "This account's price in base $20 plans (Max $200 = 10). Only used as the pool weight when no Claude plan is set above; a plan's per-window weights replace it."
   },
@@ -1561,7 +1561,8 @@
         "payload_invalid_boolean": "Choose true or false",
         "payload_invalid_json": "Enter valid JSON",
         "invalid_clock_pair": "Enter both quiet-hour times as HH:MM, or leave both empty",
-        "invalid_people": "Each person needs a unique name and a reserve from 0 to 100"
+        "invalid_people": "Each person needs a unique name and a reserve from 0 to 100",
+        "percent_range_0_100": "Enter a number from 0 to 100"
       },
       "common": {
         "edit": "Edit",
@@ -1590,16 +1591,24 @@
           "hint": "HH:MM; may be past midnight."
         },
         "leadFiveHour": {
-          "label": "Release lead, 5-hour",
-          "hint": "Waking time before a 5-hour window resets from which its reserves are released. Default 15m."
+          "label": "Taper length, 5-hour",
+          "hint": "Waking time before a 5-hour window resets over which its reserves shrink linearly from the full reserve to the floor. Default 1h."
         },
         "leadWeekly": {
-          "label": "Release lead, weekly",
-          "hint": "The same for weekly windows. Default 1h."
+          "label": "Taper length, weekly",
+          "hint": "The same for weekly windows. Default 12h."
         },
         "timezone": {
           "label": "Time zone",
           "hint": "IANA name for quiet hours. Default Europe/Vienna."
+        },
+        "floorFiveHour": {
+          "label": "Reserve floor, 5-hour (%)",
+          "hint": "The share of a 5-hour window a lender always keeps, however far the reserve has tapered (never above the reserve itself). 0–100, default 5."
+        },
+        "floorWeekly": {
+          "label": "Reserve floor, weekly (%)",
+          "hint": "The same for weekly windows. 0–100, default 2."
         }
       }
     }
@@ -2701,8 +2710,8 @@
     "col_reserve": "Reserve",
     "col_resets": "Resets",
     "lent_by": "lent by {{name}}",
-    "reserve_held": "{{percent}}% kept",
-    "reserve_reached": "{{percent}}% reached",
-    "reserve_released": "{{percent}}% released"
+    "reserve_held": "reserve {{percent}}%",
+    "reserve_reached": "reserve {{now}}% reached",
+    "reserve_tapering": "reserve {{percent}}% → {{now}}% now"
   }
 }

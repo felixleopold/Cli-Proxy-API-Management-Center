@@ -16,7 +16,10 @@ export const USAGE_RESERVE_FIELDS = [
   { key: 'usageReservesQuietEnd', path: [ROOT, 'quiet-hours', 'end'] },
   { key: 'usageReservesLeadFiveHour', path: [ROOT, 'release-lead', 'five-hour'] },
   { key: 'usageReservesLeadWeekly', path: [ROOT, 'release-lead', 'weekly'] },
+  { key: 'usageReservesFloorFiveHour', path: [ROOT, 'floor-percent', 'five-hour'], number: true },
+  { key: 'usageReservesFloorWeekly', path: [ROOT, 'floor-percent', 'weekly'], number: true },
 ] as const;
+export type UsageReserveField = (typeof USAGE_RESERVE_FIELDS)[number]['key'];
 export const PEOPLE_KEY = 'usageReservesPeople';
 const PEOPLE_PATH = [ROOT, 'people'];
 
@@ -24,12 +27,14 @@ export const USAGE_RESERVE_DEFAULTS = {
   usageReservesTimezone: 'Europe/Vienna',
   usageReservesQuietStart: '23:00',
   usageReservesQuietEnd: '07:00',
-  usageReservesLeadFiveHour: '15m',
-  usageReservesLeadWeekly: '1h',
+  usageReservesLeadFiveHour: '1h',
+  usageReservesLeadWeekly: '12h',
+  usageReservesFloorFiveHour: '5',
+  usageReservesFloorWeekly: '2',
 } as const;
 
 type Doc = ReturnType<typeof parseDocument>;
-type UsageReserveKey = (typeof USAGE_RESERVE_FIELDS)[number]['key'] | typeof PEOPLE_KEY;
+type UsageReserveKey = UsageReserveField | typeof PEOPLE_KEY;
 
 const scalarText = (value: unknown) =>
   typeof value === 'string' || typeof value === 'number' ? String(value) : '';
@@ -84,17 +89,20 @@ export function writeVisualUsageReserves(
   values: VisualConfigValues,
   dirty: ReadonlySet<string>
 ) {
-  for (const { key, path } of USAGE_RESERVE_FIELDS) {
+  for (const field of USAGE_RESERVE_FIELDS) {
+    const { key, path } = field;
     if (!dirty.has(key)) continue;
     const text = values[key].trim();
     if (!text) {
       deleteAndPrune(doc, path);
       continue;
     }
+    // Floors are YAML numbers (gateway *float64, where 0 is a valid floor); the rest are strings.
+    const value = 'number' in field ? Number(text) : text;
     ensureParents(doc, path);
     const old = doc.getIn(path, true);
-    if (isScalar(old)) old.value = text;
-    else doc.setIn(path, text);
+    if (isScalar(old)) old.value = value;
+    else doc.setIn(path, value);
   }
   if (!dirty.has(PEOPLE_KEY)) return;
   const people = values[PEOPLE_KEY].filter((person) => person.name.trim());
@@ -121,11 +129,14 @@ const validClock = (text: string) => {
   return match !== null && Number(match[1]) < 24 && Number(match[2]) < 60;
 };
 
-/** A person's reserve as the gateway reads it: 0 (no active reserve) to 100. */
-export const validPersonReserve = (text: string) => {
+/** A plain number from 0 to 100. */
+const validPercent = (text: string) => {
   const trimmed = text.trim();
   return /^(\d+(\.\d*)?|\.\d+)$/.test(trimmed) && Number(trimmed) <= 100;
 };
+
+/** A person's reserve as the gateway reads it: 0 (no active reserve) to 100. */
+export const validPersonReserve = validPercent;
 
 export function validateVisualUsageReserves(
   values: VisualConfigValues
@@ -136,6 +147,8 @@ export function validateVisualUsageReserves(
     usageReservesQuietEnd: undefined,
     usageReservesLeadFiveHour: undefined,
     usageReservesLeadWeekly: undefined,
+    usageReservesFloorFiveHour: undefined,
+    usageReservesFloorWeekly: undefined,
     usageReservesPeople: undefined,
   };
   const timezone = values.usageReservesTimezone.trim();
@@ -153,6 +166,10 @@ export function validateVisualUsageReserves(
   if ((start || end) && !(validClock(start) && validClock(end))) {
     if (!validClock(start)) errors.usageReservesQuietStart = 'invalid_clock_pair';
     if (!validClock(end)) errors.usageReservesQuietEnd = 'invalid_clock_pair';
+  }
+  for (const key of ['usageReservesFloorFiveHour', 'usageReservesFloorWeekly'] as const) {
+    const text = values[key].trim();
+    if (text && !validPercent(text)) errors[key] = 'percent_range_0_100';
   }
   for (const key of ['usageReservesLeadFiveHour', 'usageReservesLeadWeekly'] as const) {
     const text = values[key].trim();

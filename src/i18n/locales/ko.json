@@ -445,7 +445,7 @@
     "quota_refresh_success": "\"{{name}}\"의 할당량을 새로 고쳤습니다",
     "quota_refresh_failed": "\"{{name}}\"의 할당량 새로 고침 실패: {{message}}",
     "reserve_group_label": "사용량 풀",
-    "reserve_group_hint": "이 계정이 공유 풀에 참여하는 방식입니다. 예약은 각 창의 일부를 계정 소유자에게 남겨 두며, 게이트웨이는 창이 초기화되기 직전(조용한 시간 외)에 예약을 해제합니다(설정 › 할당량 › 사용량 예약).",
+    "reserve_group_hint": "이 계정이 공유 풀에 참여하는 방식입니다. 예약은 각 창의 일부를 계정 소유자에게 남겨 두며, 창이 초기화되기 직전(조용한 시간 외)에 게이트웨이가 예약을 최소값까지 줄입니다(설정 › 할당량 › 사용량 예약).",
     "plan_label": "Claude 요금제 (plan)",
     "plan_hint": "창별 풀 가중치를 Pro 단위로 정합니다: 5시간 / 주간. Ultra는 5시간 창에서 20×, 주간에서 10×입니다. 요금제 배수보다 우선합니다.",
     "plan_unset": "설정 안 함 (요금제 배수 사용)",
@@ -457,7 +457,7 @@
     "lender_hint": "이 계정을 풀에 빌려주는 사람입니다. 풀 사용량에서 계정 옆에 표시됩니다.",
     "reserve_five_hour_label": "5시간 예약 (reserve_five_hour_percent)",
     "reserve_weekly_label": "주간 예약 (reserve_weekly_percent)",
-    "reserve_hint": "대여자 몫으로 남깁니다: 창 사용량이 100 − 예약에 도달하면 게이트웨이가 이 계정으로의 라우팅을 멈춥니다. 여기서 설정한 예약은 해당 창에서 사용량 한도보다 우선하며, 비워 두면 한도(예약 = 100 − 한도)를 따르고 없으면 예약이 없습니다.",
+    "reserve_hint": "대여자 몫으로 남깁니다: 창 사용량이 100 − 현재 예약에 도달하면 게이트웨이가 이 계정으로의 라우팅을 멈추며, 현재 예약은 초기화 전에 최소값까지 줄어듭니다. 여기서 설정한 예약은 해당 창에서 사용량 한도보다 우선하며, 비워 두면 한도(예약 = 100 − 한도)를 따르고 없으면 예약이 없습니다.",
     "reserve_invalid": "예약은 0에서 100 사이의 숫자여야 합니다.",
     "plan_multiplier_hint_claude": "이 계정의 가격을 $20 기본 요금제 단위로 나타냅니다(Max $200 = 10). 위에서 Claude 요금제를 설정하지 않았을 때만 풀 가중치로 쓰이며, 요금제의 창별 가중치가 이를 대신합니다."
   },
@@ -1561,7 +1561,8 @@
         "payload_invalid_boolean": "true 또는 false를 선택하세요",
         "payload_invalid_json": "유효한 JSON을 입력하세요",
         "invalid_clock_pair": "조용한 시간 두 개를 모두 HH:MM으로 입력하거나 둘 다 비워 두세요",
-        "invalid_people": "각 사람에게는 고유한 이름과 0에서 100 사이의 예약이 필요합니다"
+        "invalid_people": "각 사람에게는 고유한 이름과 0에서 100 사이의 예약이 필요합니다",
+        "percent_range_0_100": "0에서 100 사이의 숫자를 입력하세요"
       },
       "common": {
         "edit": "편집",
@@ -1590,16 +1591,24 @@
           "hint": "HH:MM, 자정을 넘을 수 있습니다."
         },
         "leadFiveHour": {
-          "label": "해제 선행 시간, 5시간",
-          "hint": "5시간 창이 초기화되기 전 이 활동 시간부터 예약을 해제합니다. 기본값 15m."
+          "label": "감소 기간, 5시간",
+          "hint": "5시간 창이 초기화되기 전 이 활동 시간 동안 예약이 전체 값에서 최소값까지 선형으로 줄어듭니다. 기본값 1h."
         },
         "leadWeekly": {
-          "label": "해제 선행 시간, 주간",
-          "hint": "주간 창도 같습니다. 기본값 1h."
+          "label": "감소 기간, 주간",
+          "hint": "주간 창도 같습니다. 기본값 12h."
         },
         "timezone": {
           "label": "시간대",
           "hint": "조용한 시간에 쓰는 IANA 이름입니다. 기본값 Europe/Vienna."
+        },
+        "floorFiveHour": {
+          "label": "예약 최소값, 5시간 (%)",
+          "hint": "예약이 얼마나 줄든 대여자가 항상 남겨 두는 5시간 창의 몫입니다(예약 자체보다 크지 않음). 0–100, 기본값 5."
+        },
+        "floorWeekly": {
+          "label": "예약 최소값, 주간 (%)",
+          "hint": "주간 창도 같습니다. 0–100, 기본값 2."
         }
       }
     }
@@ -2701,8 +2710,8 @@
     "col_reserve": "예약",
     "col_resets": "초기화",
     "lent_by": "대여자 {{name}}",
-    "reserve_held": "{{percent}}% 보존",
-    "reserve_reached": "{{percent}}% 도달",
-    "reserve_released": "{{percent}}% 해제"
+    "reserve_held": "예약 {{percent}}%",
+    "reserve_reached": "예약 {{now}}% 도달",
+    "reserve_tapering": "예약 {{percent}}% → 현재 {{now}}%"
   }
 }
