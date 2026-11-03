@@ -2713,5 +2713,13 @@
     "reserve_held": "reserve {{percent}}%",
     "reserve_reached": "reserve {{now}}% reached",
     "reserve_tapering": "reserve {{percent}}% → {{now}}% now"
+  },
+  "lender_release": {
+    "label": "Release reserve",
+    "until": "Reserve released until {{time}}",
+    "clear": "Clear",
+    "aria": "Release {{lender}} reserve",
+    "hint": "Let the pool use {{lender}}'s reserve for {{duration}}",
+    "failed": "Could not change the reserve release: {{message}}"
   }
 }

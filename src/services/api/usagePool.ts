@@ -140,4 +140,13 @@ export const usagePoolApi = {
   },
 
   clearOverride: (user: string) => apiClient.delete('/usage/override', { params: { user } }),
+
+  /** Releases a lender's reserves for duration (a Go duration such as "4h"); resolves to its end. */
+  async setLenderOverride(lender: string, duration: string): Promise<number | null> {
+    const data = await apiClient.post<unknown>('/usage/override', { lender, duration });
+    return time(isRecord(data) ? data.override_until : undefined);
+  },
+
+  clearLenderOverride: (lender: string) =>
+    apiClient.delete('/usage/override', { params: { lender } }),
 };

@@ -134,6 +134,17 @@ export function UsageQuotaPage() {
     }
   }, [connectionStatus, sessionGeneration, t]);
 
+  // A release covers every credential of the lender.
+  const handleLenderRelease = useCallback((lender: string, untilMs: number | null) => {
+    setFiles((current) =>
+      current.map((file) =>
+        file.lender === lender
+          ? { ...file, lenderReserveOverrideUntilMs: untilMs ?? undefined }
+          : file
+      )
+    );
+  }, []);
+
   useEffect(() => {
     void loadFiles();
     return () => {
@@ -498,6 +509,7 @@ export function UsageQuotaPage() {
                 multiplier={multiplierFor(entry)}
                 onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
                 onReset={() => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+                onLenderReleaseChange={handleLenderRelease}
               />
             ))}
             {spendOnlyCards.map((summary) => (

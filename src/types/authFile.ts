@@ -81,6 +81,8 @@ export interface AuthFileItem {
   reserveWeeklyPercent?: number;
   /** Who lends this account to the pool. */
   lender?: string;
+  /** End of the lender's temporary reserve release (ms); absent when none is active. */
+  lenderReserveOverrideUntilMs?: number;
   note?: string;
   success?: unknown;
   failed?: unknown;

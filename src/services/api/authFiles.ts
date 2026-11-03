@@ -301,6 +301,7 @@ const normalizeAuthFileEntry = (
   const reserveWeeklyPercent = reserve('reserve_weekly_percent');
   const plan = readTextField(entry, 'plan');
   const lender = readTextField(entry, 'lender');
+  const lenderOverrideUntil = Date.parse(readTextField(entry, 'lender_reserve_override_until'));
 
   return {
     ...entry,
@@ -322,6 +323,9 @@ const normalizeAuthFileEntry = (
     ...(reserveWeeklyPercent !== undefined ? { reserveWeeklyPercent } : {}),
     ...(plan ? { plan } : {}),
     ...(lender ? { lender } : {}),
+    ...(Number.isFinite(lenderOverrideUntil)
+      ? { lenderReserveOverrideUntilMs: lenderOverrideUntil }
+      : {}),
     ...(note ? { note } : {}),
     ...(email ? { email } : {}),
     ...(projectId ? { projectId } : {}),

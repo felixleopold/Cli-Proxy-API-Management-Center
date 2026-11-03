@@ -41,7 +41,9 @@ import { QUOTA_ADAPTERS, type QuotaCardState } from '../providers';
 import type { QuotaProviderType } from '../providers/types';
 import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
 import type { AccountMultiplier } from '../planMultipliers';
+import { lenderReleaseUntil, showsLenderRelease } from '../usagePoolModel';
 import { AccountMultiplierBadge, AccountMultiplierHeadline } from './PlanMultipliers';
+import { LenderReserveRelease } from './LenderReserveRelease';
 import { getAntigravityPlanLabel, isAntigravityPremiumPlan } from '../providers/antigravity/plan';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import { ClaudeResetGrantDetails } from '../providers/claude/ClaudeResetGrantDetails';
@@ -238,6 +240,8 @@ export type QuotaCardProps = {
   multiplier: AccountMultiplier | null;
   onRefresh: () => void;
   onReset: () => void;
+  /** The lender's reserve release changed; null once cleared. */
+  onLenderReleaseChange: (lender: string, untilMs: number | null) => void;
 };
 
 export function QuotaCard(props: QuotaCardProps) {
@@ -253,8 +257,10 @@ export function QuotaCard(props: QuotaCardProps) {
     multiplier,
     onRefresh,
     onReset,
+    onLenderReleaseChange,
   } = props;
   const { t } = useTranslation();
+  const now = useNow();
   const adapter = QUOTA_ADAPTERS[entry.type];
   const file = entry.file;
   const identity = deriveAuthFileIdentity(file);
@@ -307,6 +313,7 @@ export function QuotaCard(props: QuotaCardProps) {
           <>
             {loaded && planBadge(entry.type, quota, t, quotaClasses)}
             {multiplier && <AccountMultiplierBadge share={multiplier.share} />}
+            {file.lender && <span>{t('usage_pool.lent_by', { name: file.lender })}</span>}
           </>
         }
         resetMs={summary?.window?.endMs ?? null}
@@ -373,6 +380,14 @@ export function QuotaCard(props: QuotaCardProps) {
           <div className={styles.idleHint}>{t(`${adapter.i18nPrefix}.idle`)}</div>
         )}
       </div>
+
+      {file.lender && showsLenderRelease(file, now) && (
+        <LenderReserveRelease
+          lender={file.lender}
+          untilMs={lenderReleaseUntil(file, now)}
+          onChange={onLenderReleaseChange}
+        />
+      )}
 
       <AccountSpend summary={summary} context={spend} labelId={nameId} />
 

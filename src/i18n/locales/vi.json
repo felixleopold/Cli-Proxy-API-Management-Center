@@ -2719,5 +2719,13 @@
     "reserve_held": "dự trữ {{percent}}%",
     "reserve_reached": "đã đạt dự trữ {{now}}%",
     "reserve_tapering": "dự trữ {{percent}}% → hiện {{now}}%"
+  },
+  "lender_release": {
+    "label": "Mở khóa phần dự trữ",
+    "until": "Phần dự trữ được mở đến {{time}}",
+    "clear": "Hủy",
+    "aria": "Mở phần dự trữ của {{lender}}",
+    "hint": "Cho phép nhóm dùng phần dự trữ của {{lender}} trong {{duration}}",
+    "failed": "Không thể thay đổi việc mở dự trữ: {{message}}"
   }
 }

@@ -110,6 +110,11 @@ Current base: upstream `v1.25.6`.
   person's override (`POST /usage/override` for 5h, `DELETE` to end) with its expiry. Hidden on
   gateways without the endpoint. Logic: `usagePoolModel.ts`, `src/services/api/usagePool.ts`; tests:
   `tests/usageReserves.test.ts`.
+  *Release reserve* (gateway lender override): a credential with a lender and a reserve shows a compact
+  1h / 4h / 24h control on its Usage & quota card (`components/LenderReserveRelease.tsx`), with the lender
+  on the plan line. It calls `POST /usage/override {lender, duration}` and `DELETE /usage/override?lender=`;
+  while `lender_reserve_override_until` on `/credentials` is in the future the card reads "Reserve released
+  until HH:MM" with Clear. The release covers every credential of that lender. Not on the credential sheet.
 - **Plan multipliers** (`src/features/quota/planMultipliers.ts`, `components/PlanMultipliers.tsx`).
   Usage reads in base-plan units, per window. A credential's multiplier m for a window is the gateway's
   plan weight (`plan_weight_five_hour` / `plan_weight_weekly`, or the older single `plan_weight`,

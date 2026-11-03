@@ -2720,5 +2720,13 @@
     "reserve_held": "預留 {{percent}}%",
     "reserve_reached": "已達預留 {{now}}%",
     "reserve_tapering": "預留 {{percent}}% → 目前 {{now}}%"
+  },
+  "lender_release": {
+    "label": "釋放保留額度",
+    "until": "保留額度已釋放，至 {{time}}",
+    "clear": "取消",
+    "aria": "釋放 {{lender}} 的保留額度",
+    "hint": "允許額度池使用 {{lender}} 的保留額度 {{duration}}",
+    "failed": "無法變更保留額度釋放：{{message}}"
   }
 }
