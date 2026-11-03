@@ -34,6 +34,26 @@ export function activeOverrideUntil(user: UsagePoolUser | null, nowMs: number): 
   return until !== null && until > nowMs ? until : null;
 }
 
+/** End of a credential's lender reserve release while it lasts, else null. */
+export function lenderReleaseUntil(file: AuthFileItem, nowMs: number): number | null {
+  const until = file.lenderReserveOverrideUntilMs;
+  return file.lender && until !== undefined && until > nowMs ? until : null;
+}
+
+/**
+ * Whether the release control belongs on a credential: it has a lender and a
+ * reserve to release (explicit or the legacy usage cap), or a release is active.
+ */
+export function showsLenderRelease(file: AuthFileItem, nowMs: number): boolean {
+  if (!file.lender) return false;
+  return (
+    lenderReleaseUntil(file, nowMs) !== null ||
+    (file.reserveFiveHourPercent ?? 0) > 0 ||
+    (file.reserveWeeklyPercent ?? 0) > 0 ||
+    file.usageCapPercent !== undefined
+  );
+}
+
 /** Pool reports together with the person they were fetched for ('' for everyone). */
 export interface ScopedPoolReports {
   user: string;

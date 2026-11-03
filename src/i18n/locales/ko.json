@@ -2713,5 +2713,13 @@
     "reserve_held": "예약 {{percent}}%",
     "reserve_reached": "예약 {{now}}% 도달",
     "reserve_tapering": "예약 {{percent}}% → 현재 {{now}}%"
+  },
+  "lender_release": {
+    "label": "예약분 해제",
+    "until": "{{time}}까지 예약분 해제됨",
+    "clear": "해제 취소",
+    "aria": "{{lender}} 예약분 해제",
+    "hint": "{{duration}} 동안 풀이 {{lender}}의 예약분을 사용하도록 허용",
+    "failed": "예약분 해제를 변경하지 못했습니다: {{message}}"
   }
 }

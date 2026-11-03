@@ -5,12 +5,15 @@ import {
   validateVisualUsageReserves,
   writeVisualUsageReserves,
 } from '@/features/config/visualConfigUsageReserves';
+import { normalizeAuthFilesResponse } from '@/services/api/authFiles';
 import { normalizeUsagePoolReport } from '@/services/api/usagePool';
 import {
   changeOverride,
+  lenderReleaseUntil,
   overrideTarget,
   reportsFor,
   reserveStateOf,
+  showsLenderRelease,
 } from '@/features/quota/usagePoolModel';
 import { DEFAULT_VISUAL_VALUES, type VisualConfigValues } from '@/types/visualConfig';
 
@@ -245,5 +248,36 @@ describe('usage pool report', () => {
       'tapering',
     ]);
     expect(weekly.accounts.map((account) => account.reserveNowPercent)).toEqual([25, 8, 8, 0, 0]);
+  });
+});
+
+describe('lender reserve release', () => {
+  const nowMs = Date.parse('2026-11-03T12:00:00Z');
+  const credential = (fields: Record<string, unknown>) =>
+    normalizeAuthFilesResponse({
+      files: [{ name: 'a.json', type: 'claude', ...fields }],
+    }).files[0];
+
+  test('reads the lender and the end of its release', () => {
+    const file = credential({
+      lender: 'commercial',
+      reserve_weekly_percent: 20,
+      lender_reserve_override_until: '2026-11-03T14:30:00Z',
+    });
+    expect(file.lenderReserveOverrideUntilMs).toBe(Date.parse('2026-11-03T14:30:00Z'));
+    expect(lenderReleaseUntil(file, nowMs)).toBe(file.lenderReserveOverrideUntilMs ?? null);
+    expect(showsLenderRelease(file, nowMs)).toBe(true);
+  });
+
+  test('shows the control only for a lender with a reserve, and ignores an ended release', () => {
+    expect(showsLenderRelease(credential({ lender: 'commercial' }), nowMs)).toBe(false);
+    expect(showsLenderRelease(credential({ reserve_weekly_percent: 20 }), nowMs)).toBe(false);
+    const ended = credential({
+      lender: 'commercial',
+      reserve_five_hour_percent: 10,
+      lender_reserve_override_until: '2026-11-03T11:00:00Z',
+    });
+    expect(lenderReleaseUntil(ended, nowMs)).toBeNull();
+    expect(showsLenderRelease(ended, nowMs)).toBe(true);
   });
 });

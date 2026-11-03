@@ -2741,5 +2741,13 @@
     "reserve_held": "резерв {{percent}}%",
     "reserve_reached": "достигнут резерв {{now}}%",
     "reserve_tapering": "резерв {{percent}}% → сейчас {{now}}%"
+  },
+  "lender_release": {
+    "label": "Снять резерв",
+    "until": "Резерв снят до {{time}}",
+    "clear": "Отменить",
+    "aria": "Снять резерв {{lender}}",
+    "hint": "Разрешить пулу использовать резерв {{lender}} на {{duration}}",
+    "failed": "Не удалось изменить снятие резерва: {{message}}"
   }
 }
