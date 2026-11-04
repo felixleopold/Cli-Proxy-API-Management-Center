@@ -1,8 +1,8 @@
 @use '../../styles/mixins' as *;
 
 /* Usage half of the Usage & quota page: provider tabs, then sections that each
- * state the span they cover (title, hint or ▍ mono span line, controls on the
- * right), a compact KPI strip and panels. Color is reserved for users and
+ * state the span they cover (title, hint or mono span line, controls on the
+ * right), an open KPI row and quiet panels. Color is reserved for users and
  * subscriptions in the chart; everything else stays in ink. */
 
 /* Provider navigation keeps its own row and native horizontal scrolling. */
@@ -17,15 +17,27 @@
   }
 }
 
-/* ---------- Sections: a hairline, a heading that names the span, content ---------- */
+/* ---------- Sections: a faint hairline, a heading that names the span, content ---------- */
 
 .section {
   display: flex;
   flex-direction: column;
   gap: 14px;
   min-width: 0;
-  padding-top: 18px;
-  border-top: 1px solid var(--border-color);
+  padding-top: 22px;
+  border-top: 1px solid var(--border-secondary);
+}
+
+/* A slot whose content renders nothing leaves no gap or hairline. */
+.slot {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+
+  &:empty {
+    display: none;
+  }
 }
 
 .sectionHead {
@@ -76,14 +88,6 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
   color: var(--text-secondary);
-
-  &::before {
-    content: '▍';
-    color: var(--viz-success);
-    line-height: 1;
-    align-self: center;
-    margin-right: 1px;
-  }
 }
 
 .spanStrong {
@@ -123,19 +127,20 @@
   align-items: center;
   gap: 2px;
   padding: 3px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: $radius-full;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 10px;
 
   button {
     @include pill-button;
+    border-radius: 7px;
     padding: 6px 13px;
     font-size: 12.5px;
+    font-weight: 500;
     font-variant-numeric: tabular-nums;
 
     &[aria-pressed='true'] {
-      background: var(--floating-surface, var(--bg-primary));
-      border-color: var(--border-hover);
+      background: var(--bg-tertiary);
       color: var(--text-primary);
     }
   }
@@ -155,9 +160,9 @@
   gap: 6px 12px;
   min-width: 0;
   padding: 4px;
-  border: 1px solid var(--text-primary);
+  border: 1px solid var(--border-hover);
   border-radius: 12px;
-  background: var(--floating-surface, var(--bg-primary));
+  background: var(--bg-primary);
 }
 
 .windowStepper {
@@ -249,15 +254,13 @@
   opacity: 0.6;
 }
 
-/* ---------- KPI strip: one bordered row, cells split by hairlines ---------- */
+/* ---------- KPI row: muted label over value, no boxes ---------- */
 
 .stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  border-radius: 14px;
-  border: 1px solid var(--border-color);
-  background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
-  overflow: hidden;
+  gap: 16px 28px;
+  padding: 2px 2px 4px;
 
   @media (max-width: 900px) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -273,25 +276,19 @@
   flex-direction: column;
   gap: 4px;
   min-width: 0;
-  padding: 14px 18px;
-  // Hairlines between cells in every layout: each cell draws its own left and
-  // top edge and the strip's overflow clips the outer ones.
-  box-shadow:
-    -1px 0 0 var(--border-color),
-    0 -1px 0 var(--border-color);
 }
 
 .statLabel {
   @include text-ellipsis;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-tertiary);
 }
 
 .statValue {
   @include text-ellipsis;
   font-family: $font-mono;
-  font-size: 22px;
+  font-size: 26px;
   line-height: 1.2;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -318,10 +315,10 @@
   flex-direction: column;
   gap: $spacing-md;
   min-width: 0;
-  padding: clamp($spacing-md, 2.4vw, 24px);
-  border-radius: 16px;
-  border: 1px solid var(--border-color);
-  background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
+  padding: clamp($spacing-md, 2.4vw, 22px);
+  border-radius: 14px;
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-primary);
 }
 
 .panelHead {
@@ -341,8 +338,8 @@
 
 .panelTitle {
   margin: 0;
-  font-size: 17px;
-  font-weight: 650;
+  font-size: 15px;
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text-primary);
 }
@@ -360,7 +357,75 @@
   color: var(--text-tertiary);
 }
 
+/* ---------- Devices & users: a collapsed disclosure ---------- */
+
+.disclosure {
+  min-width: 0;
+  border-radius: 14px;
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-primary);
+
+  &[open] .disclosureChevron {
+    transform: rotate(90deg);
+  }
+
+  &[open] .disclosureTitle {
+    color: var(--text-primary);
+  }
+}
+
+.disclosureSummary {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px clamp($spacing-md, 2.4vw, 22px);
+  border-radius: inherit;
+  cursor: pointer;
+  list-style: none;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover .disclosureTitle {
+      color: var(--text-primary);
+    }
+  }
+}
+
+.disclosureChevron {
+  flex: none;
+  margin-top: 1px;
+  color: var(--text-tertiary);
+  transition: transform var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+}
+
+.disclosureCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.disclosureTitle {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-secondary);
+}
+
+.disclosureBody {
+  padding: 0 clamp($spacing-md, 2.4vw, 22px) clamp($spacing-md, 2.4vw, 22px);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .disclosureChevron,
   .segmented button,
   .chipButton,
   .windowBack,

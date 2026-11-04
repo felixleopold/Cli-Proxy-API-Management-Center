@@ -2468,8 +2468,6 @@
     "stat_change_none": "沒有更早的資料可比較",
     "stat_requests": "請求數",
     "stat_tokens_hint": "{{tokens}} 個 token",
-    "windows_title": "目前額度視窗",
-    "windows_hint": "彙總預測與每個憑證的視窗時間軸。下方的歷史範圍不影響這些數字。",
     "unknown_provider": "未知",
     "sub_resets": "{{relative}}重置",
     "sub_no_window": "此憑證沒有回報額度視窗。花費依歷史範圍計算：{{range}}，{{span}}。",
@@ -2728,5 +2726,10 @@
     "aria": "釋放 {{lender}} 的保留額度",
     "hint": "允許額度池使用 {{lender}} 的保留額度 {{duration}}",
     "failed": "無法變更保留額度釋放：{{message}}"
+  },
+  "usage_layout": {
+    "credit_off": "已關閉",
+    "credit_on": "已開啟",
+    "credit_on_until": "開啟至 {{time}} · 剩餘 {{remaining}}"
   }
 }

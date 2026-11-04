@@ -1,10 +1,10 @@
 /**
- * Usage & quota page: the global Claude API credit switch, then one provider
- * filter over the account cards (each credential's live quota with its spend in
- * its current window), the current quota windows (pooled forecast and timeline)
- * and the spend history. This shell owns the credential list and the account
- * cards; ClaudeCreditCard owns its switch; UsageSections owns the ledger, the
- * tabs and the header refresh.
+ * Usage & quota page: the header (with the global Claude API credit switch),
+ * then one provider filter over the pooled forecast and reserve pool, the
+ * account cards (each credential's live quota with its spend in its current
+ * window), the quota window timeline and the spend history. This shell owns the
+ * credential list and the account cards; ClaudeCreditCard owns its switch;
+ * UsageSections owns the ledger, the tabs, the section order and the header refresh.
  *
  * Behaviour contracts kept from the quota page:
  * - existing providers load on click; Devin queries once when first visible, without polling;
@@ -563,10 +563,9 @@ export function UsageQuotaPage() {
         refreshing={loading || batchLoading}
         disableControls={disableControls}
         onRefreshAll={handleRefreshAll}
+        // Global, so in the header above the provider tabs; hidden without the switch.
+        extra={<ClaudeCreditCard />}
       />
-
-      {/* Global, so above the provider tabs; hidden on gateways without the switch. */}
-      <ClaudeCreditCard />
 
       <UsageSections
         files={files}
@@ -578,8 +577,6 @@ export function UsageQuotaPage() {
         accounts={renderAccounts}
         forecast={
           <>
-            {/* The gateway's reserve pool; hidden on gateways without usage reserves. */}
-            <UsagePool files={files} tab={tab} resolvedTheme={resolvedTheme} />
             {/* Pooled across every credential of the provider, independent of search and paging. */}
             <QuotaForecast
               files={files}
@@ -588,14 +585,18 @@ export function UsageQuotaPage() {
               cardReadings={cardReadings}
               resetCreditsFor={resetCreditsFor}
             />
-            {/* 时间线只比较当前页凭证，避免大量凭证一次性生成无界泳道。 */}
-            <QuotaTimeline
-              entries={pageItems}
-              quotaFor={getQuota}
-              displayNameFor={displayNameFor}
-              resolvedTheme={resolvedTheme}
-            />
+            {/* The gateway's reserve pool; hidden on gateways without usage reserves. */}
+            <UsagePool files={files} tab={tab} resolvedTheme={resolvedTheme} />
           </>
+        }
+        timeline={
+          // Only the current page's credentials, so many credentials never build unbounded lanes.
+          <QuotaTimeline
+            entries={pageItems}
+            quotaFor={getQuota}
+            displayNameFor={displayNameFor}
+            resolvedTheme={resolvedTheme}
+          />
         }
       />
     </div>

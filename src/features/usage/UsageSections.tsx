@@ -1,10 +1,11 @@
 /**
- * The usage half of the Usage & quota page: the account cards slot (each
+ * The usage half of the Usage & quota page, in page order: provider tabs, the
+ * pools slot (pooled forecast and reserve pool), the accounts slot (each
  * credential's quota merged with its spend in its current window, rendered by
- * the page from the spend context built here), the current quota windows (the
- * pooled forecast and timeline), then spend history (a 24h/7d/30d/90d range, or
- * one credential's window, for the KPIs, chart and users table), then the client
- * key → device/user labels. Each section states the span its numbers cover.
+ * the page from the spend context built here), the window timeline slot, then
+ * spend history (a 24h/7d/30d/90d range, or one credential's window, for the
+ * KPIs, chart and users table), then the client key → device/user labels behind
+ * a disclosure. Each section states the span its numbers cover.
  * Logic lives in usageModel.ts.
  */
 
@@ -86,10 +87,12 @@ export interface UsageSectionsProps {
   onProviderChange: (provider: string) => void;
   /** Reloads the page's credential list (the header refresh reloads both halves). */
   onRefresh: () => Promise<void>;
-  /** The account cards, first on the page; spend comes from the ledger loaded here. */
-  accounts: (spend: AccountSpendContext) => ReactNode;
-  /** The pooled remaining-quota forecast and the window timeline. */
+  /** The pooled remaining-quota forecast and reserve pool, right below the tabs. */
   forecast: ReactNode;
+  /** The account list, below the pools; spend comes from the ledger loaded here. */
+  accounts: (spend: AccountSpendContext) => ReactNode;
+  /** The per-credential window timeline, below the accounts. */
+  timeline: ReactNode;
 }
 
 export function UsageSections({
@@ -99,8 +102,9 @@ export function UsageSections({
   provider,
   onProviderChange,
   onRefresh,
-  accounts,
   forecast,
+  accounts,
+  timeline,
 }: UsageSectionsProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage;
@@ -404,6 +408,9 @@ export function UsageSections({
         />
       </div>
 
+      {/* Slots that render nothing collapse (:empty), so they leave no gap. */}
+      <div className={styles.slot}>{forecast}</div>
+
       <section className={styles.section} aria-labelledby="accounts-title">
         <header className={styles.sectionHead}>
           <div className={styles.sectionCopy}>
@@ -416,18 +423,8 @@ export function UsageSections({
         {accounts(spend)}
       </section>
 
-      {/* ---------- Current quota windows: no range control; each lane names its window. ---------- */}
-      <section className={styles.section} aria-labelledby="usage-windows-title">
-        <header className={styles.sectionHead}>
-          <div className={styles.sectionCopy}>
-            <h2 id="usage-windows-title" className={styles.sectionTitle}>
-              {t('usage.windows_title')}
-            </h2>
-            <p className={styles.sectionHint}>{t('usage.windows_hint')}</p>
-          </div>
-        </header>
-        {forecast}
-      </section>
+      {/* The timeline carries its own heading and controls. */}
+      <div className={`${styles.section} ${styles.slot}`}>{timeline}</div>
 
       {ledgerState.error && (
         <EmptyState
@@ -660,19 +657,22 @@ export function UsageSections({
       )}
 
       {!ledgerState.error && !showSkeleton && (
-        <section className={styles.panel}>
-          <header className={styles.panelHead}>
-            <div>
-              <h2 className={styles.panelTitle}>{t('usage.clients_title')}</h2>
-              <p className={styles.panelHint}>{t('usage.clients_hint')}</p>
-            </div>
-          </header>
-          <UsageClientsEditor
-            rows={clientRows}
-            disabled={!directory.loaded || directory.clients === null}
-            onSave={handleSave}
-          />
-        </section>
+        <details className={styles.disclosure}>
+          <summary className={styles.disclosureSummary}>
+            <IconChevronRight size={16} className={styles.disclosureChevron} aria-hidden="true" />
+            <span className={styles.disclosureCopy}>
+              <span className={styles.disclosureTitle}>{t('usage.clients_title')}</span>
+              <span className={styles.panelHint}>{t('usage.clients_hint')}</span>
+            </span>
+          </summary>
+          <div className={styles.disclosureBody}>
+            <UsageClientsEditor
+              rows={clientRows}
+              disabled={!directory.loaded || directory.clients === null}
+              onSave={handleSave}
+            />
+          </div>
+        </details>
       )}
     </>
   );

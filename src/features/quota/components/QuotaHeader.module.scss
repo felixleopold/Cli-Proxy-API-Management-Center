@@ -77,8 +77,9 @@
 .actions {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
 }
 
 /* 墨色药丸主按钮（深色主题自动反相） */
@@ -123,16 +124,6 @@
   }
 }
 
-.spinning {
-  animation: quota-spin 0.8s linear infinite;
-}
-
-@keyframes quota-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @include mobile {
   .header {
     align-items: stretch;
@@ -151,9 +142,5 @@
 
   .primaryAction:active:not(:disabled) {
     transform: none;
-  }
-
-  .spinning {
-    animation: none;
   }
 }

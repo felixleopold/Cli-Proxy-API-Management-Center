@@ -86,12 +86,12 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: var(--border-secondary);
   pointer-events: none;
 }
 
 .baseline {
-  background: var(--border-primary);
+  background: var(--border-color);
 }
 
 /* The rest of an in-progress window. */
@@ -101,7 +101,7 @@
   bottom: 0;
   right: 0;
   border-left: 1px dashed var(--text-quaternary);
-  background: color-mix(in srgb, var(--bg-tertiary) 45%, transparent);
+  background: color-mix(in srgb, var(--bg-tertiary) 35%, transparent);
   pointer-events: none;
 }
 
@@ -135,8 +135,8 @@
 
 .stack {
   position: relative;
-  width: 64%;
-  max-width: 36px;
+  width: 58%;
+  max-width: 28px;
   min-width: 2px;
   height: 100%;
   display: flex;
@@ -218,7 +218,7 @@
 
 .tooltipTitle {
   margin-bottom: 2px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
 }

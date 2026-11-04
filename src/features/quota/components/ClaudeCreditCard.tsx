@@ -8,8 +8,10 @@ import styles from './ClaudeCreditCard.module.scss';
 
 /**
  * Global switch for paid Anthropic API credits once Claude subscriptions are
- * exhausted. Turning it on asks first and lasts the gateway's fixed duration;
- * turning it off is immediate. Renders nothing on gateways without the switch.
+ * exhausted, as a compact label · state · toggle group in the page header (the
+ * full explanation is its tooltip). Turning it on asks first and lasts the
+ * gateway's fixed duration; turning it off is immediate. Renders nothing on
+ * gateways without the switch.
  */
 export function ClaudeCreditCard() {
   const { t } = useTranslation();
@@ -54,6 +56,7 @@ export function ClaudeCreditCard() {
   };
 
   let statusText = t('claude_credit.status_off');
+  let stateText = t('usage_layout.credit_off');
   if (status.on) {
     statusText =
       status.untilMs === null
@@ -62,25 +65,38 @@ export function ClaudeCreditCard() {
             time: formatClockTime(status.untilMs),
             remaining: formatDuration(status.remainingMinutes),
           });
+    stateText =
+      status.untilMs === null
+        ? t('usage_layout.credit_on')
+        : t('usage_layout.credit_on_until', {
+            time: formatClockTime(status.untilMs),
+            remaining: formatDuration(status.remainingMinutes),
+          });
   }
 
   return (
-    <section
-      className={status.on ? `${styles.card} ${styles.on}` : styles.card}
+    <div
+      className={status.on ? `${styles.toggle} ${styles.on}` : styles.toggle}
+      role="group"
       aria-labelledby="claude-credit-title"
+      aria-describedby="claude-credit-status"
+      title={statusText}
     >
-      <div className={styles.copy}>
-        <h2 id="claude-credit-title" className={styles.title}>
-          {t('claude_credit.title')}
-        </h2>
-        <p className={styles.status}>{statusText}</p>
-      </div>
+      <span id="claude-credit-title" className={styles.title}>
+        {t('claude_credit.title')}
+      </span>
+      <span className={styles.state} aria-hidden="true">
+        {stateText}
+      </span>
+      <span id="claude-credit-status" className={styles.srOnly}>
+        {statusText}
+      </span>
       <ToggleSwitch
         checked={status.on}
         onChange={handleChange}
         disabled={saving}
         ariaLabel={t('claude_credit.toggle_label')}
       />
-    </section>
+    </div>
   );
 }

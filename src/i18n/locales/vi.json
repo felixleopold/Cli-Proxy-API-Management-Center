@@ -2460,8 +2460,6 @@
     "stat_change_none": "Chưa có dữ liệu trước để so sánh",
     "stat_requests": "Yêu cầu",
     "stat_tokens_hint": "{{tokens}} token",
-    "windows_title": "Chu kỳ hạn mức hiện tại",
-    "windows_hint": "Dự báo gộp và dòng thời gian chu kỳ của từng thông tin xác thực. Khoảng lịch sử bên dưới không ảnh hưởng các số này.",
     "unknown_provider": "Không rõ",
     "sub_resets": "đặt lại {{relative}}",
     "sub_no_window": "Không báo chu kỳ hạn mức. Chi phí theo khoảng lịch sử: {{range}}, {{span}}.",
@@ -2727,5 +2725,10 @@
     "aria": "Mở phần dự trữ của {{lender}}",
     "hint": "Cho phép nhóm dùng phần dự trữ của {{lender}} trong {{duration}}",
     "failed": "Không thể thay đổi việc mở dự trữ: {{message}}"
+  },
+  "usage_layout": {
+    "credit_off": "Tắt",
+    "credit_on": "Bật",
+    "credit_on_until": "Bật đến {{time}} · còn {{remaining}}"
   }
 }

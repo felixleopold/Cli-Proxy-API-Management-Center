@@ -2454,8 +2454,6 @@
     "stat_change_none": "Nothing earlier to compare",
     "stat_requests": "Requests",
     "stat_tokens_hint": "{{tokens}} tokens",
-    "windows_title": "Current quota windows",
-    "windows_hint": "The pooled forecast and each credential's window timeline. The history range below doesn't change these.",
     "unknown_provider": "Unknown",
     "sub_resets": "resets {{relative}}",
     "sub_no_window": "No quota window reported. Spend is for the history range: {{range}}, {{span}}.",
@@ -2721,5 +2719,10 @@
     "aria": "Release {{lender}} reserve",
     "hint": "Let the pool use {{lender}}'s reserve for {{duration}}",
     "failed": "Could not change the reserve release: {{message}}"
+  },
+  "usage_layout": {
+    "credit_off": "Off",
+    "credit_on": "On",
+    "credit_on_until": "On until {{time}} · {{remaining}} left"
   }
 }

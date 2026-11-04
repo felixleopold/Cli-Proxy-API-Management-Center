@@ -2454,8 +2454,6 @@
     "stat_change_none": "비교할 이전 데이터 없음",
     "stat_requests": "요청",
     "stat_tokens_hint": "토큰 {{tokens}}개",
-    "windows_title": "현재 할당량 기간",
-    "windows_hint": "통합 예측과 각 자격 증명의 기간 타임라인입니다. 아래 기록 범위는 이 수치에 영향을 주지 않습니다.",
     "unknown_provider": "알 수 없음",
     "sub_resets": "{{relative}} 초기화",
     "sub_no_window": "할당량 기간을 보고하지 않습니다. 비용은 기록 범위 기준입니다: {{range}}, {{span}}.",
@@ -2721,5 +2719,10 @@
     "aria": "{{lender}} 예약분 해제",
     "hint": "{{duration}} 동안 풀이 {{lender}}의 예약분을 사용하도록 허용",
     "failed": "예약분 해제를 변경하지 못했습니다: {{message}}"
+  },
+  "usage_layout": {
+    "credit_off": "꺼짐",
+    "credit_on": "켜짐",
+    "credit_on_until": "{{time}}까지 켜짐 · {{remaining}} 남음"
   }
 }

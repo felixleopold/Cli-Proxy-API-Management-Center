@@ -2442,8 +2442,6 @@
     "stat_change_none": "没有更早的数据可比较",
     "stat_requests": "请求数",
     "stat_tokens_hint": "{{tokens}} 个 token",
-    "windows_title": "当前额度窗口",
-    "windows_hint": "汇总预测与每个凭证的窗口时间线。下方的历史范围不影响这些数字。",
     "unknown_provider": "未知",
     "sub_resets": "{{relative}}重置",
     "sub_no_window": "该凭证没有报告额度窗口。花费按历史范围计算：{{range}}，{{span}}。",
@@ -2702,5 +2700,10 @@
     "aria": "释放 {{lender}} 的保留额度",
     "hint": "允许额度池使用 {{lender}} 的保留额度 {{duration}}",
     "failed": "无法更改保留额度释放：{{message}}"
+  },
+  "usage_layout": {
+    "credit_off": "已关闭",
+    "credit_on": "已开启",
+    "credit_on_until": "开启至 {{time}} · 剩余 {{remaining}}"
   }
 }

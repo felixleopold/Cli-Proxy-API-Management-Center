@@ -2468,8 +2468,6 @@
     "stat_change_none": "Нет более ранних данных для сравнения",
     "stat_requests": "Запросы",
     "stat_tokens_hint": "{{tokens}} токенов",
-    "windows_title": "Текущие окна квот",
-    "windows_hint": "Общий прогноз и шкала окон каждой учётной записи. Период истории ниже на эти цифры не влияет.",
     "unknown_provider": "Неизвестно",
     "sub_resets": "сброс {{relative}}",
     "sub_no_window": "Окно квоты не сообщается. Расход показан за период истории: {{range}}, {{span}}.",
@@ -2749,5 +2747,10 @@
     "aria": "Снять резерв {{lender}}",
     "hint": "Разрешить пулу использовать резерв {{lender}} на {{duration}}",
     "failed": "Не удалось изменить снятие резерва: {{message}}"
+  },
+  "usage_layout": {
+    "credit_off": "Выкл.",
+    "credit_on": "Вкл.",
+    "credit_on_until": "Вкл. до {{time}} · осталось {{remaining}}"
   }
 }
