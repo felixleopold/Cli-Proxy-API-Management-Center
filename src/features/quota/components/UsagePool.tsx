@@ -89,14 +89,18 @@ export function UsagePool({
   }
 
   return (
-    <section className={styles.pool} aria-labelledby={`${id}-title`}>
-      <header className={styles.head}>
+    // Collapsed by default: the pool cards above already carry the pooled numbers;
+    // this adds the gateway's reserve-adjusted view and the per-person override.
+    <details className={styles.pool} aria-labelledby={`${id}-title`}>
+      <summary className={styles.head}>
         <div className={styles.headCopy}>
           <h3 id={`${id}-title`} className={styles.title}>
             {t('usage_pool.title')}
           </h3>
           <p className={styles.description}>{t('usage_pool.description')}</p>
         </div>
+      </summary>
+      <div className={styles.body}>
         <div className={styles.personPicker}>
           <Select
             value={user}
@@ -109,60 +113,60 @@ export function UsagePool({
             size="sm"
           />
         </div>
-      </header>
 
-      {person && (
-        <div
-          className={`${styles.personBar} ${
-            overrideUntil === null && stopped.length > 0 ? styles.personStopped : ''
-          }`}
-        >
-          <div className={styles.personCopy}>
-            <strong>
-              {person.reservePercent > 0
-                ? t('usage_pool.person_reserve', {
-                    name: person.name,
-                    percent: person.reservePercent,
-                  })
-                : person.name}
-            </strong>
-            <span>{personStatus}</span>
+        {person && (
+          <div
+            className={`${styles.personBar} ${
+              overrideUntil === null && stopped.length > 0 ? styles.personStopped : ''
+            }`}
+          >
+            <div className={styles.personCopy}>
+              <strong>
+                {person.reservePercent > 0
+                  ? t('usage_pool.person_reserve', {
+                      name: person.name,
+                      percent: person.reservePercent,
+                    })
+                  : person.name}
+              </strong>
+              <span>{personStatus}</span>
+            </div>
+            {person.reservePercent > 0 && (
+              <label className={styles.override}>
+                <span>{t('usage_pool.override_label')}</span>
+                <ToggleSwitch
+                  checked={overrideUntil !== null}
+                  onChange={(on) => void toggleOverride(on)}
+                  disabled={saving || target === null}
+                  ariaLabel={t('usage_pool.override_aria', { name: person.name })}
+                />
+              </label>
+            )}
           </div>
-          {person.reservePercent > 0 && (
-            <label className={styles.override}>
-              <span>{t('usage_pool.override_label')}</span>
-              <ToggleSwitch
-                checked={overrideUntil !== null}
-                onChange={(on) => void toggleOverride(on)}
-                disabled={saving || target === null}
-                ariaLabel={t('usage_pool.override_aria', { name: person.name })}
-              />
-            </label>
-          )}
+        )}
+
+        {error && (
+          <p className={styles.error} role="alert">
+            {t('usage_pool.load_failed', { message: error })}
+          </p>
+        )}
+
+        <div className={styles.providers}>
+          {reports.map((report) => (
+            <ProviderPool
+              key={report.provider}
+              report={report}
+              resolvedTheme={resolvedTheme}
+              scoped={Boolean(person)}
+              t={t}
+              x={x}
+              when={when}
+              nowMs={nowMs}
+            />
+          ))}
         </div>
-      )}
-
-      {error && (
-        <p className={styles.error} role="alert">
-          {t('usage_pool.load_failed', { message: error })}
-        </p>
-      )}
-
-      <div className={styles.providers}>
-        {reports.map((report) => (
-          <ProviderPool
-            key={report.provider}
-            report={report}
-            resolvedTheme={resolvedTheme}
-            scoped={Boolean(person)}
-            t={t}
-            x={x}
-            when={when}
-            nowMs={nowMs}
-          />
-        ))}
       </div>
-    </section>
+    </details>
   );
 }
 
