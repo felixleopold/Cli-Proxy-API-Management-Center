@@ -2872,6 +2872,6 @@
     "release_description": "Cho pool dùng các tài khoản của {{lender}} vượt quá {{reserve}} trong một thời gian.",
     "keep_label": "Giữ ít nhất",
     "keep_hint": "Tùy chọn: phần của mỗi kỳ vẫn giữ cho người cho mượn khi giải phóng. Để trống để giải phóng toàn bộ.",
-    "keep_invalid": "Nhập 1–99, hoặc để trống để giải phóng toàn bộ."
+    "keep_invalid": "Nhập một số lớn hơn 0 và nhỏ hơn 100, hoặc để trống để giải phóng toàn bộ."
   }
 }

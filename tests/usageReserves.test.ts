@@ -372,12 +372,12 @@ describe('pace and reserve release controls', () => {
 });
 
 describe('release and pace requests', () => {
-  test('keeps only 1-99% of a released reserve; empty releases it all', () => {
+  test('keeps a share strictly between 0 and 100% of a released reserve; empty releases it all', () => {
     expect(parseKeepPercentText('')).toBeNull();
     expect(parseKeepPercentText(' 50 ')).toBe(50);
-    expect(parseKeepPercentText('1')).toBe(1);
-    expect(parseKeepPercentText('99')).toBe(99);
-    for (const text of ['0', '100', '0.5', '-5', 'abc']) {
+    expect(parseKeepPercentText('0.5')).toBe(0.5);
+    expect(parseKeepPercentText('99.5')).toBe(99.5);
+    for (const text of ['0', '100', '-5', 'abc']) {
       expect(parseKeepPercentText(text)).toBeUndefined();
     }
   });

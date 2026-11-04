@@ -591,9 +591,12 @@ const nameHash = (name: string): number => {
 };
 
 /** Felix and Ferdinand keep their colours: orange and violet (seriesSlots.module.scss). */
-const PINNED_USER_SLOTS: Record<string, number> = { felix: 3, ferdinand: 6 };
+const PINNED_USER_SLOTS = new Map([
+  ['felix', 3],
+  ['ferdinand', 6],
+]);
 const OPEN_USER_SLOTS = Array.from({ length: SLOT_COUNT }, (_, slot) => slot).filter(
-  (slot) => !Object.values(PINNED_USER_SLOTS).includes(slot)
+  (slot) => ![...PINNED_USER_SLOTS.values()].includes(slot)
 );
 
 /**
@@ -607,7 +610,7 @@ export function userSlots(clients: readonly UsageClient[]): Map<string, SeriesSl
     if (!user || slots.has(user)) return;
     slots.set(
       user,
-      PINNED_USER_SLOTS[user.toLowerCase()] ??
+      PINNED_USER_SLOTS.get(user.toLowerCase()) ??
         OPEN_USER_SLOTS[nameHash(user) % OPEN_USER_SLOTS.length]
     );
   });

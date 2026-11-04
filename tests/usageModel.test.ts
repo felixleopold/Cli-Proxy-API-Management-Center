@@ -408,6 +408,10 @@ describe('rollups', () => {
       expect([3, 6]).not.toContain(many.get(name));
     }
     expect(many.get('')).toBe('none');
+    // Object prototype names are ordinary users, not inherited pins.
+    for (const slot of userSlots(clients('constructor', '__proto__', 'toString')).values()) {
+      expect(typeof slot === 'number' || slot === 'none').toBe(true);
+    }
   });
 });
 
