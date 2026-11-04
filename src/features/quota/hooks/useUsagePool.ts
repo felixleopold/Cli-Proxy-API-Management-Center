@@ -21,6 +21,7 @@ export function useUsagePool(providers: string[], user: string) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const requestRef = useRef(0);
+  const supportedRef = useRef(true);
   // The selection now, for work that outlives the render that started it.
   const selectedRef = useRef(user);
   useEffect(() => {
@@ -31,7 +32,8 @@ export function useUsagePool(providers: string[], user: string) {
   const load = useCallback(async () => {
     const requestId = ++requestRef.current;
     const list = providerKey ? providerKey.split(',') : [];
-    if (!connected || list.length === 0) {
+    // A gateway without usage reserves answered 404 once; it is not asked again.
+    if (!connected || list.length === 0 || !supportedRef.current) {
       setLoaded(null);
       return;
     }
@@ -44,8 +46,10 @@ export function useUsagePool(providers: string[], user: string) {
       setError(null);
     } catch (reason: unknown) {
       if (requestId !== requestRef.current) return;
-      if ((reason as { status?: number } | null)?.status === 404) setSupported(false);
-      else setError(reason instanceof Error ? reason.message : String(reason));
+      if ((reason as { status?: number } | null)?.status === 404) {
+        supportedRef.current = false;
+        setSupported(false);
+      } else setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
       if (requestId === requestRef.current) setLoading(false);
     }

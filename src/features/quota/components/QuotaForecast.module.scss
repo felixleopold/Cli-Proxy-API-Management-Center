@@ -103,6 +103,38 @@
   margin: 3px 3px 3px 0;
 }
 
+/* What a control changes, on hover or focus of its ⓘ. */
+.controlHint {
+  display: inline-flex;
+  padding: 0 9px 0 3px;
+}
+
+.personBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--fc-surface);
+  font-size: 12.5px;
+  color: var(--text-secondary);
+
+  strong {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+}
+
+.override {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
 .note {
   margin: 0;
   font-size: 12px;
@@ -299,6 +331,18 @@
   white-space: nowrap;
 }
 
+.ofPool {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+
+  &::before {
+    content: '·';
+    margin-right: 8px;
+    color: var(--text-quaternary);
+  }
+}
+
 .stats {
   display: flex;
   flex-wrap: wrap;
@@ -331,6 +375,14 @@
   }
 }
 
+/* A stat's label explains the number on hover: dotted, as a definition. */
+.statLabel {
+  text-decoration: underline dotted;
+  text-decoration-color: var(--text-quaternary);
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
 .gain {
   font-weight: 600;
 }
@@ -360,6 +412,24 @@
   gap: 7px;
 }
 
+.legendUse {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.keyDot[data-use='full'] {
+  --series: var(--success-color);
+}
+
+.keyDot[data-use='partial'] {
+  --series: var(--amber-color);
+}
+
+.keyDot[data-use='low'] {
+  --series: var(--danger-color);
+}
+
 .legendNote {
   color: var(--text-tertiary);
 }
@@ -370,7 +440,8 @@
 .keyRange,
 .keyBar,
 .keyBand,
-.keyTick {
+.keyTick,
+.keyDot {
   flex: none;
   display: inline-block;
 }
@@ -410,6 +481,14 @@
 }
 
 /* Matches the timeline's manual reset tick. */
+.keyDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--series);
+  align-self: center;
+}
+
 .keyTick {
   width: 2px;
   height: 12px;
@@ -476,16 +555,24 @@
 }
 
 /* "+0.89×" over a reset jump; the halo keeps it legible over the fill. */
+.jump {
+  pointer-events: none;
+}
+
+/* A reset's gain on a pill, coloured by how fully the resetting accounts were used. */
+.jumpPill {
+  fill: color-mix(in srgb, var(--use) 14%, var(--fc-surface));
+  stroke: color-mix(in srgb, var(--use) 45%, transparent);
+  stroke-width: 1px;
+}
+
 .jumpLabel {
+  font-family: $font-mono;
   font-variant-numeric: tabular-nums;
-  font-size: 10.5px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
   text-anchor: middle;
-  fill: var(--text-secondary);
-  paint-order: stroke;
-  stroke: var(--fc-surface);
-  stroke-width: 3px;
-  stroke-linejoin: round;
+  fill: var(--use);
 }
 
 .line {

@@ -348,7 +348,7 @@ const usedNow = (usedPercent: number, resetAtMs: number, nowMs: number) =>
 export function readShortWindow(
   file: AuthFileItem,
   nowMs: number
-): { minutes: number; usedPercent: number } | null {
+): { minutes: number; usedPercent: number; resetAtMs: number } | null {
   const provider = providerOf(file);
   const signal = readSignals(file);
   if (!isForecastProvider(provider) || !signal) return null;
@@ -356,7 +356,11 @@ export function readShortWindow(
     .filter((window) => window.minutes < WEEKLY_MIN_MINUTES)
     .sort((left, right) => left.minutes - right.minutes)[0];
   return short
-    ? { minutes: short.minutes, usedPercent: usedNow(short.usedPercent, short.resetAtMs, nowMs) }
+    ? {
+        minutes: short.minutes,
+        usedPercent: usedNow(short.usedPercent, short.resetAtMs, nowMs),
+        resetAtMs: short.resetAtMs,
+      }
     : null;
 }
 
@@ -795,6 +799,148 @@ export const seriesJumps = (
       ? [{ t: point.t, from: previous.v, to: point.v }]
       : [];
   });
+
+/* ---------- Reset events ---------- */
+
+/** One account's part in a reset: how much of its window it had used just before. */
+export interface ResetAccount {
+  authId: string;
+  /** Used percent of the window just before the reset; ahead of now, the projection's. */
+  usedPercent: number;
+  /** Our share of the window, in percent. */
+  capPercent: number;
+}
+
+/** A reset of one or more of a pool's accounts at (about) the same instant. */
+export interface PoolResetEvent {
+  atMs: number;
+  projected: boolean;
+  /** Multiplier the reset gives back. */
+  restore: number;
+  /** How much of our share the resetting accounts used, weighted by multiplier, 0..1. */
+  utilization: number;
+  accounts: ResetAccount[];
+}
+
+/** How well a reset was used: our share used up (full), mostly (partial), or largely wasted (low). */
+export type ResetUse = 'full' | 'partial' | 'low';
+
+export const resetUseOf = (utilization: number): ResetUse =>
+  utilization >= 0.9 ? 'full' : utilization >= 0.6 ? 'partial' : 'low';
+
+interface CredentialReset {
+  index: number;
+  atMs: number;
+  usedPercent: number;
+  projected: boolean;
+}
+
+/**
+ * Past resets of one credential: each reset its snapshots pointed at that has
+ * passed by now, with the used percent of the last snapshot before it (what the
+ * history line drops from). Snapshots whose reset differs by a jitter are one reset.
+ */
+const pastResets = (snapshots: Snapshot[], index: number, nowMs: number): CredentialReset[] => {
+  const resets: CredentialReset[] = [];
+  let current: Snapshot | null = null;
+  const close = () => {
+    if (current && current.resetAtMs <= nowMs) {
+      resets.push({
+        index,
+        atMs: current.resetAtMs,
+        usedPercent: current.usedPercent,
+        projected: false,
+      });
+    }
+  };
+  snapshots
+    .filter((snapshot) => snapshot.atMs < snapshot.resetAtMs)
+    .forEach((snapshot) => {
+      if (current && Math.abs(snapshot.resetAtMs - current.resetAtMs) > SAME_RESET_TOLERANCE_MS) {
+        close();
+      }
+      current = snapshot;
+    });
+  close();
+  return resets;
+};
+
+/**
+ * Every reset of the pool's accounts between fromMs and endMs: recorded ones
+ * from the history snapshots, projected ones from the same states and activity
+ * clock as projectPool. Resets of several accounts within a minute are one
+ * event. Accounts whose share is fully reserved add nothing and are left out.
+ */
+export function poolResetEvents(
+  pool: ProviderPool,
+  samples: QuotaHistorySample[],
+  fromMs: number,
+  nowMs: number,
+  endMs: number,
+  activity: PoolActivity = FLAT_ACTIVITY,
+  scenario: PaceScenario = 'expected'
+): PoolResetEvent[] {
+  const past = poolSnapshots(pool, samples, nowMs).flatMap((snapshots, index) =>
+    pastResets(snapshots, index, nowMs)
+  );
+  const clock = activityClock(activity.profile, nowMs, endMs);
+  const future = credentialStates(pool, nowMs, activity, scenario).flatMap((state, index) => {
+    const resets: CredentialReset[] = [];
+    let previous: number | null = null;
+    for (let atMs = state.resetAtMs; atMs <= endMs; atMs += state.periodMs) {
+      const used =
+        previous === null
+          ? state.usedPercent + state.pace * clock.at(atMs)
+          : state.pace * (clock.at(atMs) - clock.at(previous));
+      // The gateway stops routing at our share, so a projection never uses past it.
+      resets.push({
+        index,
+        atMs,
+        usedPercent: Math.min(used, state.share.capPercent),
+        projected: true,
+      });
+      previous = atMs;
+    }
+    return resets;
+  });
+
+  const groups: CredentialReset[][] = [];
+  [...past, ...future]
+    .filter(
+      (reset) =>
+        reset.atMs >= fromMs &&
+        reset.atMs <= endMs &&
+        pool.credentials[reset.index].share.effective > 0
+    )
+    .sort((left, right) => left.atMs - right.atMs)
+    .forEach((reset) => {
+      const group = groups[groups.length - 1];
+      if (group && reset.atMs - group[0].atMs <= SAME_RESET_TOLERANCE_MS) group.push(reset);
+      else groups.push([reset]);
+    });
+
+  return groups.map((group) => {
+    let used = 0;
+    let ours = 0;
+    const accounts = group.map(({ index, usedPercent }) => {
+      const { share, authId } = pool.credentials[index];
+      used += share.multiplier * Math.min(Math.max(0, usedPercent), share.capPercent);
+      ours += share.multiplier * share.capPercent;
+      return { authId, usedPercent, capPercent: share.capPercent };
+    });
+    return {
+      atMs: group[0].atMs,
+      projected: group.every((reset) => reset.projected),
+      restore: used / 100,
+      utilization: ours > 0 ? used / ours : 0,
+      accounts,
+    };
+  });
+}
+
+/** The reset event at t, within the one-minute tolerance resets are grouped by; null if none. */
+export const resetEventAt = (events: readonly PoolResetEvent[], t: number): PoolResetEvent | null =>
+  events.find((event) => Math.abs(event.atMs - t) <= SAME_RESET_TOLERANCE_MS) ?? null;
 
 /* ---------- History ---------- */
 

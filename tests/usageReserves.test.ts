@@ -6,7 +6,14 @@ import {
   writeVisualUsageReserves,
 } from '@/features/config/visualConfigUsageReserves';
 import { normalizeAuthFilesResponse } from '@/services/api/authFiles';
-import { normalizeUsagePoolReport } from '@/services/api/usagePool';
+import { normalizeUsagePoolReport, usagePoolApi } from '@/services/api/usagePool';
+import {
+  activePace,
+  lenderReserves,
+  parseKeepPercentText,
+  resolveTimedChoice,
+} from '@/features/quota/accountControls';
+import { apiClient } from '@/services/api/client';
 import {
   changeOverride,
   lenderReleaseUntil,
@@ -279,5 +286,115 @@ describe('lender reserve release', () => {
     });
     expect(lenderReleaseUntil(ended, nowMs)).toBeNull();
     expect(showsLenderRelease(ended, nowMs)).toBe(true);
+  });
+});
+
+describe('pace and reserve release controls', () => {
+  const nowMs = Date.parse('2026-11-04T14:20:00Z');
+  const HOUR = 3_600_000;
+  const listed = (...files: Record<string, unknown>[]) =>
+    normalizeAuthFilesResponse({ files: files.map((file, i) => ({ name: `${i}.json`, ...file })) })
+      .files;
+
+  test('resolves "until the next reset" to an instant, and refuses one nothing reports', () => {
+    const resets = { fiveHour: nowMs + 2 * HOUR, weekly: null };
+    expect(resolveTimedChoice({ kind: 'five_hour' }, resets, nowMs)).toEqual({
+      span: { until: new Date(nowMs + 2 * HOUR).toISOString() },
+      untilMs: nowMs + 2 * HOUR,
+    });
+    expect(resolveTimedChoice({ kind: 'weekly' }, resets, nowMs)).toBeNull();
+    expect(resolveTimedChoice({ kind: 'hours', hours: 4 }, resets, nowMs)).toEqual({
+      span: { duration: '4h' },
+      untilMs: nowMs + 4 * HOUR,
+    });
+    expect(resolveTimedChoice({ kind: 'at', atMs: nowMs - 1 }, resets, nowMs)).toBeNull();
+  });
+
+  test('reads pace, nickname and routing status from the listing', () => {
+    const [flash, unknown] = listed(
+      {
+        nickname: ' Max 5x ',
+        pace_mode: 'flash',
+        pace_until: '2026-11-04T17:20:00Z',
+        routing_status: { state: 'target', reason: 'Flash', until: '2026-11-04T17:20:00Z' },
+      },
+      { pace_mode: 'snail', pace_until: '2026-11-04T17:20:00Z', routing_status: { state: 'odd' } }
+    );
+    expect(flash.nickname).toBe('Max 5x');
+    expect(activePace(flash, nowMs)).toEqual({ mode: 'flash', untilMs: nowMs + 3 * HOUR });
+    expect(activePace(flash, nowMs + 4 * HOUR)).toBeNull();
+    expect(flash.routingStatus).toEqual({
+      state: 'target',
+      reason: 'Flash',
+      untilMs: nowMs + 3 * HOUR,
+    });
+    expect(unknown.paceMode).toBeUndefined();
+    expect(unknown.routingStatus).toBeUndefined();
+  });
+
+  test('groups lenders with their reserve, accounts, release and soonest resets', () => {
+    const files = listed(
+      {
+        lender: 'commercial',
+        reserve_five_hour_percent: 80,
+        reserve_weekly_percent: 80,
+        lender_reserve_override_until: '2026-11-04T17:00:00Z',
+        lender_reserve_override_keep_percent: 50,
+      },
+      { lender: 'commercial', usage_cap_percent: 30 },
+      { lender: 'felix', reserve_weekly_percent: 20 },
+      { lender: 'felix', reserve_weekly_percent: 20, disabled: true },
+      { lender: 'nobody' }
+    );
+    const resetsFor = (file: { name: string }) =>
+      file.name === '0.json'
+        ? { fiveHour: nowMs + HOUR, weekly: nowMs + 50 * HOUR }
+        : { fiveHour: nowMs + 3 * HOUR, weekly: null };
+    expect(lenderReserves(files, resetsFor, nowMs)).toEqual([
+      {
+        lender: 'commercial',
+        accounts: 2,
+        fiveHourPercent: 80,
+        weeklyPercent: 80,
+        release: { untilMs: Date.parse('2026-11-04T17:00:00Z'), keepPercent: 50 },
+        resets: { fiveHour: nowMs + HOUR, weekly: nowMs + 50 * HOUR },
+      },
+      {
+        lender: 'felix',
+        accounts: 1,
+        fiveHourPercent: null,
+        weeklyPercent: 20,
+        release: null,
+        resets: { fiveHour: nowMs + 3 * HOUR, weekly: null },
+      },
+    ]);
+  });
+});
+
+describe('release and pace requests', () => {
+  test('keeps a share strictly between 0 and 100% of a released reserve; empty releases it all', () => {
+    expect(parseKeepPercentText('')).toBeNull();
+    expect(parseKeepPercentText(' 50 ')).toBe(50);
+    expect(parseKeepPercentText('0.5')).toBe(0.5);
+    expect(parseKeepPercentText('99.5')).toBe(99.5);
+    for (const text of ['0', '100', '-5', 'abc']) {
+      expect(parseKeepPercentText(text)).toBeUndefined();
+    }
+  });
+
+  test('reads the end of a pace override from the gateway\'s `until`', async () => {
+    const post = apiClient.post;
+    const sent: unknown[] = [];
+    apiClient.post = (async (_url: string, data?: unknown) => {
+      sent.push(data);
+      return { name: 'a.json', mode: 'flash', until: '2026-11-04T17:20:00Z' };
+    }) as typeof apiClient.post;
+    try {
+      const untilMs = await usagePoolApi.setPace('a.json', 'flash', { duration: '4h' });
+      expect(untilMs).toBe(Date.parse('2026-11-04T17:20:00Z'));
+      expect(sent).toEqual([{ name: 'a.json', mode: 'flash', duration: '4h' }]);
+    } finally {
+      apiClient.post = post;
+    }
   });
 });

@@ -1,5 +1,6 @@
 /**
- * The usage settings of an account row (⚙): scheduling priority and weight, and,
+ * The usage settings of an account row (⚙): its display name, scheduling
+ * priority and weight, and,
  * for providers whose windows the gateway pools, the plan, plan multiplier,
  * legacy usage cap, lender and lender reserves. The draft is seeded from the
  * credential listing and saved diff-only: a field whose text is untouched is
@@ -10,6 +11,7 @@
 import type { AuthFileFieldsPatch } from '@/services/api';
 import type { AuthFileItem } from '@/types';
 import {
+  CLAUDE_PLAN_WEIGHTS,
   parsePlanMultiplierText,
   parsePriorityValue,
   parseReservePercentText,
@@ -20,6 +22,8 @@ import {
 import { parseCredentialWeightText, validateCredentialWeightText } from '@/utils/credentialWeight';
 
 export interface AccountSettingsDraft {
+  /** Display name; empty falls back to the email. */
+  nickname: string;
   priority: string;
   weight: string;
   /** Claude only: '', 'pro', 'max' or 'ultra' (or a value the gateway reported as typed). */
@@ -36,6 +40,7 @@ export type AccountSettingsError =
 
 type SettingsSource = Pick<
   AuthFileItem,
+  | 'nickname'
   | 'priority'
   | 'weight'
   | 'plan'
@@ -54,6 +59,7 @@ const text = (value: number | string | undefined) => (value === undefined ? '' :
  * the usage cap shows too; saving leaves it alone unless it is edited.
  */
 export const accountSettingsDraft = (file: SettingsSource): AccountSettingsDraft => ({
+  nickname: file.nickname ?? '',
   priority: file.priority ? String(file.priority) : '',
   weight: text(file.weight),
   plan: readAuthFilePlan({ plan: file.plan }),
@@ -70,6 +76,13 @@ export const accountSettingsFields = (provider: string) => ({
   plan: provider.trim().toLowerCase() === 'claude',
 });
 
+/**
+ * Whether the plan multiplier applies: a Claude plan the gateway weighs sets the
+ * multiplier itself, so the field is only for other providers and a custom plan.
+ */
+export const showsPlanMultiplier = (provider: string, plan: string): boolean =>
+  !accountSettingsFields(provider).plan || !(plan in CLAUDE_PLAN_WEIGHTS);
+
 export type AccountSettingsResult =
   { patch: AuthFileFieldsPatch; error?: never } | { error: AccountSettingsError; patch?: never };
 
@@ -81,6 +94,8 @@ export function buildAccountSettingsPatch(
 ): AccountSettingsResult {
   const patch: AuthFileFieldsPatch = {};
   const changed = (key: keyof AccountSettingsDraft) => draft[key].trim() !== seed[key].trim();
+
+  if (changed('nickname')) patch.nickname = draft.nickname.trim() || null;
 
   if (changed('priority')) {
     const value = draft.priority.trim();
@@ -101,7 +116,7 @@ export function buildAccountSettingsPatch(
 
   if (fields.plan && draft.plan !== seed.plan) patch.plan = draft.plan || null;
 
-  if (changed('planMultiplier')) {
+  if (changed('planMultiplier') && showsPlanMultiplier(provider, draft.plan)) {
     const next = parsePlanMultiplierText(draft.planMultiplier);
     if (next === undefined) return { error: 'plan_multiplier' };
     patch.plan_multiplier = next;

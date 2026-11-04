@@ -1,6 +1,6 @@
 /**
  * Pooled usage from the gateway's usage reserves (GET /usage/pool): pure
- * helpers for the Usage & quota page's pool panel (components/UsagePool.tsx).
+ * helpers for the pool cards' person view (components/QuotaForecast.tsx).
  * Units are Pro-plan units with the per-window plan weights the gateway uses.
  */
 

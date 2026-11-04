@@ -249,11 +249,7 @@ export function XaiQuotaBody({ quota, classes }: QuotaBodyProps<XaiQuotaState>) 
               <span className={classes.quotaAmount}>{onDemandAmountLabel}</span>
             </div>
           </div>
-          <QuotaMeter
-            percent={onDemandRemaining}
-            classes={classes}
-            index={1}
-          />
+          <QuotaMeter percent={onDemandRemaining} classes={classes} index={1} />
         </div>
       ) : (
         <div className={classes.codexPlan}>
@@ -273,11 +269,7 @@ export function XaiQuotaBody({ quota, classes }: QuotaBodyProps<XaiQuotaState>) 
               )}
             </div>
           </div>
-          <QuotaMeter
-            percent={remaining}
-            classes={classes}
-            index={2}
-          />
+          <QuotaMeter percent={remaining} classes={classes} index={2} />
         </div>
       )}
     </>

@@ -30,7 +30,7 @@ import { QuotaHeader } from './components/QuotaHeader';
 import { AccountsList } from './components/AccountsList';
 import { QuotaForecast } from './components/QuotaForecast';
 import { QuotaTimeline } from './components/QuotaTimeline';
-import { UsagePool } from './components/UsagePool';
+import { ReservesStrip, type LenderReleaseState } from './components/ReservesStrip';
 import { QUOTA_PAGE_SIZE, QUOTA_TAB_ORDER, type QuotaSortMode } from './constants';
 import {
   canRefreshQuotaAfterList,
@@ -117,11 +117,15 @@ export function UsageQuotaPage() {
   }, [connectionStatus, sessionGeneration, t]);
 
   // A release covers every credential of the lender.
-  const handleLenderRelease = useCallback((lender: string, untilMs: number | null) => {
+  const handleLenderRelease = useCallback((lender: string, release: LenderReleaseState) => {
     setFiles((current) =>
       current.map((file) =>
         file.lender === lender
-          ? { ...file, lenderReserveOverrideUntilMs: untilMs ?? undefined }
+          ? {
+              ...file,
+              lenderReserveOverrideUntilMs: release.untilMs ?? undefined,
+              lenderReserveOverrideKeepPercent: release.keepPercent ?? undefined,
+            }
           : file
       )
     );
@@ -372,7 +376,6 @@ export function UsageQuotaPage() {
       resettingQuotaName={resettingQuotaName}
       onRefreshQuota={(entry) => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
       onResetQuota={(entry) => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
-      onLenderReleaseChange={handleLenderRelease}
       onFileChange={handleFileChange}
       onReload={() => void loadFiles()}
       resolvedTheme={resolvedTheme}
@@ -402,6 +405,14 @@ export function UsageQuotaPage() {
         accounts={renderAccounts}
         forecast={
           <>
+            {/* Lenders and their reserve releases; hidden without a lender reserve. */}
+            <ReservesStrip
+              files={files}
+              pools={pools}
+              cardReadings={cardReadings}
+              onChange={handleLenderRelease}
+              onReload={() => void loadFiles()}
+            />
             {/* Pooled across every credential of the provider, independent of search and paging. */}
             <QuotaForecast
               files={files}
@@ -410,8 +421,6 @@ export function UsageQuotaPage() {
               cardReadings={cardReadings}
               resetCreditsFor={resetCreditsFor}
             />
-            {/* The gateway's reserve pool; hidden on gateways without usage reserves. */}
-            <UsagePool files={files} tab={tab} resolvedTheme={resolvedTheme} />
           </>
         }
         timeline={

@@ -1,0 +1,98 @@
+/* Hover cards: plain floating text, opened by :hover and :focus-within only. */
+
+.anchor {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  &:focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+
+.card {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  display: none;
+  width: max-content;
+  max-width: 280px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: var(--floating-surface, var(--bg-primary));
+  box-shadow: var(--floating-shadow);
+  color: var(--text-secondary);
+  font-family: $font-family;
+  font-size: 12px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+  letter-spacing: normal;
+  text-align: left;
+  text-transform: none;
+  white-space: normal;
+  cursor: default;
+  pointer-events: none;
+
+  strong,
+  b {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+}
+
+.anchor[data-placement='above'] > .card {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.anchor[data-align='center'] > .card {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.anchor[data-align='end'] > .card {
+  left: auto;
+  right: 0;
+}
+
+.anchor:hover > .card,
+.anchor:focus-within > .card {
+  display: block;
+}
+
+.info {
+  flex: none;
+}
+
+.infoIcon {
+  display: inline-flex;
+  color: var(--text-tertiary);
+  border-radius: 50%;
+  cursor: help;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+
+  &:focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .infoIcon:hover {
+    color: var(--text-secondary);
+  }
+}

@@ -580,13 +580,41 @@ export function assignSlots(keys: readonly string[]): Map<string, SeriesSlot> {
   return slots;
 }
 
-/** Users alphabetically, so a user's color only moves when users are added or renamed. */
+/** FNV-1a of the lowercased name: a user's home slot depends on nothing but their name. */
+const nameHash = (name: string): number => {
+  let hash = 0x811c9dc5;
+  for (const char of name.toLowerCase()) {
+    hash ^= char.codePointAt(0) ?? 0;
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash;
+};
+
+/** Felix and Ferdinand keep their colours: orange and violet (seriesSlots.module.scss). */
+const PINNED_USER_SLOTS = new Map([
+  ['felix', 3],
+  ['ferdinand', 6],
+]);
+const OPEN_USER_SLOTS = Array.from({ length: SLOT_COUNT }, (_, slot) => slot).filter(
+  (slot) => ![...PINNED_USER_SLOTS.values()].includes(slot)
+);
+
+/**
+ * Users by name alone, so a colour never moves when others are added, removed
+ * or renamed: the pinned people keep theirs, everyone else hashes onto the
+ * remaining slots. Two people may share a colour; names are always shown with it.
+ */
 export function userSlots(clients: readonly UsageClient[]): Map<string, SeriesSlot> {
-  return assignSlots(
-    Array.from(new Set(clients.map((client) => client.user).filter(Boolean))).sort((a, b) =>
-      a.localeCompare(b)
-    )
-  );
+  const slots = new Map<string, SeriesSlot>([['', 'none']]);
+  clients.forEach(({ user }) => {
+    if (!user || slots.has(user)) return;
+    slots.set(
+      user,
+      PINNED_USER_SLOTS.get(user.toLowerCase()) ??
+        OPEN_USER_SLOTS[nameHash(user) % OPEN_USER_SLOTS.length]
+    );
+  });
+  return slots;
 }
 
 /** Subscriptions by provider, then name; imported personal-account usage last. */

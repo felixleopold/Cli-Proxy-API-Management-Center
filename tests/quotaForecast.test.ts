@@ -19,6 +19,9 @@ import {
   poolHistory,
   gatewayResetCredits,
   poolResetCredits,
+  poolResetEvents,
+  resetEventAt,
+  resetUseOf,
   projectPool,
   runsOutAt,
   readPoolCredential,
@@ -1054,5 +1057,79 @@ describe('pool cards', () => {
       burnHours: 6,
       future: 'usual',
     });
+  });
+});
+
+describe('reset events', () => {
+  test('names the accounts behind each recorded and projected reset, with how much they used', () => {
+    const half = planShareOf({ reserveWeeklyPercent: 50 }, 'weekly');
+    const a = credential({ authId: 'a', usedPercent: 10, resetAtMs: NOW + 2 * DAY_MS });
+    const b = credential({
+      authId: 'b',
+      usedPercent: 0,
+      resetAtMs: NOW + 2 * DAY_MS + 30_000,
+      share: half,
+    });
+    const samples = [
+      // a's previous window: 96% used just before it reset a day ago.
+      sample({ authId: 'a', atMs: NOW - 3 * DAY_MS, usedPercent: 60, resetAtMs: NOW - DAY_MS }),
+      sample({
+        authId: 'a',
+        atMs: NOW - DAY_MS - HOUR_MS,
+        usedPercent: 96,
+        resetAtMs: NOW - DAY_MS,
+      }),
+      sample({ authId: 'a', atMs: NOW - HOUR_MS, usedPercent: 10, resetAtMs: NOW + 2 * DAY_MS }),
+    ];
+    // 1% of the window per hour: a adds 48% by its reset; b's 50% share caps it.
+    const activity = {
+      ...FLAT_ACTIVITY,
+      rates: new Map([
+        ['a', 1 / HOUR_MS],
+        ['b', 3 / HOUR_MS],
+      ]),
+    };
+    const events = poolResetEvents(
+      pool(a, b),
+      samples,
+      NOW - 7 * DAY_MS,
+      NOW,
+      NOW + 3 * DAY_MS,
+      activity
+    );
+
+    expect(events).toHaveLength(2);
+    const [recorded, projected] = events;
+    expect(recorded).toMatchObject({ atMs: NOW - DAY_MS, projected: false });
+    expect(recorded.accounts).toEqual([{ authId: 'a', usedPercent: 96, capPercent: 100 }]);
+    expect(recorded.restore).toBeCloseTo(0.96);
+    expect(resetUseOf(recorded.utilization)).toBe('full');
+
+    // a and b reset 30 s apart: one event.
+    expect(projected.projected).toBe(true);
+    expect(projected.accounts.map((account) => account.authId)).toEqual(['a', 'b']);
+    expect(projected.accounts[0].usedPercent).toBeCloseTo(58);
+    expect(projected.accounts[1].usedPercent).toBe(50);
+    // (58 + 50) used of (100 + 50) ours.
+    expect(projected.utilization).toBeCloseTo(108 / 150);
+    expect(resetUseOf(projected.utilization)).toBe('partial');
+    expect(resetEventAt(events, NOW + 2 * DAY_MS + 20_000)).toBe(projected);
+    expect(resetEventAt(events, NOW)).toBeNull();
+  });
+
+  test('a barely used reset reads as low, and fully reserved accounts are left out', () => {
+    const idle = credential({ authId: 'a', usedPercent: 5, resetAtMs: NOW + HOUR_MS });
+    const reserved = credential({
+      authId: 'r',
+      usedPercent: 40,
+      resetAtMs: NOW + HOUR_MS,
+      share: planShareOf({ reserveWeeklyPercent: 100 }, 'weekly'),
+    });
+    const [event] = poolResetEvents(pool(idle, reserved), [], NOW, NOW, NOW + DAY_MS, {
+      ...FLAT_ACTIVITY,
+      rates: new Map([['a', 0]]),
+    });
+    expect(event.accounts.map((account) => account.authId)).toEqual(['a']);
+    expect(resetUseOf(event.utilization)).toBe('low');
   });
 });

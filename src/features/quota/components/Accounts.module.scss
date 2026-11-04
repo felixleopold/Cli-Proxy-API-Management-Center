@@ -177,13 +177,28 @@
 /* ---------- List ---------- */
 
 .list {
-  /* icon · account · plan · 5-hour · weekly · reset · spend · users · controls */
-  --account-cols: 20px minmax(150px, 1.5fr) minmax(64px, 0.55fr) minmax(96px, 1fr) minmax(96px, 1fr)
-    minmax(124px, 0.95fr) minmax(112px, 1fr) minmax(44px, 0.4fr) 140px;
+  /* icon · account · multiplier · 5-hour · weekly · spend · users · pace · controls */
+  --account-cols: 20px minmax(120px, 1fr) 40px minmax(140px, 1.15fr) minmax(140px, 1.15fr)
+    minmax(76px, 0.55fr) minmax(48px, 0.45fr) 104px 112px;
+  /* Routing status, one hue per state (see RoutingDot). */
+  --routing-target: #059669;
+  --routing-available: color-mix(in srgb, #059669 55%, transparent);
+  --routing-flash: #ca8a04;
+  --routing-shield: #2563eb;
+  --routing-hold: var(--amber-color);
+  --routing-stopped: var(--danger-color);
+  --routing-disabled: var(--text-quaternary);
   container: accounts / inline-size;
   border: 1px solid var(--border-color);
   border-radius: 12px;
   background: var(--bg-primary);
+}
+
+:global([data-theme='dark']) .list {
+  --routing-target: #34d399;
+  --routing-available: color-mix(in srgb, #34d399 60%, transparent);
+  --routing-flash: #facc15;
+  --routing-shield: #60a5fa;
 }
 
 .head,
@@ -234,7 +249,9 @@
 }
 
 .row {
-  min-height: 44px;
+  min-height: 52px;
+  padding-top: 4px;
+  padding-bottom: 4px;
   cursor: pointer;
 }
 
@@ -296,6 +313,73 @@
   color: var(--text-secondary);
 }
 
+.identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+/* ---------- Routing status dot ---------- */
+
+.dotAnchor {
+  flex: none;
+  width: 10px;
+  justify-content: center;
+}
+
+.routingDot {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--routing-dot, transparent);
+
+  &[data-state='target'] {
+    /* Where requests go now: larger, with a static halo. */
+    --routing-dot: var(--routing-target);
+    width: 9px;
+    height: 9px;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--routing-target) 25%, transparent);
+  }
+  &[data-state='available'] {
+    --routing-dot: var(--routing-available);
+  }
+  &[data-state='flash'] {
+    --routing-dot: var(--routing-flash);
+  }
+  &[data-state='shield'] {
+    --routing-dot: var(--routing-shield);
+  }
+  &[data-state='reserve_hold'] {
+    --routing-dot: var(--routing-hold);
+  }
+  &[data-state='cooldown'],
+  &[data-state='exhausted'] {
+    --routing-dot: var(--routing-stopped);
+  }
+  &[data-state='disabled'] {
+    --routing-dot: var(--routing-disabled);
+  }
+  &[data-state='error'] {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--routing-stopped);
+  }
+}
+
+/* A line of text inside a hover card. */
+.cardLine {
+  display: block;
+
+  & + & {
+    margin-top: 4px;
+  }
+}
+
+strong + .cardLine {
+  margin-top: 2px;
+}
+
 .account {
   @include button-reset;
   display: inline-flex;
@@ -348,14 +432,7 @@
 .plan {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
   white-space: nowrap;
-  overflow: hidden;
-}
-
-.planName {
-  min-width: 0;
-  @include text-ellipsis;
 }
 
 .chip {
@@ -377,7 +454,7 @@
 /* ---------- Window bars ---------- */
 
 .windowValue,
-.reset,
+.resetLine,
 .spendValue {
   font-family: $font-mono;
   font-variant-numeric: tabular-nums;
@@ -387,7 +464,18 @@
   display: grid;
   grid-template-columns: 4.5ch minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 3px 8px;
+}
+
+/* The window's reset, under its bar. */
+.resetLine {
+  grid-column: 2;
+  font-size: 10.5px;
+  line-height: 1.2;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .windowValue {
@@ -435,15 +523,7 @@
   background: var(--text-tertiary);
 }
 
-/* ---------- Reset, spend, users ---------- */
-
-.reset {
-  display: inline-flex;
-  gap: 5px;
-  white-space: nowrap;
-  overflow: hidden;
-  color: var(--text-secondary);
-}
+/* ---------- Spend, users ---------- */
 
 .spend {
   display: inline-flex;
@@ -504,8 +584,13 @@
   background: color-mix(in srgb, var(--text-primary) 7%, transparent);
 }
 
+.splitCell {
+  width: 100%;
+}
+
 .split {
   display: flex;
+  flex: 1;
   gap: 1px;
   height: 6px;
   overflow: hidden;
@@ -516,6 +601,74 @@
   flex-basis: 0;
   min-width: 2px;
   background: var(--series);
+}
+
+.splitCard {
+  display: grid;
+  grid-template-columns: 8px auto auto auto;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.splitCardRow {
+  display: contents;
+
+  b {
+    font-family: $font-mono;
+    text-align: right;
+  }
+
+  .muted {
+    font-family: $font-mono;
+    text-align: right;
+  }
+}
+
+/* ---------- Pace ---------- */
+
+.pace {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  cursor: default;
+}
+
+.iconButton.paceButton {
+  gap: 4px;
+  width: auto;
+  min-width: 26px;
+  padding: 0 5px;
+
+  &[data-active] {
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--pace-color) 16%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pace-color) 45%, transparent);
+
+    svg {
+      color: var(--pace-color);
+    }
+  }
+}
+
+.paceButton[data-pace='flash'],
+.paceMenuIcon[data-pace='flash'] {
+  --pace-color: var(--routing-flash);
+}
+
+.paceButton[data-pace='shield'],
+.paceMenuIcon[data-pace='shield'] {
+  --pace-color: var(--routing-shield);
+}
+
+.paceMenuIcon {
+  color: var(--pace-color);
+}
+
+.paceLeft {
+  font-family: $font-mono;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* ---------- Controls ---------- */
@@ -591,10 +744,36 @@
 
 .details {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px 28px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px 40px;
   padding: 6px 12px 16px 46px;
   cursor: default;
+}
+
+.detailsColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.linkButton {
+  @include button-reset;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-decoration-color: var(--text-quaternary);
+  text-underline-offset: 3px;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
 }
 
 .detailsSection {
@@ -678,7 +857,8 @@
 /* The shared button reset rings on any focus; rows ring on keyboard focus only. */
 .account,
 .iconButton,
-.spendButton {
+.spendButton,
+.linkButton {
   &:focus:not(:focus-visible) {
     outline: none;
   }
@@ -696,7 +876,7 @@
     grid-template-areas:
       'icon account plan controls'
       '.    short   long long'
-      '.    reset   spend split';
+      '.    spend   split pace';
     row-gap: 6px;
     padding: 8px 12px 10px;
 
@@ -717,15 +897,16 @@
       grid-area: long;
     }
     > :nth-child(6) {
-      grid-area: reset;
-    }
-    > :nth-child(7) {
       grid-area: spend;
     }
-    > :nth-child(8) {
+    > :nth-child(7) {
       grid-area: split;
       align-self: center;
       width: 56px;
+      justify-self: end;
+    }
+    > :nth-child(8) {
+      grid-area: pace;
       justify-self: end;
     }
     > :nth-child(9) {

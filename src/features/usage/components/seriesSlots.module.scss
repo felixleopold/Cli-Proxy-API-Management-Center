@@ -1,30 +1,28 @@
-/* Categorical series colors, one hue per slot in a fixed order. Users sort alphabetically,
- * so slot0 is Felix (sky) and slot1 Ferdinand (violet). Validated with the dataviz checker:
- * light (#f0eee8, #ffffff) passes every check (worst adjacent CVD ΔE 9.2, normal ΔE ≥ 19.2);
- * dark (#0d0d0d) passes chroma, contrast and normal-vision ΔE ≥ 15.8, but the fixed sky/violet
- * pair sits above the lightness band with deutan ΔE 5.2, so every value is also written as
- * text (legend, tooltip, table). */
+/* Categorical series colors. Users take a slot by name alone (usageModel.ts
+ * userSlots), which pins slot3 to Felix (orange) and slot6 to Ferdinand (violet); subscriptions take
+ * slots in provider/name order. Orange replaces the earlier amber and sits apart from
+ * Claude's coral by lightness; every value is also written as text (legend, tooltip, table). */
 
 .slot0 {
   --series: #0284c7; /* sky */
 }
 .slot1 {
-  --series: #7c3aed; /* violet */
-}
-.slot2 {
-  --series: #b7791f; /* amber */
-}
-.slot3 {
   --series: #008f7a; /* teal */
 }
-.slot4 {
+.slot2 {
   --series: #3f5fd0; /* indigo */
 }
-.slot5 {
+.slot3 {
+  --series: #ea580c; /* orange */
+}
+.slot4 {
   --series: #c0306f; /* pink */
 }
-.slot6 {
+.slot5 {
   --series: #5f8a12; /* lime */
+}
+.slot6 {
+  --series: #7c3aed; /* violet */
 }
 .slotOther {
   --series: var(--text-tertiary);
@@ -38,21 +36,21 @@
     --series: #38bdf8;
   }
   .slot1 {
-    --series: #a78bfa;
-  }
-  .slot2 {
-    --series: #c08410;
-  }
-  .slot3 {
     --series: #14a394;
   }
-  .slot4 {
+  .slot2 {
     --series: #5b73e8;
   }
-  .slot5 {
+  .slot3 {
+    --series: #fb923c;
+  }
+  .slot4 {
     --series: #e0609b;
   }
-  .slot6 {
+  .slot5 {
     --series: #6f9a1c;
+  }
+  .slot6 {
+    --series: #a78bfa;
   }
 }

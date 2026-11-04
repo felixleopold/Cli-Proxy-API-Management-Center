@@ -4,6 +4,7 @@ import { normalizeClientKey } from '../src/services/api/clientKeys';
 import {
   WEEK_MS,
   assignSlots,
+  userSlots,
   buildClientRows,
   clientKind,
   buildTimeBuckets,
@@ -389,6 +390,28 @@ describe('rollups', () => {
     expect(slots.get('g')).toBe(6);
     expect(slots.get('h')).toBe('other');
     expect(assignSlots(['a', 'c']).get('c')).toBe(1);
+  });
+
+  test('a user keeps their colour by name, whoever else is listed', () => {
+    const clients = (...users: string[]) =>
+      users.map((user) => ({ fingerprint: user, device: '', user, configured: true }));
+    const two = userSlots(clients('Felix', 'Ferdinand'));
+    expect(two.get('Felix')).toBe(3);
+    expect(two.get('Ferdinand')).toBe(6);
+    const alone = userSlots(clients('Isabella'));
+    const many = userSlots(clients('Anna', 'felix', 'Ferdinand', 'Hanna', 'Isabella', 'Ziggy'));
+    // Adding people never moves anyone, and no one else takes the pinned colours.
+    expect(many.get('felix')).toBe(3);
+    expect(many.get('Ferdinand')).toBe(6);
+    expect(many.get('Isabella')).toBe(alone.get('Isabella'));
+    for (const name of ['Anna', 'Hanna', 'Isabella', 'Ziggy']) {
+      expect([3, 6]).not.toContain(many.get(name));
+    }
+    expect(many.get('')).toBe('none');
+    // Object prototype names are ordinary users, not inherited pins.
+    for (const slot of userSlots(clients('constructor', '__proto__', 'toString')).values()) {
+      expect(typeof slot === 'number' || slot === 'none').toBe(true);
+    }
   });
 });
 

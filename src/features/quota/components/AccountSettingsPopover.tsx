@@ -1,6 +1,7 @@
 /**
- * The ⚙ popover of an account row: its usage settings only, saved diff-only
- * through PATCH /credentials/fields, then the credential list reloads.
+ * The ⚙ popover of an account row: its name and usage settings only, saved
+ * diff-only through PATCH /credentials/fields, then the credential list
+ * reloads. Every field explains itself on hover or focus of its ⓘ.
  */
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
@@ -15,8 +16,10 @@ import {
   accountSettingsDraft,
   accountSettingsFields,
   buildAccountSettingsPatch,
+  showsPlanMultiplier,
   type AccountSettingsDraft,
 } from '../accountSettings';
+import { InfoHint } from './HoverCard';
 import styles from './AccountSettingsPopover.module.scss';
 
 type TextField = Exclude<keyof AccountSettingsDraft, 'plan'>;
@@ -106,28 +109,38 @@ export function AccountSettingsPopover({
     }
   };
 
+  const fieldLabel = (key: keyof AccountSettingsDraft, label: string) => (
+    <span className={styles.label}>
+      <label htmlFor={`${id}-${key}`}>{label}</label>
+      <InfoHint label={label} text={t(`usage_accounts.settings_hint_${key}`)} />
+    </span>
+  );
+
   const input = (
     key: TextField,
     label: string,
     options: { placeholder?: string; suffix?: string } = {}
-  ) => (
-    <label className={styles.field} htmlFor={`${id}-${key}`}>
-      <span className={styles.label}>{label}</span>
-      <span className={styles.inputWrap}>
-        <input
-          id={`${id}-${key}`}
-          className={`${styles.input} ${key === 'lender' ? styles.inputText : ''}`}
-          value={draft[key]}
-          onChange={(event) => set(key, event.target.value)}
-          placeholder={options.placeholder}
-          inputMode={key === 'lender' ? 'text' : 'decimal'}
-          autoComplete="off"
-          spellCheck={false}
-        />
-        {options.suffix && <span className={styles.suffix}>{options.suffix}</span>}
-      </span>
-    </label>
-  );
+  ) => {
+    const text = key === 'lender' || key === 'nickname';
+    return (
+      <div className={styles.field}>
+        {fieldLabel(key, label)}
+        <span className={styles.inputWrap}>
+          <input
+            id={`${id}-${key}`}
+            className={`${styles.input} ${text ? styles.inputText : ''}`}
+            value={draft[key]}
+            onChange={(event) => set(key, event.target.value)}
+            placeholder={options.placeholder}
+            inputMode={text ? 'text' : 'decimal'}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          {options.suffix && <span className={styles.suffix}>{options.suffix}</span>}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <form
@@ -147,6 +160,12 @@ export function AccountSettingsPopover({
       </header>
 
       <div className={styles.group}>
+        {input('nickname', t('usage_accounts.settings_nickname'), {
+          placeholder: file.email || t('usage_accounts.settings_nickname_placeholder'),
+        })}
+      </div>
+
+      <div className={styles.group}>
         {input('priority', t('usage_accounts.settings_priority'), { placeholder: '0' })}
         {input('weight', t('usage_accounts.settings_weight'), { placeholder: '1' })}
       </div>
@@ -154,31 +173,33 @@ export function AccountSettingsPopover({
       {fields.pooled && (
         <div className={styles.group}>
           {fields.plan && (
-            <label className={styles.field} htmlFor={`${id}-plan`}>
-              <span className={styles.label}>{t('usage_accounts.settings_plan')}</span>
+            <div className={styles.field}>
+              {fieldLabel('plan', t('usage_accounts.settings_plan'))}
               <select
                 id={`${id}-plan`}
                 className={styles.input}
                 value={draft.plan}
                 onChange={(event) => set('plan', event.target.value)}
               >
-                <option value="">{t('usage_accounts.settings_plan_unset')}</option>
                 {CLAUDE_PLANS.map((plan) => (
                   <option key={plan} value={plan}>
                     {t(`auth_files.plan_${plan}`, CLAUDE_PLAN_WEIGHTS[plan])}
                   </option>
                 ))}
+                {/* No plan: the multiplier below sizes the account. */}
+                <option value="">{t('usage_accounts.settings_plan_custom')}</option>
                 {/* A plan the gateway does not weigh stays selectable as typed. */}
                 {draft.plan && !(CLAUDE_PLANS as string[]).includes(draft.plan) && (
                   <option value={draft.plan}>{draft.plan}</option>
                 )}
               </select>
-            </label>
+            </div>
           )}
-          {input('planMultiplier', t('usage_accounts.settings_plan_multiplier'), {
-            placeholder: '1',
-            suffix: '×',
-          })}
+          {showsPlanMultiplier(provider, draft.plan) &&
+            input('planMultiplier', t('usage_accounts.settings_plan_multiplier'), {
+              placeholder: '1',
+              suffix: '×',
+            })}
           {input('usageCap', t('usage_accounts.settings_usage_cap'), {
             placeholder: '—',
             suffix: '%',

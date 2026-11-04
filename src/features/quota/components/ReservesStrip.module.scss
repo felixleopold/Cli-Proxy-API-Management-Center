@@ -1,0 +1,170 @@
+@use '../../../styles/mixins' as *;
+
+/* Reserves: one quiet line of lender chips above the pool cards. */
+
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 3px 4px 3px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: $radius-full;
+  background: var(--bg-primary);
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+
+  /* A running release is the state to notice: amber, as the reserve is being spent. */
+  &[data-released] {
+    border-color: var(--amber-30);
+    background: var(--amber-10);
+
+    .fact:first-of-type {
+      color: var(--text-primary);
+    }
+  }
+}
+
+.lender {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.fact::before {
+  content: '·';
+  margin-right: 8px;
+  color: var(--text-quaternary);
+}
+
+.anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.action {
+  @include button-reset;
+  padding: 4px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: $radius-full;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  &:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  &[aria-expanded='true'] {
+    background: var(--bg-tertiary);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .action:not(:disabled):hover {
+    border-color: var(--border-hover);
+    background: var(--bg-tertiary);
+  }
+}
+
+.keep {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 2px;
+}
+
+.keepLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+}
+
+.keepError {
+  margin: -6px 0 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--danger-color);
+}
+
+.keepInput {
+  position: relative;
+  display: inline-flex;
+  width: 72px;
+
+  input {
+    width: 100%;
+    height: 28px;
+    padding: 0 22px 0 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-family: $font-mono;
+    font-size: 12px;
+
+    &:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 0;
+      border-color: transparent;
+    }
+
+    &[aria-invalid='true'] {
+      border-color: var(--danger-color);
+    }
+  }
+
+  span {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    font-family: $font-mono;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    pointer-events: none;
+  }
+}
