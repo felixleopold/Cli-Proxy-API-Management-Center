@@ -997,11 +997,25 @@ describe('pool cards', () => {
     });
   });
 
-  test('the first account to run dry is the next one before its reset, not one already dry', () => {
-    const first = firstCredentialEmpty(pool(slow, draining, dry), NOW);
+  test('the first account to run dry is the next one before its reset', () => {
+    const first = firstCredentialEmpty(pool(slow, draining), NOW);
     expect(first?.authId).toBe('a');
     expect(Math.abs((first?.atMs ?? 0) - (NOW + DAY_MS))).toBeLessThan(1000);
-    expect(firstCredentialEmpty(pool(slow, dry), NOW)).toBeNull();
+    expect(firstCredentialEmpty(pool(slow), NOW)).toBeNull();
+  });
+
+  test('an account already dry is the first empty one, at now', () => {
+    expect(firstCredentialEmpty(pool(slow, draining, dry), NOW)).toEqual({
+      authId: 'c',
+      atMs: NOW,
+    });
+  });
+
+  test('"same as now" without history keeps the window pace instead of a measured zero', () => {
+    const learned = { ...FLAT_ACTIVITY, sleep: DEFAULT_SLEEP_HOURS };
+    const steady = steadyActivity([pool(draining)], [], NOW, 3, learned);
+    expect(steady.rates.has('a')).toBe(false);
+    expect(poolEmpty(pool(draining), NOW, NOW + 7 * DAY_MS, steady).kind).toBe('at');
   });
 
   test('pool empty reads a time, empty now, not before reset, or not by the view end', () => {

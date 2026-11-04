@@ -497,7 +497,9 @@ export function QuotaForecast({
                       <span className={styles.account} title={first.name}>
                         {first.name}
                       </span>{' '}
-                      {numbers.when(first.atMs)}
+                      {first.atMs <= nowMs
+                        ? t('quota_forecast.pool_empty_now')
+                        : numbers.when(first.atMs)}
                     </>
                   ) : (
                     t('quota_forecast.first_empty_none')
