@@ -759,8 +759,8 @@ export function poolEmpty(
 }
 
 /**
- * The credential projected to run dry first, before its own next reset. Credentials
- * already dry are left out: this is the next one to go.
+ * The credential projected to run dry first, before its own next reset; one already
+ * dry is dry at nowMs.
  */
 export function firstCredentialEmpty(
   pool: ProviderPool,
@@ -771,8 +771,12 @@ export function firstCredentialEmpty(
   let first: { authId: string; atMs: number } | null = null;
   credentialStates(pool, nowMs, activity, scenario).forEach((state, index) => {
     const left = state.share.capPercent - state.usedPercent;
-    if (state.share.effective <= 0 || left <= 0 || !(state.pace > 0)) return;
-    const atMs = activityClock(activity.profile, nowMs, state.resetAtMs).reach(left / state.pace);
+    if (state.share.effective <= 0 || (left > 0 && !(state.pace > 0))) return;
+    // Already dry counts as now, so it agrees with an empty pool.
+    const atMs =
+      left <= 0
+        ? nowMs
+        : activityClock(activity.profile, nowMs, state.resetAtMs).reach(left / state.pace);
     if (atMs < state.resetAtMs && (first === null || atMs < first.atMs)) {
       first = { authId: pool.credentials[index].authId, atMs };
     }
@@ -1530,16 +1534,18 @@ export function steadyActivity(
   // The clock runs at this weight while awake, so a real-time rate divides by it.
   const awakeWeight = Math.max(...profile);
   const spanMs = hours * HOUR_MS;
-  const rates = new Map(
-    pools.flatMap((pool) =>
-      pool.credentials.map(
-        (credential) =>
-          [
-            credential.authId,
-            drainedPercent(credential, samples, nowMs - spanMs, nowMs) / spanMs / awakeWeight,
-          ] as const
-      )
-    )
+  const fromMs = nowMs - spanMs;
+  // Only a credential whose history reaches back past the window has a measured burn (zero
+  // included); the rest keep the learned rate or the window pace.
+  const rates = new Map(learned.rates);
+  pools.forEach((pool) =>
+    pool.credentials.forEach((credential) => {
+      if (!samplesFor(credential, samples).some((snapshot) => snapshot.atMs <= fromMs)) return;
+      rates.set(
+        credential.authId,
+        drainedPercent(credential, samples, fromMs, nowMs) / spanMs / awakeWeight
+      );
+    })
   );
   return { ...learned, profile, rates };
 }
