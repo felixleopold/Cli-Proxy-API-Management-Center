@@ -3,7 +3,7 @@
  * through PATCH /credentials/fields, then the credential list reloads.
  */
 
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { authFilesApi } from '@/services/api';
@@ -44,26 +44,34 @@ export function AccountSettingsPopover({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fields = accountSettingsFields(provider);
+  // False once this popover closes: a save that resolves later must not close a newer one.
+  const liveRef = useRef(true);
+
+  // Closing by keyboard or button hands focus back to the ⚙ trigger.
+  const closeToTrigger = useCallback(() => {
+    const trigger = rootRef.current?.parentElement?.querySelector('button');
+    onClose();
+    trigger?.focus();
+  }, [onClose]);
 
   useEffect(() => {
+    liveRef.current = true;
     const root = rootRef.current;
     root?.querySelector('input')?.focus();
-    const anchor = root?.parentElement?.querySelector('button');
     const handlePointerDown = (event: MouseEvent) => {
       if (!root?.parentElement?.contains(event.target as Node)) onClose();
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      onClose();
-      anchor?.focus();
+      if (event.key === 'Escape') closeToTrigger();
     };
     document.addEventListener('mousedown', handlePointerDown);
     document.addEventListener('keydown', handleKeyDown);
     return () => {
+      liveRef.current = false;
       document.removeEventListener('mousedown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [onClose]);
+  }, [onClose, closeToTrigger]);
 
   const result = useMemo(
     () => buildAccountSettingsPatch(provider, seed, draft),
@@ -86,14 +94,15 @@ export function AccountSettingsPopover({
     setSaving(true);
     try {
       await authFilesApi.patchFields(file.name, result.patch);
+      // The save landed either way; only a still-open popover closes itself.
       notifyAuthFilesChanged();
       showNotification(t('usage_accounts.settings_saved', { name: file.name }), 'success');
       onSaved();
-      onClose();
+      if (liveRef.current) closeToTrigger();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t('common.unknown_error'));
+      if (liveRef.current) setError(err instanceof Error ? err.message : t('common.unknown_error'));
     } finally {
-      setSaving(false);
+      if (liveRef.current) setSaving(false);
     }
   };
 
@@ -201,7 +210,7 @@ export function AccountSettingsPopover({
 
       <footer className={styles.footer}>
         <span className={styles.hint}>{t('usage_accounts.settings_hint')}</span>
-        <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+        <Button type="button" variant="ghost" size="sm" onClick={closeToTrigger}>
           {t('common.cancel')}
         </Button>
         <Button type="submit" size="sm" disabled={!(dirty || result.error) || saving}>

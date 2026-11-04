@@ -4,6 +4,7 @@
  */
 
 import type { AuthFileItem } from '@/types';
+import { isDisabledAuthFile, resolveAuthProvider } from '@/utils/quota/validators';
 import { ANTIGRAVITY_CONFIG } from './providers/antigravity/data';
 import { CLAUDE_CONFIG } from './providers/claude/data';
 import { CODEX_CONFIG } from './providers/codex/data';
@@ -59,6 +60,34 @@ export function classifyQuotaFiles(files: AuthFileItem[]): QuotaFileEntry[] {
     groups.get(type)?.push({ file, type });
   }
   return QUOTA_TAB_ORDER.flatMap((type) => groups.get(type) ?? []);
+}
+
+/**
+ * Disabled credentials of the tab that match the search. They load no quota and
+ * join no pool, but keep a row on the accounts list so they can be re-enabled.
+ */
+export function disabledAccountFiles(
+  files: AuthFileItem[],
+  tab: string,
+  search: string
+): AuthFileItem[] {
+  const query = search.trim().toLowerCase();
+  return files.filter((file) => {
+    if (!isDisabledAuthFile(file)) return false;
+    const enabled = { ...file, disabled: false };
+    const inTab =
+      tab === 'all' ||
+      (tab in QUOTA_FILTER_MAP
+        ? QUOTA_FILTER_MAP[tab as QuotaProviderType](enabled)
+        : resolveAuthProvider(file) === tab);
+    return (
+      inTab &&
+      (!query ||
+        [file.name, file.email].some(
+          (value) => typeof value === 'string' && value.toLowerCase().includes(query)
+        ))
+    );
+  });
 }
 
 export function filterEntriesByTab(entries: QuotaFileEntry[], tab: QuotaTabId): QuotaFileEntry[] {

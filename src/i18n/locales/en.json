@@ -2796,6 +2796,7 @@
     "details_plan": "Plan",
     "details_lender": "Lender",
     "details_spend": "Spend",
-    "no_quota_support": "This provider reports no quota; spend only."
+    "no_quota_support": "This provider reports no quota; spend only.",
+    "disabled_hint": "Disabled: it loads no quota and joins no pool. Turn it on to use it again."
   }
 }

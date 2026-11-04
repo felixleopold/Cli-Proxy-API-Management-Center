@@ -21,7 +21,7 @@ import type { QuotaFileEntry } from '../logic';
 import { readShortWindow, type CardReading, type ProviderPool } from '../quotaForecastModel';
 import { QUOTA_ADAPTERS, type QuotaCardState } from '../providers';
 import { isQuotaTabId } from '../uiState';
-import { QuotaAccountRow, SpendAccountRow } from './QuotaAccountRow';
+import { DisabledAccountRow, QuotaAccountRow, SpendAccountRow } from './QuotaAccountRow';
 import styles from './Accounts.module.scss';
 
 const SKELETON_ROW_COUNT = 6;
@@ -31,6 +31,8 @@ export interface AccountsListProps {
   files: AuthFileItem[];
   /** Every quota entry before search and paging, so spend never pairs twice. */
   entries: QuotaFileEntry[];
+  /** Disabled credentials of the tab and search: rows to re-enable, without quota. */
+  disabledFiles: AuthFileItem[];
   filteredCount: number;
   pageItems: QuotaFileEntry[];
   currentPage: number;
@@ -64,6 +66,7 @@ export function AccountsList(props: AccountsListProps) {
     spend,
     files,
     entries,
+    disabledFiles,
     filteredCount,
     pageItems,
     currentPage,
@@ -119,7 +122,10 @@ export function AccountsList(props: AccountsListProps) {
     spend.status === 'unavailable' || currentPage !== totalPages ? [] : spendOnly;
   // A reload (refresh all, a settings save) keeps the rows; skeletons only before the first list.
   const firstLoad = loading && entries.length === 0;
-  const isEmpty = !loading && filteredCount === 0 && spendOnlyRows.length === 0;
+  // Disabled credentials come last, on the last page.
+  const disabledRows = currentPage === totalPages ? disabledFiles : [];
+  const isEmpty =
+    !loading && filteredCount === 0 && spendOnlyRows.length === 0 && disabledRows.length === 0;
   const quotaTab = isQuotaTabId(tab) && tab !== 'all' ? QUOTA_ADAPTERS[tab] : null;
 
   const windowsFor = (entry: QuotaFileEntry) => {
@@ -249,6 +255,16 @@ export function AccountsList(props: AccountsListProps) {
                 key={`spend:${summary.subscription.id}`}
                 summary={summary}
                 file={fileFor(summary)}
+                spend={spend}
+                resolvedTheme={resolvedTheme}
+                onFileChange={onFileChange}
+                onSettingsSaved={onReload}
+              />
+            ))}
+            {disabledRows.map((file) => (
+              <DisabledAccountRow
+                key={`disabled:${getQuotaCacheKey(file)}`}
+                file={file}
                 spend={spend}
                 resolvedTheme={resolvedTheme}
                 onFileChange={onFileChange}

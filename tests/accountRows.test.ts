@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { accountWindows } from '@/features/quota/accountCards';
+import { classifyQuotaFiles, disabledAccountFiles } from '@/features/quota/logic';
+import type { AuthFileItem } from '@/types';
 import { accountSettingsDraft, buildAccountSettingsPatch } from '@/features/quota/accountSettings';
 import { planShareOf } from '@/features/quota/planMultipliers';
 import type { CardReading, PoolCredential } from '@/features/quota/quotaForecastModel';
@@ -124,5 +126,23 @@ describe('account settings patch', () => {
     expect(
       buildAccountSettingsPatch('gemini', seed, { ...seed, lender: 'Felix', weight: '3' })
     ).toEqual({ patch: { weight: 3 } });
+  });
+});
+
+describe('disabledAccountFiles', () => {
+  const files = [
+    { name: 'claude-on.json', provider: 'claude' },
+    { name: 'claude-off.json', provider: 'claude', disabled: true, email: 'off@example.com' },
+    { name: 'gemini-off.json', provider: 'gemini', disabled: true },
+  ] as AuthFileItem[];
+
+  test('keeps disabled credentials listable by tab and search, while quota entries skip them', () => {
+    expect(classifyQuotaFiles(files).map((entry) => entry.file.name)).toEqual(['claude-on.json']);
+    const names = (tab: string, search = '') =>
+      disabledAccountFiles(files, tab, search).map((file) => file.name);
+    expect(names('all')).toEqual(['claude-off.json', 'gemini-off.json']);
+    expect(names('claude')).toEqual(['claude-off.json']);
+    expect(names('gemini')).toEqual(['gemini-off.json']);
+    expect(names('all', 'off@')).toEqual(['claude-off.json']);
   });
 });

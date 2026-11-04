@@ -20,6 +20,7 @@ import type {
   ResolvedTheme,
 } from '@/types';
 import { resolveQuotaErrorMessage } from '@/utils/quota';
+import { resolveAuthProvider } from '@/utils/quota/validators';
 import { getQuotaDisplayName } from '@/utils/quota/identity';
 import { supportsAuthFileUsageCap } from '@/features/authFiles/constants';
 import { deriveAuthFileIdentity } from '@/features/authFiles/identity';
@@ -27,7 +28,7 @@ import type { AccountSpendContext } from '@/features/usage/components/AccountSpe
 import { slotClassName } from '@/features/usage/components/slotClass';
 import { formatUsd, type SubscriptionSummary } from '@/features/usage/usageModel';
 import type { AccountWindows } from '../accountCards';
-import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
+import { isQuotaRefreshDisabled, resolveQuotaProviderType, type QuotaFileEntry } from '../logic';
 import { formatMultiplier, planShareOf, planShareText } from '../planMultipliers';
 import { QUOTA_ADAPTERS, type QuotaCardState } from '../providers';
 import type { QuotaProviderType } from '../providers/types';
@@ -366,6 +367,56 @@ export function SpendAccountRow({
           </DetailFact>
           <p className={styles.muted}>{t('usage_accounts.no_quota_support')}</p>
           <SpendDetails summary={summary} spend={spend} />
+        </DetailsSection>
+      }
+      onFileChange={onFileChange}
+      onSettingsSaved={onSettingsSaved}
+    />
+  );
+}
+
+/** A disabled credential: no quota or spend, dimmed, with its toggle off to re-enable it. */
+export function DisabledAccountRow({
+  file,
+  spend,
+  resolvedTheme,
+  onFileChange,
+  onSettingsSaved,
+}: {
+  file: AuthFileItem;
+  spend: AccountSpendContext;
+  resolvedTheme: ResolvedTheme;
+  onFileChange: (key: string, patch: Partial<AuthFileItem>) => void;
+  onSettingsSaved: () => void;
+}) {
+  const { t } = useTranslation();
+  const nameId = useId();
+  const identity = deriveAuthFileIdentity(file);
+  const type = resolveQuotaProviderType({ ...file, disabled: false });
+  const provider = type ?? resolveAuthProvider(file);
+  return (
+    <AccountRow
+      provider={provider}
+      resolvedTheme={resolvedTheme}
+      name={identity.primary || getQuotaDisplayName(file)}
+      mono={identity.kind === 'fileName'}
+      title={getQuotaDisplayName(file)}
+      nameId={nameId}
+      file={file}
+      plan={
+        type && <PlanCell label={planLabel(type, undefined, file, t)} file={file} type={type} />
+      }
+      windows={{ short: null, long: null }}
+      capPercent={{ short: null, long: null }}
+      resetAtMs={null}
+      summary={null}
+      spend={spend}
+      details={
+        <DetailsSection title={t('usage_accounts.details_account')}>
+          <DetailFact label={t('usage_accounts.details_file')}>
+            <span className={styles.mono}>{getQuotaDisplayName(file)}</span>
+          </DetailFact>
+          <p className={styles.muted}>{t('usage_accounts.disabled_hint')}</p>
         </DetailsSection>
       }
       onFileChange={onFileChange}

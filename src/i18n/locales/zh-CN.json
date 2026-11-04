@@ -2776,6 +2776,7 @@
     "details_plan": "套餐",
     "details_lender": "出借人",
     "details_spend": "花费",
-    "no_quota_support": "该提供商不报告额度，仅显示花费。"
+    "no_quota_support": "该提供商不报告额度，仅显示花费。",
+    "disabled_hint": "已停用：不加载额度，也不加入资源池。开启后即可再次使用。"
   }
 }

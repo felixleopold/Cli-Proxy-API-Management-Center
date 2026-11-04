@@ -35,6 +35,7 @@ import { QUOTA_PAGE_SIZE, QUOTA_TAB_ORDER, type QuotaSortMode } from './constant
 import {
   canRefreshQuotaAfterList,
   classifyQuotaFiles,
+  disabledAccountFiles,
   filterEntriesByTab,
   filterEntriesBySearch,
   paginate,
@@ -191,6 +192,10 @@ export function UsageQuotaPage() {
   const sortNow = sortMode === 'default' ? 0 : tick;
 
   const entries = useMemo(() => classifyQuotaFiles(files), [files]);
+  const disabledFiles = useMemo(
+    () => disabledAccountFiles(files, tab, search),
+    [files, tab, search]
+  );
   // A provider without quota support has no cards.
   const filteredEntries = useMemo(
     () =>
@@ -346,6 +351,7 @@ export function UsageQuotaPage() {
       spend={spend}
       files={files}
       entries={entries}
+      disabledFiles={disabledFiles}
       filteredCount={filteredEntries.length}
       pageItems={pageItems}
       currentPage={currentPage}

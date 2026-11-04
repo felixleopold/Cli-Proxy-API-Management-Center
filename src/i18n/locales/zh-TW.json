@@ -2802,6 +2802,7 @@
     "details_plan": "方案",
     "details_lender": "出借人",
     "details_spend": "花費",
-    "no_quota_support": "此提供者不回報額度，僅顯示花費。"
+    "no_quota_support": "此提供者不回報額度，僅顯示花費。",
+    "disabled_hint": "已停用：不載入額度，也不加入資源池。開啟後即可再次使用。"
   }
 }

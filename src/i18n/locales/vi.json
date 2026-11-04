@@ -2802,6 +2802,7 @@
     "details_plan": "Gói",
     "details_lender": "Người cho mượn",
     "details_spend": "Chi tiêu",
-    "no_quota_support": "Nhà cung cấp này không báo cáo hạn mức; chỉ có chi tiêu."
+    "no_quota_support": "Nhà cung cấp này không báo cáo hạn mức; chỉ có chi tiêu.",
+    "disabled_hint": "Đã tắt: không tải hạn mức và không tham gia nhóm. Bật lại để sử dụng."
   }
 }

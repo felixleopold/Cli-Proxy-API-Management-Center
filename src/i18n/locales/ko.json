@@ -2796,6 +2796,7 @@
     "details_plan": "요금제",
     "details_lender": "대여자",
     "details_spend": "지출",
-    "no_quota_support": "이 제공자는 할당량을 보고하지 않습니다. 지출만 표시됩니다."
+    "no_quota_support": "이 제공자는 할당량을 보고하지 않습니다. 지출만 표시됩니다.",
+    "disabled_hint": "사용 중지됨: 할당량을 불러오지 않고 풀에 참여하지 않습니다. 다시 쓰려면 켜세요."
   }
 }
