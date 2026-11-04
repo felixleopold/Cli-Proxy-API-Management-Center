@@ -243,7 +243,6 @@
   white-space: nowrap;
 
   strong {
-    font-family: $font-mono;
     font-size: 15px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
@@ -286,11 +285,10 @@
 }
 
 .heroValue {
-  font-family: $font-mono;
   font-size: 40px;
   font-weight: 600;
   line-height: 1;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.025em;
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
 }
@@ -334,7 +332,6 @@
 }
 
 .gain {
-  font-family: $font-mono;
   font-weight: 600;
 }
 
@@ -480,7 +477,7 @@
 
 /* "+0.89×" over a reset jump; the halo keeps it legible over the fill. */
 .jumpLabel {
-  font-family: $font-mono;
+  font-variant-numeric: tabular-nums;
   font-size: 10.5px;
   font-weight: 500;
   text-anchor: middle;
