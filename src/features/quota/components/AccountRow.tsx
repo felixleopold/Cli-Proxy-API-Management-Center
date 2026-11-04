@@ -1,9 +1,10 @@
 /**
  * One account row on the Usage & quota page, shared by quota and spend-only
- * credentials: icon · account · plan · 5-hour and weekly bars · next reset ·
- * spend in the window · user split · enabled toggle · actions. Clicking the row
- * opens its details below it. The quota-specific parts (plan badge, actions,
- * details) come from QuotaAccountRow; this file is layout and the shared cells.
+ * credentials: icon · routing dot and name · multiplier · 5-hour and weekly
+ * bars, each with its reset · spend in the window · user split · pace · enabled
+ * toggle · actions. Clicking the row opens its details below it. The
+ * quota-specific parts (plan chip, actions, details) come from QuotaAccountRow;
+ * this file is layout and the shared cells.
  */
 
 import { useCallback, useState, type MouseEvent, type ReactNode } from 'react';
@@ -26,10 +27,12 @@ import { slotClassName } from '@/features/usage/components/slotClass';
 import { formatUsd, type SubscriptionSummary } from '@/features/usage/usageModel';
 import { formatPercent } from '@/utils/format';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
-import { countdownParts, formatResetInstant } from '@/utils/quota/relativeTime';
 import { DAY_MS } from '@/utils/time/durations';
-import type { AccountWindow, AccountWindows } from '../accountCards';
+import { nextResetsOf, type AccountWindow, type AccountWindows } from '../accountCards';
 import { AccountSettingsPopover } from './AccountSettingsPopover';
+import { formatCountdown, formatWhen } from './countdown';
+import { HoverCard } from './HoverCard';
+import { PaceControl } from './PaceControl';
 import { useAccountStatusLock } from './accountStatusLock';
 import styles from './Accounts.module.scss';
 
@@ -95,47 +98,46 @@ function WindowCell({
   const days = Math.round(window.periodMs / DAY_MS);
   const period = long && !isWeekly(window.periodMs) && days >= 1 ? `${days}d` : null;
   return (
-    <span
-      className={`${styles.cell} ${styles.window}`}
-      role="img"
-      aria-label={t('usage_accounts.window_left_aria', { window: name, percent: left })}
-      title={t('usage_accounts.window_left_aria', { window: name, percent: left })}
-    >
-      <span className={styles.windowValue}>
+    <span className={`${styles.cell} ${styles.window}`}>
+      <span
+        className={styles.windowValue}
+        role="img"
+        aria-label={t('usage_accounts.window_left_aria', { window: name, percent: left })}
+      >
         {left}%{period && <span className={styles.windowPeriod}>{period}</span>}
       </span>
-      <span className={styles.bar}>
+      <span className={styles.bar} aria-hidden="true">
         <span className={`${styles.barFill} ${level}`} style={{ width: `${left}%` }} />
         {capPercent !== null && capPercent > 0 && capPercent < 100 && (
           // Our share runs out once what is left falls to the lender's reserve.
           <span className={styles.barTick} style={{ left: `${100 - capPercent}%` }} />
         )}
       </span>
+      <ResetLine resetAtMs={window.resetAtMs} />
     </span>
   );
 }
 
-/** "Fri 16:00 · 1d 3h": the instant and the countdown, never whole days alone. */
-export function ResetCell({ resetAtMs }: { resetAtMs: number | null }) {
+/** "Fri 16:00 · 1d 3h" under a bar: the instant and the countdown; the full date on hover. */
+function ResetLine({ resetAtMs }: { resetAtMs: number | null }) {
   const { t, i18n } = useTranslation();
   const now = useNow();
-  const parts = resetAtMs === null ? null : countdownParts(resetAtMs, now);
-  if (resetAtMs === null || !parts) {
-    return <span className={`${styles.cell} ${styles.unknown}`}>—</span>;
+  const countdown = resetAtMs === null ? null : formatCountdown(t, resetAtMs, now);
+  if (resetAtMs === null || !countdown) {
+    // An idle 5-hour window starts with the next request.
+    return <span className={styles.resetLine}>{t('usage_accounts.reset_idle')}</span>;
   }
-  const countdown =
-    parts.days > 0
-      ? t('usage_accounts.countdown_days', { days: parts.days, hours: parts.hours })
-      : parts.hours > 0
-        ? t('usage_accounts.countdown_hours', { hours: parts.hours, minutes: parts.minutes })
-        : t('usage_accounts.countdown_minutes', { minutes: parts.minutes });
   return (
     <span
-      className={`${styles.cell} ${styles.reset}`}
-      title={new Date(resetAtMs).toLocaleString(i18n.resolvedLanguage)}
+      className={styles.resetLine}
+      title={t('usage_accounts.reset_exact', {
+        time: new Date(resetAtMs).toLocaleString(i18n.resolvedLanguage, {
+          dateStyle: 'full',
+          timeStyle: 'short',
+        }),
+      })}
     >
-      <span>{formatResetInstant(resetAtMs, now, i18n.resolvedLanguage)}</span>
-      <span className={styles.muted}>· {countdown}</span>
+      {formatWhen(resetAtMs, now, i18n.resolvedLanguage)} · {countdown}
     </span>
   );
 }
@@ -156,42 +158,43 @@ function SpendCell({
     return <span className={`${styles.cell} ${styles.unknown}`}>—</span>;
   }
   const { window, subscription, usedPercent } = summary;
-  const content = (
+  const amount = formatUsd(summary.costUsd, locale);
+  const stale = spend.stale ? styles.stale : '';
+  const explanation = (
     <>
-      <span className={styles.spendValue}>{formatUsd(summary.costUsd, locale)}</span>
       {summary.estimateUsd !== null && (
-        <span
-          className={styles.muted}
-          title={t('usage.sub_estimate_hint', { percent: formatPercent(usedPercent ?? 0, 0) })}
-        >
-          {t('usage.sub_estimate', { amount: formatUsd(summary.estimateUsd, locale, true) })}
+        <span className={styles.cardLine}>
+          <b>{t('usage.sub_estimate', { amount: formatUsd(summary.estimateUsd, locale, true) })}</b>
+          <br />
+          {t('usage.sub_estimate_hint', { percent: formatPercent(usedPercent ?? 0, 0) })}
         </span>
       )}
+      <span className={styles.cardLine}>
+        {window
+          ? t('usage_accounts.spend_open_hint')
+          : t('usage.sub_no_window', { range: spend.rangeName, span: spend.rangeSpan })}
+      </span>
     </>
   );
-  const stale = spend.stale ? styles.stale : '';
-  if (!window) {
-    return (
-      <span
-        className={`${styles.cell} ${styles.spend} ${stale}`}
-        title={t('usage.sub_no_window', { range: spend.rangeName, span: spend.rangeSpan })}
-      >
-        {content}
-      </span>
-    );
-  }
   return (
-    <button
-      type="button"
-      className={`${styles.cell} ${styles.spend} ${styles.spendButton} ${stale}`}
-      aria-pressed={spend.activeId === subscription.id}
-      aria-label={`${t('usage.sub_open')}: ${formatUsd(summary.costUsd, locale)} ${t('usage.sub_spend_window')}`}
-      aria-describedby={labelId}
-      title={t('usage.sub_open')}
-      onClick={() => spend.onSelect(subscription.id)}
-    >
-      {content}
-    </button>
+    <HoverCard content={explanation} className={styles.cell} focusable={!window}>
+      {window ? (
+        <button
+          type="button"
+          className={`${styles.spend} ${styles.spendButton} ${stale}`}
+          aria-pressed={spend.activeId === subscription.id}
+          aria-label={`${t('usage.sub_open')}: ${amount} ${t('usage.sub_spend_window')}`}
+          aria-describedby={labelId}
+          onClick={() => spend.onSelect(subscription.id)}
+        >
+          <span className={styles.spendValue}>{amount}</span>
+        </button>
+      ) : (
+        <span className={`${styles.spend} ${stale}`}>
+          <span className={styles.spendValue}>{amount}</span>
+        </span>
+      )}
+    </HoverCard>
   );
 }
 
@@ -207,19 +210,39 @@ function SplitCell({
   if (spend.status !== 'ready' || !summary || summary.costUsd <= 0) {
     return <span className={styles.cell} />;
   }
+  const locale = i18n.resolvedLanguage;
   const breakdown = summary.users
-    .map(
-      (user) => `${spend.userLabel(user.user)} ${formatUsd(user.costUsd, i18n.resolvedLanguage)}`
-    )
+    .map((user) => `${spend.userLabel(user.user)} ${formatUsd(user.costUsd, locale)}`)
     .join(' · ');
+  const card = (
+    <span className={styles.splitCard}>
+      {summary.users.map((user) => (
+        <span key={user.user || '\u0000'} className={styles.splitCardRow}>
+          <span
+            className={`${styles.swatch} ${slotClassName(spend.userSlots.get(user.user) ?? 'other')}`}
+            aria-hidden="true"
+          />
+          <span>{spend.userLabel(user.user)}</span>
+          <b>{formatUsd(user.costUsd, locale)}</b>
+          <span className={styles.muted}>
+            {formatPercent((user.costUsd / summary.costUsd) * 100, 0)}
+          </span>
+        </span>
+      ))}
+    </span>
+  );
   return (
-    <span
-      className={styles.cell}
-      role="img"
-      aria-label={t('usage_accounts.split_aria', { breakdown })}
-      title={breakdown}
+    <HoverCard
+      content={card}
+      className={`${styles.cell} ${styles.splitCell}`}
+      align="end"
+      focusable
     >
-      <span className={styles.split}>
+      <span
+        className={styles.split}
+        role="img"
+        aria-label={t('usage_accounts.split_aria', { breakdown })}
+      >
         {summary.users.map((user) => (
           <span
             key={user.user || '\u0000'}
@@ -228,7 +251,47 @@ function SplitCell({
           />
         ))}
       </span>
-    </span>
+    </HoverCard>
+  );
+}
+
+/* ---------- Routing status ---------- */
+
+/**
+ * The gateway's routing status as a small dot before the name, with a card on
+ * why and until when. "target" is where the provider's requests go right now.
+ */
+function RoutingDot({ file }: { file: AuthFileItem }) {
+  const { t, i18n } = useTranslation();
+  const now = useNow();
+  const status = file.routingStatus;
+  if (!status) return null;
+  const label = t(`routing.state_${status.state}`);
+  const left = status.untilMs !== undefined ? formatCountdown(t, status.untilMs, now) : null;
+  const card = (
+    <>
+      <strong>{label}</strong>
+      <span className={styles.cardLine}>{t(`routing.explain_${status.state}`)}</span>
+      {status.reason && <span className={styles.cardLine}>{status.reason}</span>}
+      {status.untilMs !== undefined && left && (
+        <span className={styles.cardLine}>
+          {t('routing.until', {
+            time: formatWhen(status.untilMs, now, i18n.resolvedLanguage),
+            left,
+          })}
+        </span>
+      )}
+    </>
+  );
+  return (
+    <HoverCard content={card} focusable className={styles.dotAnchor}>
+      <span
+        className={styles.routingDot}
+        data-state={status.state}
+        role="img"
+        aria-label={t('routing.aria', { state: label })}
+      />
+    </HoverCard>
   );
 }
 
@@ -296,9 +359,9 @@ function StatusToggle({
 export interface AccountRowProps {
   provider: string;
   resolvedTheme: ResolvedTheme;
-  /** The account's display name (email where known). */
+  /** The account's display name: its nickname, else its email, else its file name. */
   name: string;
-  /** On hover: the credential's file name. */
+  /** On hover: the email and the credential's file name. */
   title: string;
   nameId: string;
   mono?: boolean;
@@ -308,7 +371,6 @@ export interface AccountRowProps {
   windows: AccountWindows;
   /** Our share of each window, for the reserve tick. */
   capPercent: { short: number | null; long: number | null };
-  resetAtMs: number | null;
   summary: SubscriptionSummary | null;
   spend: AccountSpendContext;
   /** The quota failed to load; the details say why. */
@@ -338,7 +400,6 @@ export function AccountRow(props: AccountRowProps) {
     plan,
     windows,
     capPercent,
-    resetAtMs,
     summary,
     spend,
     errorMessage,
@@ -371,26 +432,29 @@ export function AccountRow(props: AccountRowProps) {
         }}
       >
         <ProviderIcon provider={provider} resolvedTheme={resolvedTheme} />
-        <button
-          type="button"
-          className={styles.account}
-          aria-expanded={expanded}
-          aria-controls={detailsId}
-          onClick={() => setExpanded((open) => !open)}
-        >
-          <span id={nameId} className={`${styles.name} ${mono ? styles.mono : ''}`} title={title}>
-            {name}
-          </span>
-          {errorMessage && (
-            <IconAlertTriangle
-              size={12}
-              className={styles.errorIcon}
-              aria-label={errorMessage}
-              role="img"
-            />
-          )}
-          <IconChevronRight size={12} aria-hidden="true" className={styles.chevron} />
-        </button>
+        <span className={styles.identity}>
+          {file && <RoutingDot file={file} />}
+          <button
+            type="button"
+            className={styles.account}
+            aria-expanded={expanded}
+            aria-controls={detailsId}
+            onClick={() => setExpanded((open) => !open)}
+          >
+            <span id={nameId} className={`${styles.name} ${mono ? styles.mono : ''}`} title={title}>
+              {name}
+            </span>
+            {errorMessage && (
+              <IconAlertTriangle
+                size={12}
+                className={styles.errorIcon}
+                aria-label={errorMessage}
+                role="img"
+              />
+            )}
+            <IconChevronRight size={12} aria-hidden="true" className={styles.chevron} />
+          </button>
+        </span>
         <span className={`${styles.cell} ${styles.plan}`}>{plan}</span>
         <WindowCell
           window={windows.short}
@@ -403,9 +467,17 @@ export function AccountRow(props: AccountRowProps) {
           capPercent={capPercent.long}
           long
         />
-        <ResetCell resetAtMs={resetAtMs} />
         <SpendCell summary={summary} spend={spend} labelId={nameId} />
         <SplitCell summary={summary} spend={spend} />
+        {file ? (
+          <PaceControl
+            file={file}
+            resets={nextResetsOf(windows)}
+            onChange={(patch) => onFileChange(getQuotaCacheKey(file), patch)}
+          />
+        ) : (
+          <span />
+        )}
         <span className={styles.controls}>
           {file ? <StatusToggle file={file} onFileChange={onFileChange} /> : <span />}
           <span className={styles.actions}>

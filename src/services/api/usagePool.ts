@@ -1,5 +1,9 @@
 import { apiClient } from './client';
 import { isRecord } from '@/utils/helpers';
+import type { AuthFilePaceMode } from '@/types';
+
+/** How long a timed override lasts: a Go duration ("4h") or an RFC 3339 end. */
+export type TimedSpan = { duration: string; until?: never } | { until: string; duration?: never };
 
 /**
  * Fork-only gateway usage reserves: a provider's pooled windows in Pro-plan
@@ -141,12 +145,31 @@ export const usagePoolApi = {
 
   clearOverride: (user: string) => apiClient.delete('/usage/override', { params: { user } }),
 
-  /** Releases a lender's reserves for duration (a Go duration such as "4h"); resolves to its end. */
-  async setLenderOverride(lender: string, duration: string): Promise<number | null> {
-    const data = await apiClient.post<unknown>('/usage/override', { lender, duration });
+  /**
+   * Releases a lender's reserves for a Go duration ("4h") or until an instant,
+   * optionally still keeping keepPercent of each window; resolves to its end.
+   */
+  async setLenderOverride(
+    lender: string,
+    span: TimedSpan,
+    keepPercent?: number
+  ): Promise<number | null> {
+    const data = await apiClient.post<unknown>('/usage/override', {
+      lender,
+      ...span,
+      ...(keepPercent !== undefined ? { keep_percent: keepPercent } : {}),
+    });
     return time(isRecord(data) ? data.override_until : undefined);
   },
 
   clearLenderOverride: (lender: string) =>
     apiClient.delete('/usage/override', { params: { lender } }),
+
+  /** Sets a credential's pace override; resolves to its end when the gateway reports one. */
+  async setPace(name: string, mode: AuthFilePaceMode, span: TimedSpan): Promise<number | null> {
+    const data = await apiClient.post<unknown>('/usage/pace', { name, mode, ...span });
+    return time(isRecord(data) ? data.pace_until : undefined);
+  },
+
+  clearPace: (name: string) => apiClient.delete('/usage/pace', { params: { name } }),
 };

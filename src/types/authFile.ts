@@ -40,6 +40,29 @@ export interface AuthFileCooldownSnapshot {
   records: AuthFileCooldown[] | null;
 }
 
+export type AuthFilePaceMode = 'flash' | 'shield';
+
+export const ROUTING_STATES = [
+  'target',
+  'available',
+  'flash',
+  'shield',
+  'reserve_hold',
+  'cooldown',
+  'exhausted',
+  'disabled',
+  'error',
+] as const;
+export type AuthFileRoutingState = (typeof ROUTING_STATES)[number];
+
+export interface AuthFileRoutingStatus {
+  state: AuthFileRoutingState;
+  reason: string;
+  window?: 'five_hour' | 'weekly';
+  /** When the state lifts (ms), if the gateway knows. */
+  untilMs?: number;
+}
+
 export interface AuthFileItem {
   name: string;
   type?: AuthFileType | string;
@@ -83,6 +106,16 @@ export interface AuthFileItem {
   lender?: string;
   /** End of the lender's temporary reserve release (ms); absent when none is active. */
   lenderReserveOverrideUntilMs?: number;
+  /** The share of each window the release still keeps for the lender, 0..100. */
+  lenderReserveOverrideKeepPercent?: number;
+  /** Display name set on the gateway; rows fall back to the email. */
+  nickname?: string;
+  /** Pace override: `flash` routes here first, `shield` only when nothing else is eligible. */
+  paceMode?: AuthFilePaceMode;
+  /** End of the pace override (ms). */
+  paceUntilMs?: number;
+  /** Why the gateway routes to this credential or not, right now; absent on older gateways. */
+  routingStatus?: AuthFileRoutingStatus;
   note?: string;
   success?: unknown;
   failed?: unknown;

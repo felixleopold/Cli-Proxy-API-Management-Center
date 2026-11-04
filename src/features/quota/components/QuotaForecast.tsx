@@ -6,6 +6,8 @@
  *
  * QuotaTimeline answers "when does each credential come back"; this answers "how
  * much do I have, in total, over the next days". Pools read in plan multipliers.
+ * "For" switches the cards' numbers to what the gateway leaves one person after
+ * their reserve (GET /usage/pool?user=), with that person's reserve override.
  */
 
 import { useCallback, useMemo, useState } from 'react';
@@ -13,10 +15,13 @@ import type { CSSProperties, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconChevronDown } from '@/components/ui/icons';
 import { Select } from '@/components/ui/Select';
+import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { useNow } from '@/hooks/useNow';
-import { useThemeStore } from '@/stores';
+import { useNotificationStore, useThemeStore } from '@/stores';
+import type { UsagePoolReport } from '@/services/api/usagePool';
 import type { AuthFileItem } from '@/types';
 import { getAuthFileIcon, getTypeLabel } from '@/features/authFiles/constants';
+import { useLedgerUsers } from '@/features/usage/hooks/useLedgerUsers';
 import {
   BURN_WINDOW_HOURS,
   DAY_MS,
@@ -34,6 +39,7 @@ import {
   poolEmpty,
   poolHistory,
   poolResetCredits,
+  poolResetEvents,
   projectPool,
   recentBurn,
   steadyActivity,
@@ -43,12 +49,22 @@ import {
   type ForecastHorizonDays,
   type ForecastProvider,
   type PoolEmpty,
+  type ProviderPool,
+  type ResetAccount,
   type ResetCreditLike,
   type SleepHours,
 } from '../quotaForecastModel';
 import { readForecastPrefs, writeForecastPrefs, type ForecastPrefs } from '../quotaForecastPrefs';
 import { formatMultiplier, shareLeft } from '../planMultipliers';
 import type { QuotaHistoryState } from '../hooks/useQuotaHistory';
+import { useUsagePool } from '../hooks/useUsagePool';
+import {
+  activeOverrideUntil,
+  formatPoolTime,
+  overrideTarget,
+  poolProviders,
+} from '../usagePoolModel';
+import { HoverCard, InfoHint } from './HoverCard';
 import { readQuotaUiState, writeQuotaUiState } from '../uiState';
 import { DrainChart, RemainingChart, type ForecastRow } from './QuotaForecastChart';
 import styles from './QuotaForecast.module.scss';
@@ -122,6 +138,11 @@ export function QuotaForecast({
   });
   const [view, setView] = useState<ForecastView>('remaining');
   const [drainDays, setDrainDays] = useState<DrainSpanDays>(7);
+  const users = useLedgerUsers();
+  const [person, setPerson] = useState('');
+  // Only a chosen person needs the gateway's pool report; everyone is the cards' own view.
+  const personPools = useUsagePool(person ? poolProviders(files, tab) : [], person);
+  const showNotification = useNotificationStore((store) => store.showNotification);
 
   const visible = useMemo(
     () => (tab === 'all' ? pools : pools.filter((pool) => pool.provider === tab)),
@@ -189,7 +210,9 @@ export function QuotaForecast({
     () =>
       new Map(
         files.flatMap((file) =>
-          typeof file.id === 'string' ? [[file.id, file.email || file.name] as const] : []
+          typeof file.id === 'string'
+            ? [[file.id, file.nickname || file.email || file.name] as const]
+            : []
         )
       ),
     [files]
@@ -217,6 +240,7 @@ export function QuotaForecast({
                 }
               : null,
           credits,
+          resets: poolResetEvents(pool, samples ?? [], startMs, nowMs, endMs, projected, scenario),
         };
         const first = firstCredentialEmpty(pool, nowMs, projected, scenario);
         return {
@@ -291,7 +315,8 @@ export function QuotaForecast({
     onChange: (next: T) => void,
     label: string,
     prefix: string,
-    format: (option: T) => string
+    format: (option: T) => string,
+    hint: string
   ) => (
     <div className={styles.control}>
       <span className={styles.controlLabel} aria-hidden="true">
@@ -309,6 +334,9 @@ export function QuotaForecast({
           </button>
         ))}
       </div>
+      <span className={styles.controlHint}>
+        <InfoHint label={prefix} text={hint} />
+      </span>
     </div>
   );
   const daysShort = (count: number) => t('quota_management.forecast_days_short', { count });
@@ -319,8 +347,70 @@ export function QuotaForecast({
       : empty.kind === 'at'
         ? numbers.when(empty.atMs)
         : empty.kind === 'not-before-reset'
-          ? t('quota_forecast.pool_not_before_reset')
-          : t('quota_forecast.pool_not_by', { date: numbers.date(empty.atMs) });
+          ? t('quota_forecast.runs_out_after_resets')
+          : t('quota_forecast.runs_out_after', { date: numbers.date(empty.atMs) });
+  const formatResetAccount = (account: ResetAccount, projectedReset: boolean) => {
+    const used = Math.round(account.usedPercent);
+    return {
+      value: t(
+        projectedReset ? 'quota_forecast.reset_used_projected' : 'quota_forecast.reset_used',
+        {
+          percent: used,
+        }
+      ),
+      label:
+        account.capPercent < 100
+          ? t('quota_forecast.reset_account_share', {
+              name: accountNames.get(account.authId) ?? account.authId,
+              percent: account.capPercent,
+            })
+          : (accountNames.get(account.authId) ?? account.authId),
+    };
+  };
+
+  // The person's view of a card: what the gateway leaves them of the card's window.
+  const personReport = (pool: ProviderPool): UsagePoolReport | undefined =>
+    person ? personPools.reports.find((report) => report.provider === pool.provider) : undefined;
+  const personWindow = (pool: ProviderPool) => {
+    const kind = pool.credentials.some((credential) => credential.window === 'weekly')
+      ? 'weekly'
+      : 'five_hour';
+    return personReport(pool)?.windows.find(
+      (window) => window.kind === kind && window.capacity > 0
+    );
+  };
+  const shownPerson = personPools.reports.find((report) => report.user)?.user ?? null;
+  const overrideUntil = activeOverrideUntil(shownPerson, nowMs);
+  const overrideFor = overrideTarget(personPools.reports, person);
+  const toggleOverride = async (on: boolean) => {
+    try {
+      if (overrideFor) await personPools.setOverride(overrideFor, on);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : t('common.unknown_error');
+      showNotification(t('usage_pool.override_failed', { message }), 'error');
+    }
+  };
+  const personPicker = users.length > 0 && personPools.supported && (
+    <div className={styles.control}>
+      <span className={styles.controlLabel} aria-hidden="true">
+        {t('quota_forecast.for_label')}
+      </span>
+      <Select
+        size="sm"
+        className={styles.futureSelect}
+        value={person}
+        options={[
+          { value: '', label: t('usage_pool.person_everyone') },
+          ...users.map((name) => ({ value: name, label: name })),
+        ]}
+        ariaLabel={t('quota_forecast.for_label')}
+        onChange={setPerson}
+      />
+      <span className={styles.controlHint}>
+        <InfoHint label={t('quota_forecast.for_label')} text={t('quota_forecast.for_hint')} />
+      </span>
+    </div>
+  );
 
   const legendKey = (variant: keyof typeof LEGEND_KEY, color: string) => (
     <span
@@ -337,8 +427,13 @@ export function QuotaForecast({
   );
 
   return (
-    <section className={styles.forecast} aria-label={t('quota_management.forecast_title')}>
+    <section
+      className={styles.forecast}
+      aria-label={t('quota_management.forecast_title')}
+      data-shot-section="pools"
+    >
       <div className={styles.controls}>
+        {personPicker}
         <div
           className={styles.segmented}
           role="tablist"
@@ -357,6 +452,9 @@ export function QuotaForecast({
                 : t('quota_management.forecast_tab_drain')}
             </button>
           ))}
+          <span className={styles.controlHint}>
+            <InfoHint label={t('quota_forecast.view_label')} text={t('quota_forecast.view_hint')} />
+          </span>
         </div>
         {segmented(
           BURN_WINDOW_HOURS,
@@ -364,7 +462,8 @@ export function QuotaForecast({
           (burnHours) => updatePrefs({ burnHours }),
           t('quota_forecast.burn_window_label'),
           t('quota_forecast.burn_label'),
-          (count) => t('quota_forecast.hours_short', { count })
+          (count) => t('quota_forecast.hours_short', { count }),
+          t('quota_forecast.burn_hint')
         )}
         {view === 'remaining' && (
           <div className={styles.control}>
@@ -385,6 +484,12 @@ export function QuotaForecast({
                 if (next) updatePrefs({ future: next });
               }}
             />
+            <span className={styles.controlHint}>
+              <InfoHint
+                label={t('quota_forecast.future_label')}
+                text={t('quota_forecast.future_hint')}
+              />
+            </span>
           </div>
         )}
         {view === 'remaining'
@@ -394,7 +499,8 @@ export function QuotaForecast({
               chooseHorizon,
               t('quota_management.forecast_horizon_label'),
               t('quota_management.forecast_next'),
-              daysShort
+              daysShort,
+              t('quota_forecast.horizon_hint')
             )
           : segmented(
               DRAIN_SPAN_DAYS,
@@ -402,10 +508,51 @@ export function QuotaForecast({
               setDrainDays,
               t('quota_management.forecast_drain_span_label'),
               t('quota_management.forecast_last'),
-              daysShort
+              daysShort,
+              t('quota_forecast.drain_span_hint')
             )}
       </div>
       {historyNote && view === 'remaining' && <p className={styles.note}>{historyNote}</p>}
+      {person && personPools.error && (
+        <p className={styles.note} role="alert">
+          {t('usage_pool.load_failed', { message: personPools.error })}
+        </p>
+      )}
+      {shownPerson && (
+        <div className={styles.personBar}>
+          <span>
+            <strong>
+              {shownPerson.reservePercent > 0
+                ? t('usage_pool.person_reserve', {
+                    name: shownPerson.name,
+                    percent: shownPerson.reservePercent,
+                  })
+                : shownPerson.name}
+            </strong>{' '}
+            ·{' '}
+            {overrideUntil !== null
+              ? t('usage_pool.person_override_until', {
+                  time: formatPoolTime(overrideUntil, nowMs, language),
+                })
+              : shownPerson.reservePercent <= 0
+                ? t('usage_pool.person_no_reserve')
+                : shownPerson.softStopped
+                  ? t('quota_forecast.person_paused')
+                  : t('usage_pool.person_using')}
+          </span>
+          {shownPerson.reservePercent > 0 && (
+            <label className={styles.override}>
+              <span>{t('usage_pool.override_label')}</span>
+              <ToggleSwitch
+                checked={overrideUntil !== null}
+                onChange={(on) => void toggleOverride(on)}
+                disabled={personPools.saving || overrideFor === null}
+                ariaLabel={t('usage_pool.override_aria', { name: shownPerson.name })}
+              />
+            </label>
+          )}
+        </div>
+      )}
 
       {cards.map(({ pool, row, summary, empty, first, burn, drain }) => {
         const provider = pool.provider;
@@ -424,8 +571,17 @@ export function QuotaForecast({
             <span className={styles.accounts}>{accounts}</span>
           </span>
         );
-        const remaining = numbers.multiplier(summary.remaining);
-        const of = t('quota_forecast.of', { capacity: numbers.multiplier(summary.capacity) });
+        const forPerson = personWindow(pool);
+        const remaining = numbers.multiplier(
+          forPerson ? (forPerson.capacity * forPerson.leftForUserPercent) / 100 : summary.remaining
+        );
+        const of = forPerson
+          ? t('quota_forecast.left_for', {
+              name: person,
+              percent: Math.round(forPerson.leftForUserPercent),
+              capacity: numbers.multiplier(forPerson.capacity),
+            })
+          : t('quota_forecast.of', { capacity: numbers.multiplier(summary.capacity) });
         const nextReset = summary.nextReset && (
           <>
             <span className={styles.gain}>{formatJump(summary.nextReset.restore)}</span>{' '}
@@ -485,13 +641,27 @@ export function QuotaForecast({
             </header>
 
             <div className={styles.cardSummary}>
-              <div className={styles.hero}>
+              <HoverCard
+                className={styles.hero}
+                focusable
+                content={
+                  forPerson ? t('quota_forecast.hero_person_hint') : t('quota_forecast.hero_hint')
+                }
+              >
                 <strong className={styles.heroValue}>{remaining}</strong>
                 <span className={styles.of}>{of}</span>
-              </div>
+              </HoverCard>
               <dl className={styles.stats}>
-                <Stat label={t('quota_forecast.stat_pool_empty')}>{emptyText(empty)}</Stat>
-                <Stat label={t('quota_forecast.stat_first_empty')}>
+                <Stat
+                  label={t('quota_forecast.stat_runs_out')}
+                  hint={t('quota_forecast.stat_runs_out_hint', { count: horizon })}
+                >
+                  {emptyText(empty)}
+                </Stat>
+                <Stat
+                  label={t('quota_forecast.stat_first_dry')}
+                  hint={t('quota_forecast.stat_first_dry_hint')}
+                >
                   {first ? (
                     <>
                       <span className={styles.account} title={first.name}>
@@ -505,8 +675,18 @@ export function QuotaForecast({
                     t('quota_forecast.first_empty_none')
                   )}
                 </Stat>
-                {nextReset && <Stat label={t('quota_forecast.stat_next_reset')}>{nextReset}</Stat>}
-                <Stat label={t('quota_forecast.stat_burn', { count: prefs.burnHours })}>
+                {nextReset && (
+                  <Stat
+                    label={t('quota_forecast.stat_next_reset')}
+                    hint={t('quota_forecast.stat_next_reset_hint')}
+                  >
+                    {nextReset}
+                  </Stat>
+                )}
+                <Stat
+                  label={t('quota_forecast.stat_burn', { count: prefs.burnHours })}
+                  hint={t('quota_forecast.stat_burn_hint', { count: prefs.burnHours })}
+                >
                   {burn === null
                     ? '–'
                     : t('quota_forecast.per_hour', { rate: numbers.multiplier(burn) })}
@@ -529,6 +709,7 @@ export function QuotaForecast({
                 projectedLabel={t('quota_management.forecast_legend_projected')}
                 nowLabel={t('quota_management.forecast_now')}
                 creditLabel={t('quota_management.forecast_legend_reset_credit')}
+                formatResetAccount={formatResetAccount}
               />
             ) : drain ? (
               <DrainChart
@@ -573,6 +754,22 @@ export function QuotaForecast({
                         legendKey('band', 'var(--text-tertiary)'),
                         t('quota_management.forecast_legend_night')
                       ),
+                    row.resets.length > 0 && (
+                      <HoverCard
+                        key="resets"
+                        className={styles.legendItem}
+                        focusable
+                        content={t('quota_forecast.legend_resets_hint')}
+                      >
+                        {t('quota_forecast.legend_resets')}
+                        {(['full', 'partial', 'low'] as const).map((use) => (
+                          <span key={use} className={styles.legendUse}>
+                            <span className={styles.keyDot} data-use={use} aria-hidden="true" />
+                            {t(`quota_forecast.legend_reset_${use}`)}
+                          </span>
+                        ))}
+                      </HoverCard>
+                    ),
                     hasCreditMarker &&
                       legendItem(
                         legendKey('tick', 'var(--amber-color)'),
@@ -633,10 +830,15 @@ export function QuotaForecast({
   );
 }
 
-function Stat({ label, children }: { label: string; children: ReactNode }) {
+/** A labelled number; hovering or focusing the label explains it. */
+function Stat({ label, hint, children }: { label: string; hint: string; children: ReactNode }) {
   return (
     <div className={styles.stat}>
-      <dt>{label}</dt>
+      <dt>
+        <HoverCard content={hint} focusable align="end">
+          <span className={styles.statLabel}>{label}</span>
+        </HoverCard>
+      </dt>
       <dd>{children}</dd>
     </div>
   );

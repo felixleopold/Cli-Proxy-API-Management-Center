@@ -15,7 +15,12 @@ import {
   creditsNear,
   nightBands,
   valueAt,
+  resetEventAt,
+  resetUseOf,
   seriesJumps,
+  type PoolResetEvent,
+  type ResetAccount,
+  type ResetUse,
   type SeriesPoint,
 } from '../quotaForecastModel';
 import styles from './QuotaForecast.module.scss';
@@ -217,6 +222,7 @@ interface TooltipRow {
   dashed?: boolean;
   bar?: boolean;
   tick?: boolean;
+  dot?: boolean;
   value: string;
   label: string;
 }
@@ -246,13 +252,15 @@ function Tooltip({
         <div key={row.key} className={styles.tooltipRow}>
           <span
             className={
-              row.tick
-                ? styles.keyTick
-                : row.bar
-                  ? styles.keyBar
-                  : row.dashed
-                    ? styles.keyDashed
-                    : styles.keyLine
+              row.dot
+                ? styles.keyDot
+                : row.tick
+                  ? styles.keyTick
+                  : row.bar
+                    ? styles.keyBar
+                    : row.dashed
+                      ? styles.keyDashed
+                      : styles.keyLine
             }
             style={{ '--series': row.color } as CSSProperties}
           />
@@ -332,6 +340,8 @@ export interface ForecastRow {
   range: { low: SeriesPoint[]; high: SeriesPoint[] } | null;
   /** Expiry instants of manual resets not yet used, drawn as markers. */
   credits: number[];
+  /** Resets of the pool's accounts, recorded and projected, to colour and explain the jumps. */
+  resets: PoolResetEvent[];
 }
 
 export interface RemainingChartProps {
@@ -352,6 +362,11 @@ export interface RemainingChartProps {
   nowLabel: string;
   /** Tooltip name of a manual reset marker. */
   creditLabel: string;
+  /** Tooltip row of one account in a reset, e.g. value "96% used", label "agent01". */
+  formatResetAccount: (
+    account: ResetAccount,
+    projected: boolean
+  ) => { value: string; label: string };
 }
 
 /** Hovering this close to a manual reset marker names it in the tooltip. */
@@ -359,7 +374,18 @@ const CREDIT_HOVER_PX = 6;
 /** Jumps below this share of the pool are not labelled. */
 const JUMP_LABEL_MIN_SHARE = 0.02;
 /** Labels closer than this collide; the second moves below the line, else is dropped. */
-const JUMP_LABEL_GAP_PX = 44;
+const JUMP_LABEL_GAP_PX = 58;
+/** Hovering this close to a reset names its accounts in the tooltip. */
+const RESET_HOVER_PX = 10;
+const JUMP_PILL_HEIGHT = 18;
+/** Pill width from the label's length: tabular digits at 11px are about 6.5px wide. */
+const pillWidth = (text: string) => Math.round(text.length * 6.5 + 12);
+
+const USE_COLOR: Record<ResetUse, string> = {
+  full: 'var(--success-color)',
+  partial: 'var(--amber-color)',
+  low: 'var(--danger-color)',
+};
 
 const areaPath = (points: { x: number; y: number }[], baseY: number) =>
   points.length > 1
@@ -380,8 +406,11 @@ const seriesAt = (row: ForecastRow, t: number, nowMs: number) =>
 
 interface JumpLabel {
   x: number;
+  /** Centre line of the pill. */
   y: number;
   text: string;
+  /** How fully the resetting accounts were used; null for a jump that is no reset (an account joining). */
+  use: ResetUse | null;
 }
 
 /** Labels for reset jumps, kept apart: above the line, else below it, else dropped. */
@@ -393,23 +422,31 @@ const placeJumpLabels = (
 ): JumpLabel[] => {
   const minDelta = row.capacity * JUMP_LABEL_MIN_SHARE;
   const jumps = [...seriesJumps(row.history, minDelta), ...seriesJumps(row.projection, minDelta)];
-  const left = MARGIN.left + 14;
-  const right = frame.width - MARGIN.right - 14;
+  const right = frame.width - MARGIN.right;
   // The "Now" label already sits above the plot.
   const taken: { x: number; above: boolean }[] = [{ x: nowX, above: true }];
   const clear = (x: number, above: boolean) =>
     taken.every((spot) => spot.above !== above || Math.abs(spot.x - x) >= JUMP_LABEL_GAP_PX);
   return jumps.flatMap((jump) => {
     const x = frame.x(jump.t);
-    if (x < MARGIN.left || x > frame.width - MARGIN.right) return [];
+    if (x < MARGIN.left || x > right) return [];
     const above = clear(x, true);
     if (!above && !clear(x, false)) return [];
     taken.push({ x, above });
+    const text = formatJump(jump.to - jump.from);
+    const half = pillWidth(text) / 2 + 2;
+    const event = resetEventAt(row.resets, jump.t);
     return [
       {
-        x: Math.min(right, Math.max(left, x)),
-        y: above ? frame.y(jump.to) - 7 : Math.min(frame.baseY - 4, frame.y(jump.from) + 15),
-        text: formatJump(jump.to - jump.from),
+        x: Math.min(right - half, Math.max(MARGIN.left + half, x)),
+        y: above
+          ? Math.max(frame.top + JUMP_PILL_HEIGHT / 2, frame.y(jump.to) - JUMP_PILL_HEIGHT / 2 - 4)
+          : Math.min(
+              frame.baseY - JUMP_PILL_HEIGHT / 2 - 2,
+              frame.y(jump.from) + JUMP_PILL_HEIGHT / 2 + 4
+            ),
+        text,
+        use: event ? resetUseOf(event.utilization) : null,
       },
     ];
   });
@@ -430,6 +467,7 @@ export function RemainingChart({
   projectedLabel,
   nowLabel,
   creditLabel,
+  formatResetAccount,
 }: RemainingChartProps) {
   const [ref, width] = useElementWidth();
   const gradientId = useId();
@@ -452,6 +490,14 @@ export function RemainingChart({
   };
 
   const creditTolerance = (CREDIT_HOVER_PX / Math.max(1, plotWidth)) * (toMs - fromMs);
+  const resetTolerance = (RESET_HOVER_PX / Math.max(1, plotWidth)) * (toMs - fromMs);
+  const resetNear = (t: number) =>
+    row.resets.reduce<PoolResetEvent | null>((best, event) => {
+      const distance = Math.abs(event.atMs - t);
+      return distance <= resetTolerance && (best === null || distance < Math.abs(best.atMs - t))
+        ? event
+        : best;
+    }, null);
   const tooltipRows = (t: number): TooltipRow[] => {
     const value = seriesAt(row, t, nowMs);
     if (value === null) return [];
@@ -470,6 +516,17 @@ export function RemainingChart({
             ? `${name} · ${formatValue(low)}–${formatValue(high)}`
             : name,
       },
+      ...(() => {
+        const event = resetNear(t);
+        if (!event) return [];
+        const use = resetUseOf(event.utilization);
+        return event.accounts.map((account) => ({
+          key: `reset-${account.authId}`,
+          color: USE_COLOR[use],
+          dot: true,
+          ...formatResetAccount(account, event.projected),
+        }));
+      })(),
       ...creditsNear(row.credits, t, creditTolerance, fromMs, toMs).map((expiresAtMs, index) => ({
         key: `credit-${index}`,
         color: 'var(--amber-color)',
@@ -566,11 +623,32 @@ export function RemainingChart({
           />
         )}
 
-        {jumpLabels.map((label) => (
-          <text key={`${label.x}-${label.y}`} className={styles.jumpLabel} x={label.x} y={label.y}>
-            {label.text}
-          </text>
-        ))}
+        {jumpLabels.map((label) => {
+          const width = pillWidth(label.text);
+          return (
+            <g
+              key={`${label.x}-${label.y}`}
+              className={styles.jump}
+              style={
+                {
+                  '--use': label.use ? USE_COLOR[label.use] : 'var(--text-secondary)',
+                } as CSSProperties
+              }
+            >
+              <rect
+                className={styles.jumpPill}
+                x={label.x - width / 2}
+                y={label.y - JUMP_PILL_HEIGHT / 2}
+                width={width}
+                height={JUMP_PILL_HEIGHT}
+                rx={JUMP_PILL_HEIGHT / 2}
+              />
+              <text className={styles.jumpLabel} x={label.x} y={label.y} dy="0.35em">
+                {label.text}
+              </text>
+            </g>
+          );
+        })}
 
         {current && (
           <circle className={styles.dot} cx={frame.x(current.t)} cy={frame.y(current.v)} r={4} />

@@ -22,17 +22,28 @@ Current base: upstream `v1.25.6`.
   while the label shows remaining. A legend entry (`quota_management.windows_legend_used`) says so.
 - **Usage & quota page** (`/usage-quota`, OBSERVE; `/usage` and `/quota` redirect there). Near-black,
   one provider filter, in order: header (counts, the Claude credit switch as an inline toggle, Refresh
-  all), the *pool cards* (see Quota forecast), the gateway's reserve pool as a collapsed disclosure
-  (`components/UsagePool.tsx`), *Accounts*, the *Quota windows* timeline, *Spend history*, then the
-  device label editor collapsed. *Accounts* is a compact list, one row per credential: icon, email
-  (file name on hover), plan and multiplier chip, 5-hour and weekly bars as % left (readings from the
-  forecast pools, else the loaded quota; "—" when nothing reports), the reset as "Fri 16:00 · 1d 3h",
-  "$X ≈ $Y at 100%" (clicking it swaps that window into the spend history, with ‹ › and "Back to 7d"),
-  a user split bar, the enable toggle (`PATCH /credentials/status`), reset, refresh and ⚙. A row
-  expands to every window (model-scoped ones too), manual resets and expiries, renewal and credits, the
-  plan share, the lender with its reserve release, and spend by user. ⚙ opens usage settings only
-  (priority, weight, Claude plan, plan multiplier, usage cap, lender, 5-hour and weekly reserve),
-  saved diff-only through `PATCH /credentials/fields`; file management stays on Auth Files. A row pairs
+  all), the *Reserves* strip (see Usage reserves), the *pool cards* (see Quota forecast), *Accounts*,
+  the *Quota windows* timeline, *Spend history*, then the device label editor collapsed. *Accounts*
+  is a compact list, one row per credential: icon, the gateway's routing status as a static dot
+  (`routing_status` on `/credentials`: target, available, flash, shield, reserve_hold, cooldown,
+  exhausted, disabled, error; a hover card says why and until when; no field, no dot), the
+  `nickname` (else the email; email and file name on hover), the multiplier chip (plan and share on
+  hover), 5-hour and weekly bars as % left each with its own reset "Fri 16:00 · 1d 3h" underneath
+  (readings from the forecast pools, else the loaded quota; "—" when nothing reports), "$X" in the
+  window (≈ at 100% on hover; clicking it swaps that window into the spend history, with ‹ › and
+  "Back to 7d"), a user split bar with per-person amounts on hover, the pace buttons, the enable
+  toggle (`PATCH /credentials/status`), reset, refresh and ⚙. *Pace* (`components/PaceControl.tsx`):
+  ⚡ flash routes to the account first, the shield protects it (used only when nothing else is
+  eligible); each opens a menu (until the next 5-hour or weekly reset, resolved client-side from the
+  row's resets and sent as `until`, 1h, 4h, a custom time) for `POST /usage/pace {name, mode:
+  flash|shield, duration|until}`, `DELETE /usage/pace?name=` ends it; the listing's `pace_mode` /
+  `pace_until` show it as a highlighted button with the time left (`accountControls.ts`). A row
+  expands to two columns: the account (email, file, plan and share, lender, routing, spend by user)
+  and every window (model-scoped ones too), manual resets and expiries, renewal and credits. ⚙ opens
+  the name and usage settings (name, priority, weight, Claude plan, which sets the multiplier, the
+  plan multiplier only for other providers or a Custom plan, usage cap, lender, 5-hour and weekly
+  reserve, each with an ⓘ hover explanation), saved diff-only through `PATCH /credentials/fields`
+  (`nickname` included); file management stays on Auth Files. A row pairs
   with its spend by auth id (`file.id`, else the file name), the ledger's `auth_id`; credentials
   without quota support get a spend-only row after the quota rows, on the last page
   (`src/features/quota/accountCards.ts`, `accountSettings.ts`; components `AccountsList.tsx`,
@@ -54,9 +65,9 @@ Current base: upstream `v1.25.6`.
   snapshot ends in. Rows show
   spend by user and ≈ spend at 100% from ≥ 5% used; the chart stacks by user or subscription
   with reset markers; the table drills user → device → model; the label editor maps key → device/user
-  (fingerprint = first 12 hex of sha256 of the key). Series colors follow identity (users
-  alphabetically, so Felix sky and Ferdinand violet; subscriptions by provider and name;
-  `components/seriesSlots.module.scss`). Provider colours: Claude coral, Codex silver, Muse green.
+  (fingerprint = first 12 hex of sha256 of the key). Series colors follow identity (each user takes
+  the slot their name hashes to, so colours never move when people are added: Felix orange,
+  Ferdinand violet; subscriptions by provider and name; `components/seriesSlots.module.scss`). Provider colours: Claude coral, Codex silver, Muse green.
   Logic: `usageModel.ts`; tests: `tests/usageModel.test.ts`.
 - **Claude API credit switch** (`src/features/quota/components/ClaudeCreditCard.tsx`, an inline
   toggle in the `/usage-quota` header). Reads and flips the fork-only gateway switch
@@ -96,8 +107,14 @@ Current base: upstream `v1.25.6`.
   default, remembered in `quotaForecastPrefs.ts`) under a shared bar: Remaining | Drain rate, burn
   rate over the last 1h/3h/6h, Future usage (*Usual pattern* = the model above with its likely range;
   *Same as now* = each credential's selected burn rate, waking hours only; *Busier*/*Quieter* = the
-  busy/quiet pace) and the horizon. Each card reads "11.1× of 15×" with Pool empty, First account
-  empty, Next reset (+restore at time) and Burn. Tests: `tests/quotaForecast.test.ts`.
+  busy/quiet pace) and the horizon, plus *For: Everyone ▾*, which switches the cards' big number to
+  what `GET /usage/pool?user=` leaves that person after their reserve (with their 5-hour reserve
+  override toggle); the charts stay pool-wide. Every control and stat explains itself on hover. Each
+  card reads "11.1× of 15×" with Runs out ("After Nov 11" when it lasts past the chart), First
+  account dry, Next reset (+restore at time) and Burn. Reset jumps are pills coloured by how much of
+  the resetting accounts' share was used before the reset (≥ 90% green, ≥ 60% amber, else red);
+  hovering one lists the accounts and their used % (`poolResetEvents`). Tests:
+  `tests/quotaForecast.test.ts`.
 - **Usage reserves** (gateway `usage-reserves`, f-squared/CLIProxyAPI#29). Three surfaces:
   *Credential sheet* (`src/features/authFiles/components/AuthFileReserveFields.tsx`), on Claude, Codex,
   Muse (`meta`) and Devin credentials (`AUTH_FILE_USAGE_CAP_PROVIDERS`): Claude plan (`plan`: pro,
@@ -115,18 +132,18 @@ Current base: upstream `v1.25.6`.
   usage-ledger client user labels, `/observability/usage/clients`), quiet hours, time zone, and per
   window the taper length (`release-lead`) and the lender floor (`floor-percent`, 0-100); empty fields
   are removed so the gateway defaults apply (23:00-07:00, Europe/Vienna, 1h/12h, 5%/2%).
-  *Pooled usage* on `/usage-quota` (`src/features/quota/components/UsagePool.tsx`, a collapsed disclosure below the pool cards):
-  per provider and window from `GET /usage/pool?provider=&user=`: pool size, left, left for the chosen
-  person, burn, forecast, refills and each account's reserve (kept, tapering as "reserve 20% → 8%
-  now" from `reserve_now_percent`, or reached), plus the
-  person's override (`POST /usage/override` for 5h, `DELETE` to end) with its expiry. Hidden on
-  gateways without the endpoint. Logic: `usagePoolModel.ts`, `src/services/api/usagePool.ts`; tests:
-  `tests/usageReserves.test.ts`.
-  *Release reserve* (gateway lender override): a credential with a lender and a reserve shows a compact
-  1h / 4h / 24h control in its expanded Usage & quota row (`components/LenderReserveRelease.tsx`), with the lender
-  on the plan line. It calls `POST /usage/override {lender, duration}` and `DELETE /usage/override?lender=`;
-  while `lender_reserve_override_until` on `/credentials` is in the future the card reads "Reserve released
-  until HH:MM" with Clear. The release covers every credential of that lender. Not on the credential sheet.
+  *Person view*: the pool cards' *For* picker reads `GET /usage/pool?provider=&user=` (left for the
+  person, their reserve and override, `POST /usage/override {user, duration: 5h}` / `DELETE`); hidden
+  on gateways without the endpoint. Logic: `usagePoolModel.ts`, `src/services/api/usagePool.ts`;
+  tests: `tests/usageReserves.test.ts`.
+  *Reserves strip* (gateway lender override, `components/ReservesStrip.tsx`): one chip per lender with
+  a reserve near the top of `/usage-quota` ("commercial · 80% reserve · 2 accounts · Release…").
+  Release opens a menu: optional "Keep at least X%", then until the next 5-hour or weekly reset (the
+  soonest over the lender's accounts), 1h, 4h, 24h or a custom time, for `POST /usage/override
+  {lender, duration|until, keep_percent?}`; while `lender_reserve_override_until` is in the future the
+  chip reads "Released until 18:00 · keeps 50%" (`lender_reserve_override_keep_percent`) with End
+  (`DELETE /usage/override?lender=`). The release covers every credential of that lender. Not on the
+  credential sheet.
 - **Plan multipliers** (`src/features/quota/planMultipliers.ts`).
   Usage reads in base-plan units, per window. A credential's multiplier m for a window is the gateway's
   plan weight (`plan_weight_five_hour` / `plan_weight_weekly`, or the older single `plan_weight`,

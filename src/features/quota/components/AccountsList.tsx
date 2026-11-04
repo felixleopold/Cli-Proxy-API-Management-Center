@@ -15,10 +15,10 @@ import { useNow } from '@/hooks/useNow';
 import type { AuthFileItem, ResolvedTheme } from '@/types';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import type { AccountSpendContext } from '@/features/usage/components/AccountSpend';
-import { accountWindows, pairAccountSpend } from '../accountCards';
+import { pairAccountSpend, pooledByAuthId, windowsForFile } from '../accountCards';
 import { QUOTA_PAGE_SIZE, QUOTA_SORT_MODES, type QuotaSortMode } from '../constants';
 import type { QuotaFileEntry } from '../logic';
-import { readShortWindow, type CardReading, type ProviderPool } from '../quotaForecastModel';
+import type { CardReading, ProviderPool } from '../quotaForecastModel';
 import { QUOTA_ADAPTERS, type QuotaCardState } from '../providers';
 import { isQuotaTabId } from '../uiState';
 import { AccountStatusLockContext, useAccountStatusLockState } from './accountStatusLock';
@@ -54,7 +54,6 @@ export interface AccountsListProps {
   resettingQuotaName: string | null;
   onRefreshQuota: (entry: QuotaFileEntry) => void;
   onResetQuota: (entry: QuotaFileEntry) => void;
-  onLenderReleaseChange: (lender: string, untilMs: number | null) => void;
   /** Patches one listed credential by its quota cache key (e.g. the enabled toggle). */
   onFileChange: (key: string, patch: Partial<AuthFileItem>) => void;
   /** Reloads the credential list after a settings save. */
@@ -88,7 +87,6 @@ export function AccountsList(props: AccountsListProps) {
     resettingQuotaName,
     onRefreshQuota,
     onResetQuota,
-    onLenderReleaseChange,
     onFileChange,
     onReload,
     resolvedTheme,
@@ -103,15 +101,7 @@ export function AccountsList(props: AccountsListProps) {
       QUOTA_SORT_MODES.map((mode) => ({ value: mode, label: t(`quota_management.sort_${mode}`) })),
     [t]
   );
-  const pooledById = useMemo(
-    () =>
-      new Map(
-        pools.flatMap((pool) =>
-          pool.credentials.map((credential) => [credential.authId, credential])
-        )
-      ),
-    [pools]
-  );
+  const pooledById = useMemo(() => pooledByAuthId(pools), [pools]);
 
   const { spendFor, spendOnly, fileFor } = pairAccountSpend(
     entries,
@@ -130,15 +120,8 @@ export function AccountsList(props: AccountsListProps) {
     !loading && filteredCount === 0 && spendOnlyRows.length === 0 && disabledRows.length === 0;
   const quotaTab = isQuotaTabId(tab) && tab !== 'all' ? QUOTA_ADAPTERS[tab] : null;
 
-  const windowsFor = (entry: QuotaFileEntry) => {
-    const authId = typeof entry.file.id === 'string' ? entry.file.id : '';
-    return accountWindows({
-      pooled: pooledById.get(authId) ?? null,
-      card: cardReadings.get(authId) ?? null,
-      liveShort: readShortWindow(entry.file, now),
-      nowMs: now,
-    });
-  };
+  const windowsFor = (entry: QuotaFileEntry) =>
+    windowsForFile(entry.file, pooledById, cardReadings, now);
 
   return (
     <>
@@ -226,12 +209,12 @@ export function AccountsList(props: AccountsListProps) {
             <div className={styles.head} aria-hidden="true">
               <span />
               <span>{t('usage_accounts.col_account')}</span>
-              <span>{t('usage_accounts.col_plan')}</span>
+              <span title={t('usage_accounts.col_plan_hint')}>{t('usage_accounts.col_plan')}</span>
               <span>{t('usage_accounts.col_five_hour')}</span>
               <span>{t('usage_accounts.col_weekly')}</span>
-              <span>{t('usage_accounts.col_reset')}</span>
               <span>{t('usage_accounts.col_spend')}</span>
               <span>{t('usage_accounts.col_users')}</span>
+              <span>{t('usage_accounts.col_pace')}</span>
               <span />
             </div>
             <ul className={styles.rows} aria-label={t('usage_accounts.list_label')}>
@@ -248,7 +231,6 @@ export function AccountsList(props: AccountsListProps) {
                   resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
                   onRefresh={() => onRefreshQuota(entry)}
                   onReset={() => onResetQuota(entry)}
-                  onLenderReleaseChange={onLenderReleaseChange}
                   onFileChange={onFileChange}
                   onSettingsSaved={onReload}
                 />

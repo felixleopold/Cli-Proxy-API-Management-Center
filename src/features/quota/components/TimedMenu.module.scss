@@ -1,0 +1,165 @@
+@use '../../../styles/mixins' as *;
+
+/* The menu of a timed control: a title, one line on what it does, then the choices. */
+
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 272px;
+  max-width: calc(100vw - 32px);
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-primary);
+  box-shadow: var(--floating-shadow, 0 16px 40px -16px rgb(0 0 0 / 0.5));
+  color: var(--text-primary);
+  font-size: 12px;
+  text-align: left;
+  white-space: normal;
+  cursor: default;
+
+  &[data-align='start'] {
+    right: auto;
+    left: 0;
+  }
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.description {
+  margin: -4px 0 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.active {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 8px 7px 10px;
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.choice,
+.hour,
+.end {
+  @include button-reset;
+  border-radius: 7px;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 0;
+  }
+
+  &:focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+
+.choice {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.when {
+  font-family: $font-mono;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.hours {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding-top: 2px;
+}
+
+.hour,
+.end {
+  padding: 5px 8px;
+  border: 1px solid var(--border-color);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.end {
+  flex: none;
+  color: var(--text-primary);
+}
+
+.custom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+.input {
+  min-width: 0;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: $font-mono;
+  font-size: 11.5px;
+  color-scheme: light dark;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 0;
+    border-color: transparent;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .choice:not(:disabled):hover {
+    background: var(--bg-tertiary);
+  }
+
+  .hour:not(:disabled):hover,
+  .end:not(:disabled):hover {
+    border-color: var(--border-hover);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+}

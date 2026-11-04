@@ -5,7 +5,11 @@
 import { apiClient } from './client';
 import { getConfigValue, guardConfigConnection } from './configValue';
 import { isRecord } from '@/utils/helpers';
-import type { AuthFilesResponse } from '@/types/authFile';
+import {
+  ROUTING_STATES,
+  type AuthFileRoutingStatus,
+  type AuthFilesResponse,
+} from '@/types/authFile';
 import type { OAuthModelAliasEntry } from '@/types';
 import { normalizeOAuthProviderKey } from '@/utils/providerKeys';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
@@ -43,6 +47,7 @@ export type AuthFileFieldsPatch = {
   usage_cap_percent?: number | null;
   plan_multiplier?: number | null;
   plan?: string | null;
+  nickname?: string | null;
   lender?: string | null;
   reserve_five_hour_percent?: number | null;
   reserve_weekly_percent?: number | null;
@@ -268,6 +273,23 @@ const readRuntimeOnlyField = (entry: AuthFileEntry): boolean => {
  * camelCase 字段上。原始字段全部透传——quota resolvers 仍直接读
  * plan_type / id_token / metadata / attributes 等生字段。
  */
+/** The gateway's routing status of a credential; null when absent or of an unknown state. */
+export const normalizeRoutingStatus = (value: unknown): AuthFileRoutingStatus | null => {
+  if (!isRecord(value)) return null;
+  const state = ROUTING_STATES.find((known) => known === value.state);
+  if (!state) return null;
+  const reason = typeof value.reason === 'string' ? value.reason.trim() : '';
+  const window =
+    value.window === 'five_hour' || value.window === 'weekly' ? value.window : undefined;
+  const untilMs = typeof value.until === 'string' ? Date.parse(value.until) : NaN;
+  return {
+    state,
+    reason,
+    ...(window ? { window } : {}),
+    ...(Number.isFinite(untilMs) ? { untilMs } : {}),
+  };
+};
+
 const normalizeAuthFileEntry = (
   entry: AuthFileEntry,
   observedAt: string | undefined,
@@ -302,6 +324,11 @@ const normalizeAuthFileEntry = (
   const plan = readTextField(entry, 'plan');
   const lender = readTextField(entry, 'lender');
   const lenderOverrideUntil = Date.parse(readTextField(entry, 'lender_reserve_override_until'));
+  const lenderOverrideKeep = reserve('lender_reserve_override_keep_percent');
+  const nickname = readTextField(entry, 'nickname');
+  const paceMode = readTextField(entry, 'pace_mode');
+  const paceUntil = Date.parse(readTextField(entry, 'pace_until'));
+  const routingStatus = normalizeRoutingStatus(entry['routing_status']);
 
   return {
     ...entry,
@@ -326,6 +353,14 @@ const normalizeAuthFileEntry = (
     ...(Number.isFinite(lenderOverrideUntil)
       ? { lenderReserveOverrideUntilMs: lenderOverrideUntil }
       : {}),
+    ...(lenderOverrideKeep !== undefined
+      ? { lenderReserveOverrideKeepPercent: lenderOverrideKeep }
+      : {}),
+    ...(nickname ? { nickname } : {}),
+    ...((paceMode === 'flash' || paceMode === 'shield') && Number.isFinite(paceUntil)
+      ? { paceMode, paceUntilMs: paceUntil }
+      : {}),
+    ...(routingStatus ? { routingStatus } : {}),
     ...(note ? { note } : {}),
     ...(email ? { email } : {}),
     ...(projectId ? { projectId } : {}),

@@ -3,15 +3,15 @@
  * spend the ledger has on credentials without it (SpendAccountRow). The quota
  * row loads on its refresh button (upstream rate limits mean no auto-fetch) and
  * reads its bars before that from the gateway's live signals; its details hold
- * every window (model-scoped ones too), manual resets, renewal and credits,
- * errors, the lender's reserve release and the spend split.
+ * the account (email, file, plan, lender, routing) and the spend split beside
+ * every window (model-scoped ones too), manual resets, renewal and credits and
+ * errors. Lender reserve releases live in the Reserves strip at the top.
  */
 
 import { useId, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { IconRefreshCw, IconTimer } from '@/components/ui/icons';
-import { useNow } from '@/hooks/useNow';
 import type {
   AntigravityQuotaState,
   AuthFileItem,
@@ -38,9 +38,8 @@ import { ClaudeResetGrantDetails } from '../providers/claude/ClaudeResetGrantDet
 import { CodexQuotaDetails } from '../providers/codex/CodexQuotaBody';
 import { getCodexPlanLabel, hasCodexDetails } from '../providers/codex/plan';
 import { bindQuotaClasses } from '../types';
-import { lenderReleaseUntil, showsLenderRelease } from '../usagePoolModel';
 import { AccountRow, DetailFact, RowIconButton } from './AccountRow';
-import { LenderReserveRelease } from './LenderReserveRelease';
+import { HoverCard } from './HoverCard';
 import bodyStyles from './QuotaBody.module.scss';
 import styles from './Accounts.module.scss';
 
@@ -66,7 +65,7 @@ function planLabel(
   return null;
 }
 
-/** Plan text and the multiplier chip, with our share in its tooltip. */
+/** The multiplier chip, with the plan and our share on hover; nothing outside the pools. */
 function PlanCell({
   label,
   file,
@@ -78,16 +77,65 @@ function PlanCell({
 }) {
   const { t, i18n } = useTranslation();
   const share = supportsAuthFileUsageCap(type) ? planShareOf(file, 'weekly') : null;
+  if (!share) return null;
+  return (
+    <HoverCard
+      focusable
+      content={
+        <>
+          {label && <strong>{label}</strong>}
+          <span className={styles.cardLine}>{planShareText(t, share, i18n.resolvedLanguage)}</span>
+        </>
+      }
+    >
+      <span className={`${styles.chip} ${share.multiplierSet ? '' : styles.chipUnset}`}>
+        {formatMultiplier(share.multiplier, i18n.resolvedLanguage)}
+      </span>
+    </HoverCard>
+  );
+}
+
+/** "Max 5x" in the row, the email on hover with the file; the email in the details too. */
+const rowName = (file: AuthFileItem) => {
+  const identity = deriveAuthFileIdentity(file);
+  const fileName = getQuotaDisplayName(file);
+  const primary = identity.kind === 'fileName' ? '' : identity.primary;
+  return {
+    name: file.nickname || primary || fileName,
+    mono: !file.nickname && !primary,
+    title: [file.nickname ? primary : '', fileName].filter(Boolean).join('\n'),
+    email: identity.kind === 'email' ? primary : '',
+  };
+};
+
+/** The account half of a row's details: who it is, how it is pooled and routed. */
+function AccountFacts({ file, plan }: { file: AuthFileItem; plan: string | null }) {
+  const { t, i18n } = useTranslation();
+  const type = resolveQuotaProviderType({ ...file, disabled: false });
+  const share = type && supportsAuthFileUsageCap(type) ? planShareOf(file, 'weekly') : null;
+  const { email } = rowName(file);
   return (
     <>
-      {label && <span className={styles.planName}>{label}</span>}
-      {share && (
-        <span
-          className={`${styles.chip} ${share.multiplierSet ? '' : styles.chipUnset}`}
-          title={planShareText(t, share, i18n.resolvedLanguage)}
-        >
-          {formatMultiplier(share.multiplier, i18n.resolvedLanguage)}
-        </span>
+      {email && <DetailFact label={t('usage_accounts.details_email')}>{email}</DetailFact>}
+      <DetailFact label={t('usage_accounts.details_file')}>
+        <span className={styles.mono}>{getQuotaDisplayName(file)}</span>
+      </DetailFact>
+      {(plan || share) && (
+        <DetailFact label={t('usage_accounts.details_plan')}>
+          {[plan, share && planShareText(t, share, i18n.resolvedLanguage)]
+            .filter(Boolean)
+            .join(' · ')}
+        </DetailFact>
+      )}
+      {file.lender && (
+        <DetailFact label={t('usage_accounts.details_lender')}>{file.lender}</DetailFact>
+      )}
+      {file.routingStatus && (
+        <DetailFact label={t('usage_accounts.details_routing')}>
+          {[t(`routing.state_${file.routingStatus.state}`), file.routingStatus.reason]
+            .filter(Boolean)
+            .join(' · ')}
+        </DetailFact>
       )}
     </>
   );
@@ -147,7 +195,6 @@ export interface QuotaAccountRowProps {
   resetting: boolean;
   onRefresh: () => void;
   onReset: () => void;
-  onLenderReleaseChange: (lender: string, untilMs: number | null) => void;
   onFileChange: (key: string, patch: Partial<AuthFileItem>) => void;
   onSettingsSaved: () => void;
 }
@@ -164,16 +211,14 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
     resetting,
     onRefresh,
     onReset,
-    onLenderReleaseChange,
     onFileChange,
     onSettingsSaved,
   } = props;
-  const { t, i18n } = useTranslation();
-  const now = useNow();
+  const { t } = useTranslation();
   const nameId = useId();
   const adapter = QUOTA_ADAPTERS[entry.type];
   const file = entry.file;
-  const identity = deriveAuthFileIdentity(file);
+  const label = planLabel(entry.type, quota, file, t);
   const status = quota?.status ?? 'idle';
   const loading = status === 'loading';
   const loaded = status === 'success' && quota !== undefined;
@@ -232,67 +277,64 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
     </>
   );
 
+  const windowsBody = errorMessage ? (
+    <p className={styles.detailsError} role="alert">
+      {errorMessage}
+    </p>
+  ) : loaded ? (
+    <adapter.Body quota={quota} classes={quotaClasses} compact />
+  ) : loading ? (
+    <p className={styles.muted}>{t(`${adapter.i18nPrefix}.loading`)}</p>
+  ) : (
+    // Nothing loaded yet: a short line with the load action instead of an empty column.
+    <p className={styles.muted}>
+      <button
+        type="button"
+        className={styles.linkButton}
+        disabled={isQuotaRefreshDisabled(canRefresh, loading, resetting)}
+        onClick={onRefresh}
+      >
+        {t('usage_accounts.details_load')}
+      </button>
+    </p>
+  );
+
   const details = (
     <>
-      <DetailsSection title={t('usage_accounts.details_windows')}>
-        {errorMessage ? (
-          <p className={styles.detailsError} role="alert">
-            {errorMessage}
-          </p>
-        ) : loaded ? (
-          <adapter.Body quota={quota} classes={quotaClasses} compact />
-        ) : (
-          <p className={styles.muted}>
-            {loading ? t(`${adapter.i18nPrefix}.loading`) : t(`${adapter.i18nPrefix}.idle`)}
-          </p>
-        )}
-      </DetailsSection>
-
-      {(codexQuota || (entry.type === 'claude' && loaded)) && (
-        <DetailsSection title={t('usage_accounts.details_resets')}>
-          {entry.type === 'claude' && claudeGrants.length === 0 && (
-            <DetailFact label={t('claude_reset.remaining')}>{claudeReset.count ?? '—'}</DetailFact>
-          )}
-          {claudeGrants.length > 0 && (
-            <ClaudeResetGrantDetails grants={claudeGrants} classes={quotaClasses} />
-          )}
-          {entry.type === 'claude' && claudeReset.message && (
-            <p role="status" className={styles.muted}>
-              {t(`claude_reset.${claudeReset.message}`)}
-            </p>
-          )}
-          {codexQuota && !hasCodexDetails(codexQuota) && (
-            <DetailFact label={t('codex_quota.reset_credits_label')}>
-              {codexQuota.rateLimitResetCreditsAvailableCount ?? '—'}
-            </DetailFact>
-          )}
-          {codexQuota && hasCodexDetails(codexQuota) && (
-            <CodexQuotaDetails quota={codexQuota} classes={quotaClasses} />
-          )}
-        </DetailsSection>
-      )}
-
       <DetailsSection title={t('usage_accounts.details_account')}>
-        <DetailFact label={t('usage_accounts.details_file')}>
-          <span className={styles.mono}>{getQuotaDisplayName(file)}</span>
-        </DetailFact>
-        {share && (
-          <DetailFact label={t('usage_accounts.details_plan')}>
-            {planShareText(t, share, i18n.resolvedLanguage)}
-          </DetailFact>
-        )}
-        {file.lender && (
-          <DetailFact label={t('usage_accounts.details_lender')}>{file.lender}</DetailFact>
-        )}
-        {file.lender && showsLenderRelease(file, now) && (
-          <LenderReserveRelease
-            lender={file.lender}
-            untilMs={lenderReleaseUntil(file, now)}
-            onChange={onLenderReleaseChange}
-          />
-        )}
+        <AccountFacts file={file} plan={label} />
         <SpendDetails summary={summary} spend={spend} />
       </DetailsSection>
+
+      <div className={styles.detailsColumn}>
+        <DetailsSection title={t('usage_accounts.details_windows')}>{windowsBody}</DetailsSection>
+
+        {(codexQuota || (entry.type === 'claude' && loaded)) && (
+          <DetailsSection title={t('usage_accounts.details_resets')}>
+            {entry.type === 'claude' && claudeGrants.length === 0 && (
+              <DetailFact label={t('claude_reset.remaining')}>
+                {claudeReset.count ?? '—'}
+              </DetailFact>
+            )}
+            {claudeGrants.length > 0 && (
+              <ClaudeResetGrantDetails grants={claudeGrants} classes={quotaClasses} />
+            )}
+            {entry.type === 'claude' && claudeReset.message && (
+              <p role="status" className={styles.muted}>
+                {t(`claude_reset.${claudeReset.message}`)}
+              </p>
+            )}
+            {codexQuota && !hasCodexDetails(codexQuota) && (
+              <DetailFact label={t('codex_quota.reset_credits_label')}>
+                {codexQuota.rateLimitResetCreditsAvailableCount ?? '—'}
+              </DetailFact>
+            )}
+            {codexQuota && hasCodexDetails(codexQuota) && (
+              <CodexQuotaDetails quota={codexQuota} classes={quotaClasses} />
+            )}
+          </DetailsSection>
+        )}
+      </div>
     </>
   );
 
@@ -300,22 +342,15 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
     <AccountRow
       provider={entry.type}
       resolvedTheme={resolvedTheme}
-      name={identity.primary || getQuotaDisplayName(file)}
-      mono={identity.kind === 'fileName'}
-      title={getQuotaDisplayName(file)}
+      {...rowName(file)}
       nameId={nameId}
       file={file}
-      plan={
-        <PlanCell label={planLabel(entry.type, quota, file, t)} file={file} type={entry.type} />
-      }
+      plan={<PlanCell label={label} file={file} type={entry.type} />}
       windows={windows}
       capPercent={{
         short: pooled ? planShareOf(file, 'five_hour').capPercent : null,
         long: share?.capPercent ?? null,
       }}
-      resetAtMs={
-        windows.long?.resetAtMs ?? summary?.window?.endMs ?? windows.short?.resetAtMs ?? null
-      }
       summary={summary}
       spend={spend}
       errorMessage={errorMessage}
@@ -351,20 +386,23 @@ export function SpendAccountRow({
     <AccountRow
       provider={subscription.provider}
       resolvedTheme={resolvedTheme}
-      name={subscription.name || subscription.id}
+      name={file?.nickname || subscription.name || subscription.id}
       title={file?.name ?? subscription.id}
       nameId={nameId}
       file={file}
       windows={{ short: null, long: null }}
       capPercent={{ short: null, long: null }}
-      resetAtMs={summary.window?.endMs ?? null}
       summary={summary}
       spend={spend}
       details={
         <DetailsSection title={t('usage_accounts.details_account')}>
-          <DetailFact label={t('usage_accounts.details_file')}>
-            <span className={styles.mono}>{file?.name ?? subscription.id}</span>
-          </DetailFact>
+          {file ? (
+            <AccountFacts file={file} plan={null} />
+          ) : (
+            <DetailFact label={t('usage_accounts.details_file')}>
+              <span className={styles.mono}>{subscription.id}</span>
+            </DetailFact>
+          )}
           <p className={styles.muted}>{t('usage_accounts.no_quota_support')}</p>
           <SpendDetails summary={summary} spend={spend} />
         </DetailsSection>
@@ -391,31 +429,24 @@ export function DisabledAccountRow({
 }) {
   const { t } = useTranslation();
   const nameId = useId();
-  const identity = deriveAuthFileIdentity(file);
   const type = resolveQuotaProviderType({ ...file, disabled: false });
   const provider = type ?? resolveAuthProvider(file);
+  const label = type && planLabel(type, undefined, file, t);
   return (
     <AccountRow
       provider={provider}
       resolvedTheme={resolvedTheme}
-      name={identity.primary || getQuotaDisplayName(file)}
-      mono={identity.kind === 'fileName'}
-      title={getQuotaDisplayName(file)}
+      {...rowName(file)}
       nameId={nameId}
       file={file}
-      plan={
-        type && <PlanCell label={planLabel(type, undefined, file, t)} file={file} type={type} />
-      }
+      plan={type && <PlanCell label={label} file={file} type={type} />}
       windows={{ short: null, long: null }}
       capPercent={{ short: null, long: null }}
-      resetAtMs={null}
       summary={null}
       spend={spend}
       details={
         <DetailsSection title={t('usage_accounts.details_account')}>
-          <DetailFact label={t('usage_accounts.details_file')}>
-            <span className={styles.mono}>{getQuotaDisplayName(file)}</span>
-          </DetailFact>
+          <AccountFacts file={file} plan={label || null} />
           <p className={styles.muted}>{t('usage_accounts.disabled_hint')}</p>
         </DetailsSection>
       }

@@ -580,13 +580,38 @@ export function assignSlots(keys: readonly string[]): Map<string, SeriesSlot> {
   return slots;
 }
 
-/** Users alphabetically, so a user's color only moves when users are added or renamed. */
+/** FNV-1a of the lowercased name: a user's home slot depends on nothing but their name. */
+const nameHash = (name: string): number => {
+  let hash = 0x811c9dc5;
+  for (const char of name.toLowerCase()) {
+    hash ^= char.codePointAt(0) ?? 0;
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash;
+};
+
+/**
+ * Users by name: each takes the slot its name hashes to, so a user's colour never
+ * moves when others are added or renamed. On a collision the alphabetically
+ * later name takes the next free slot; past SLOT_COUNT users the rest are "other".
+ * The palette is ordered so Felix (3) is orange and Ferdinand (6) violet.
+ */
 export function userSlots(clients: readonly UsageClient[]): Map<string, SeriesSlot> {
-  return assignSlots(
-    Array.from(new Set(clients.map((client) => client.user).filter(Boolean))).sort((a, b) =>
-      a.localeCompare(b)
-    )
-  );
+  const slots = new Map<string, SeriesSlot>([['', 'none']]);
+  const taken = new Set<number>();
+  Array.from(new Set(clients.map((client) => client.user).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b))
+    .forEach((user) => {
+      if (taken.size >= SLOT_COUNT) {
+        slots.set(user, 'other');
+        return;
+      }
+      let slot = nameHash(user) % SLOT_COUNT;
+      while (taken.has(slot)) slot = (slot + 1) % SLOT_COUNT;
+      taken.add(slot);
+      slots.set(user, slot);
+    });
+  return slots;
 }
 
 /** Subscriptions by provider, then name; imported personal-account usage last. */

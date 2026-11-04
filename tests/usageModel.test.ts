@@ -4,6 +4,7 @@ import { normalizeClientKey } from '../src/services/api/clientKeys';
 import {
   WEEK_MS,
   assignSlots,
+  userSlots,
   buildClientRows,
   clientKind,
   buildTimeBuckets,
@@ -389,6 +390,20 @@ describe('rollups', () => {
     expect(slots.get('g')).toBe(6);
     expect(slots.get('h')).toBe('other');
     expect(assignSlots(['a', 'c']).get('c')).toBe(1);
+  });
+
+  test('a user keeps their colour by name, whoever else is listed', () => {
+    const clients = (...users: string[]) =>
+      users.map((user) => ({ fingerprint: user, device: '', user, configured: true }));
+    const two = userSlots(clients('Felix', 'Ferdinand'));
+    expect(two.get('Felix')).toBe(3);
+    expect(two.get('Ferdinand')).toBe(6);
+    const more = userSlots(clients('Anna', 'Felix', 'Ferdinand', 'Isabella'));
+    expect(more.get('Felix')).toBe(3);
+    expect(more.get('Ferdinand')).toBe(6);
+    // Isabella's name hashes to Felix's slot too and takes the next free one.
+    expect(more.get('Isabella')).toBe(4);
+    expect(more.get('')).toBe('none');
   });
 });
 

@@ -56,11 +56,11 @@ describe('accountWindows', () => {
     expect(windows.short?.leftPercent).toBe(90);
   });
 
-  test('a passed reset reads as a full window with the next reset a period on', () => {
+  test('a passed reset reads as a full window; the live 5-hour reading keeps its reset', () => {
     const windows = accountWindows({
       pooled: pooled('weekly', 95, NOW - HOUR_MS),
       card: null,
-      liveShort: { minutes: 300, usedPercent: 25 },
+      liveShort: { minutes: 300, usedPercent: 25, resetAtMs: NOW + 2 * HOUR_MS },
       nowMs: NOW,
     });
     expect(windows.long).toEqual({
@@ -68,7 +68,11 @@ describe('accountWindows', () => {
       resetAtMs: NOW - HOUR_MS + WEEK_MS,
       periodMs: WEEK_MS,
     });
-    expect(windows.short).toEqual({ leftPercent: 75, resetAtMs: null, periodMs: 5 * HOUR_MS });
+    expect(windows.short).toEqual({
+      leftPercent: 75,
+      resetAtMs: NOW + 2 * HOUR_MS,
+      periodMs: 5 * HOUR_MS,
+    });
   });
 
   test('leaves a window nothing reports unknown instead of guessing', () => {
@@ -113,9 +117,25 @@ describe('account settings patch', () => {
     });
   });
 
+  test('saves the name for any provider and the multiplier only without a weighed plan', () => {
+    expect(buildAccountSettingsPatch('gemini', seed, { ...seed, nickname: '  Spare  ' })).toEqual({
+      patch: { nickname: 'Spare' },
+    });
+    expect(buildAccountSettingsPatch('claude', { ...seed, nickname: 'Old' }, seed)).toEqual({
+      patch: { nickname: null },
+    });
+    // Max sets the multiplier; a value typed under Custom before switching back is dropped.
+    expect(buildAccountSettingsPatch('claude', seed, { ...seed, planMultiplier: '3' })).toEqual({
+      patch: {},
+    });
+    expect(
+      buildAccountSettingsPatch('claude', seed, { ...seed, plan: '', planMultiplier: '3' })
+    ).toEqual({ patch: { plan: null, plan_multiplier: 3 } });
+  });
+
   test('clears with null, rejects invalid text, and keeps pooled fields off other providers', () => {
     expect(
-      buildAccountSettingsPatch('claude', seed, { ...seed, planMultiplier: '', usageCap: '' })
+      buildAccountSettingsPatch('codex', seed, { ...seed, planMultiplier: '', usageCap: '' })
     ).toEqual({ patch: { plan_multiplier: null, usage_cap_percent: null } });
     expect(buildAccountSettingsPatch('claude', seed, { ...seed, reserveFiveHour: '120' })).toEqual({
       error: 'reserve',

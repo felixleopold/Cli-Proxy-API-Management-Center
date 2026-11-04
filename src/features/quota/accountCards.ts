@@ -7,9 +7,15 @@
 
 import { parseSubscription, type SubscriptionSummary } from '@/features/usage/usageModel';
 import type { AuthFileItem } from '@/types';
-import { HOUR_MS } from '@/utils/time/durations';
+import { DAY_MS, HOUR_MS } from '@/utils/time/durations';
 import type { QuotaFileEntry } from './logic';
-import type { CardReading, PoolCredential } from './quotaForecastModel';
+import type { NextResets } from './accountControls';
+import {
+  readShortWindow,
+  type CardReading,
+  type PoolCredential,
+  type ProviderPool,
+} from './quotaForecastModel';
 
 export interface AccountSpendPairing {
   spendFor: (entry: QuotaFileEntry) => SubscriptionSummary | null;
@@ -91,7 +97,7 @@ export interface AccountWindowSources {
   /** The loaded quota card's windows. */
   card: CardReading | null;
   /** The live 5-hour window, which the pools leave out when a weekly one exists. */
-  liveShort: { minutes: number; usedPercent: number } | null;
+  liveShort: { minutes: number; usedPercent: number; resetAtMs: number | null } | null;
   nowMs: number;
 }
 
@@ -117,7 +123,7 @@ export function accountWindows({
       : liveShort
         ? {
             usedPercent: liveShort.usedPercent,
-            resetAtMs: null,
+            resetAtMs: liveShort.resetAtMs,
             periodMs: liveShort.minutes * 60_000,
           }
         : cardShort;
@@ -126,3 +132,34 @@ export function accountWindows({
     long: long ? windowNow(long, nowMs) : null,
   };
 }
+
+/** Each pooled credential by auth id, for windowsForFile. */
+export const pooledByAuthId = (pools: readonly ProviderPool[]): Map<string, PoolCredential> =>
+  new Map(
+    pools.flatMap((pool) => pool.credentials.map((credential) => [credential.authId, credential]))
+  );
+
+/** A credential's row windows from the page's pools and loaded cards. */
+export function windowsForFile(
+  file: AuthFileItem,
+  pooled: ReadonlyMap<string, PoolCredential>,
+  cardReadings: ReadonlyMap<string, CardReading>,
+  nowMs: number
+): AccountWindows {
+  const authId = typeof file.id === 'string' ? file.id : '';
+  return accountWindows({
+    pooled: pooled.get(authId) ?? null,
+    card: cardReadings.get(authId) ?? null,
+    liveShort: readShortWindow(file, nowMs),
+    nowMs,
+  });
+}
+
+/** The next 5-hour and weekly reset of the row's windows; a long window of another length is neither. */
+export const nextResetsOf = (windows: AccountWindows): NextResets => ({
+  fiveHour: windows.short?.resetAtMs ?? null,
+  weekly:
+    windows.long && windows.long.periodMs >= 6 * DAY_MS && windows.long.periodMs <= 8 * DAY_MS
+      ? windows.long.resetAtMs
+      : null,
+});
