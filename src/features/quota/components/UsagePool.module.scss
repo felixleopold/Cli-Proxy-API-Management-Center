@@ -18,6 +18,41 @@
 
 .head {
   display: flex;
+  cursor: pointer;
+  list-style: none;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  &::before {
+    content: '▸';
+    color: var(--text-tertiary, var(--text-secondary));
+    font-size: 12px;
+    line-height: 20px;
+  }
+}
+
+.pool[open] > .head::before {
+  content: '▾';
+}
+
+.pool:not([open]) {
+  gap: 0;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.personPicker {
+  align-self: flex-end;
+}
+
+.head {
   align-items: flex-start;
   justify-content: space-between;
   flex-wrap: wrap;

@@ -162,32 +162,31 @@
   --accent-bg: var(--bg-tertiary);
 }
 
-// 深色主题（#191919）
+// Dark theme: neutral near-black, no warm tint.
 [data-theme='dark'] {
-  // 极简暖灰：深色模式（提升对比度与层级）
-  --bg-secondary: #151412; // 页面背景
-  --bg-primary: #1d1b18; // 容器/卡片背景
-  --bg-tertiary: #262320; // hover/次级背景
-  --bg-hover: #2e2a26;
-  --bg-quinary: #191714;
-  --bg-error-light: rgba(198, 87, 70, 0.18);
-  --floating-surface: #2a2723;
-  --floating-shadow: 0 14px 30px rgba(0, 0, 0, 0.4);
+  --bg-secondary: #050505; // page
+  --bg-primary: #0d0d0d; // cards, sidebar
+  --bg-tertiary: #151515; // raised / hover
+  --bg-hover: #1c1c1c;
+  --bg-quinary: #0a0a0a;
+  --bg-error-light: rgba(198, 87, 70, 0.16);
+  --floating-surface: #151515;
+  --floating-shadow: 0 14px 30px rgba(0, 0, 0, 0.6);
 
-  --text-primary: #f6f4f1;
-  --text-secondary: #c9c3bb;
-  --text-tertiary: #9c958d;
-  --text-quaternary: #6f6962;
+  --text-primary: #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
+  --text-quaternary: #52525b;
   --text-muted: var(--text-tertiary);
 
-  --border-color: #3a3530;
-  --border-secondary: var(--border-color);
-  --border-primary: #4a453f;
-  --border-hover: #5a544d;
+  --border-color: #262626;
+  --border-secondary: #1f1f1f;
+  --border-primary: #2e2e2e;
+  --border-hover: #3f3f46;
 
-  --primary-color: #8b8680;
-  --primary-hover: #9a948e;
-  --primary-active: #a6a099;
+  --primary-color: #71717a;
+  --primary-hover: #82828b;
+  --primary-active: #a1a1aa;
   --primary-contrast: #ffffff;
 
   --success-color: #10b981;
@@ -197,7 +196,7 @@
   --danger-color: var(--error-color);
   --info-color: var(--primary-color);
 
-  --warning-bg: rgba(198, 87, 70, 0.22);
+  --warning-bg: rgba(198, 87, 70, 0.18);
   --warning-border: rgba(198, 87, 70, 0.45);
   --warning-text: #f1b0a6;
 
@@ -205,15 +204,15 @@
   --success-badge-text: #6ee7b7;
   --success-badge-border: #059669;
 
-  --failure-badge-bg: rgba(198, 87, 70, 0.24);
+  --failure-badge-bg: rgba(198, 87, 70, 0.2);
   --failure-badge-text: #f1b0a6;
   --failure-badge-border: rgba(198, 87, 70, 0.5);
 
-  --count-badge-bg: rgba(139, 134, 128, 0.28);
-  --count-badge-text: var(--primary-active);
+  --count-badge-bg: rgba(161, 161, 170, 0.16);
+  --count-badge-text: var(--text-secondary);
 
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3);
+  --shadow: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5);
 
   --radius-md: 8px;
 

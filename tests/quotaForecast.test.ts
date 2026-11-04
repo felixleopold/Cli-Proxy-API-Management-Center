@@ -11,18 +11,27 @@ import {
   creditsNear,
   drainBuckets,
   drainEdges,
+  firstCredentialEmpty,
   learnActivity,
   nightBands,
   nightHours,
+  poolEmpty,
   poolHistory,
   gatewayResetCredits,
   poolResetCredits,
   projectPool,
   runsOutAt,
   readPoolCredential,
+  recentBurn,
+  seriesJumps,
+  steadyActivity,
   summarizePool,
   valueAt,
 } from '../src/features/quota/quotaForecastModel';
+import {
+  DEFAULT_FORECAST_PREFS,
+  parseForecastPrefs,
+} from '../src/features/quota/quotaForecastPrefs';
 import type {
   LedgerCost,
   PoolCredential,
@@ -948,6 +957,102 @@ describe('usage ledger', () => {
       expect(learnActivity([], [], NOW, DEFAULT_SLEEP_HOURS, officeHours).sleep).toEqual(
         DEFAULT_SLEEP_HOURS
       );
+    });
+  });
+});
+
+describe('pool cards', () => {
+  // Window opened 4 days before NOW, so the window pace is usedPercent / 4 per day.
+  const draining = credential({ authId: 'a', usedPercent: 80 });
+  const slow = credential({ authId: 'b', usedPercent: 10 });
+  const dry = credential({ authId: 'c', usedPercent: 100 });
+  const drainSamples = [
+    sample({ atMs: NOW - 4 * HOUR_MS, usedPercent: 10 }),
+    sample({ atMs: NOW - 2 * HOUR_MS, usedPercent: 16 }),
+    sample({ atMs: NOW - HOUR_MS / 2, usedPercent: 19 }),
+  ];
+
+  test('burn rate is the pooled multiplier drained per hour in the chosen window', () => {
+    const c = credential({ usedPercent: 19 });
+    expect(recentBurn(pool(c), drainSamples, NOW, 3)).toBeCloseTo(0.03);
+    expect(recentBurn(pool(c), drainSamples, NOW, 1)).toBeCloseTo(0.03);
+    expect(recentBurn(pool(c), drainSamples, NOW, 6)).toBeCloseTo(0.015);
+  });
+
+  test('"same as now" keeps the recent burn while awake and stays flat while asleep', () => {
+    withTimeZone('UTC', () => {
+      const c = credential({ usedPercent: 20 });
+      // 6% over the last 3 hours: 2% an hour.
+      const samples = [
+        sample({ atMs: NOW - 3 * HOUR_MS, usedPercent: 14 }),
+        sample({ atMs: NOW, usedPercent: 20 }),
+      ];
+      const learned = { ...FLAT_ACTIVITY, sleep: DEFAULT_SLEEP_HOURS };
+      const steady = steadyActivity([pool(c)], samples, NOW, 3, learned);
+      const series = projectPool(pool(c), NOW, NOW + DAY_MS, steady);
+      expect(valueAt(series, NOW + 6 * HOUR_MS)).toBeCloseTo(0.68);
+      // Awake 12:00 to midnight, then asleep until 08:00.
+      expect(valueAt(series, NOW + 12 * HOUR_MS)).toBeCloseTo(0.56);
+      expect(valueAt(series, NOW + 20 * HOUR_MS)).toBeCloseTo(0.56);
+    });
+  });
+
+  test('the first account to run dry is the next one before its reset', () => {
+    const first = firstCredentialEmpty(pool(slow, draining), NOW);
+    expect(first?.authId).toBe('a');
+    expect(Math.abs((first?.atMs ?? 0) - (NOW + DAY_MS))).toBeLessThan(1000);
+    expect(firstCredentialEmpty(pool(slow), NOW)).toBeNull();
+  });
+
+  test('an account already dry is the first empty one, at now', () => {
+    expect(firstCredentialEmpty(pool(slow, draining, dry), NOW)).toEqual({
+      authId: 'c',
+      atMs: NOW,
+    });
+  });
+
+  test('"same as now" without history keeps the window pace instead of a measured zero', () => {
+    const learned = { ...FLAT_ACTIVITY, sleep: DEFAULT_SLEEP_HOURS };
+    const steady = steadyActivity([pool(draining)], [], NOW, 3, learned);
+    expect(steady.rates.has('a')).toBe(false);
+    expect(poolEmpty(pool(draining), NOW, NOW + 7 * DAY_MS, steady).kind).toBe('at');
+  });
+
+  test('pool empty reads a time, empty now, not before reset, or not by the view end', () => {
+    const at = poolEmpty(pool(draining), NOW, NOW + 7 * DAY_MS);
+    expect(at.kind).toBe('at');
+    expect(at.kind === 'at' && Math.abs(at.atMs - (NOW + DAY_MS))).toBeLessThan(1000);
+    expect(poolEmpty(pool(dry), NOW, NOW + DAY_MS)).toEqual({ kind: 'now' });
+    // The view ends before the reset, and the pool lasts past that reset.
+    expect(poolEmpty(pool(slow), NOW, NOW + DAY_MS)).toEqual({ kind: 'not-before-reset' });
+    expect(poolEmpty(pool(slow), NOW, NOW + 14 * DAY_MS)).toEqual({
+      kind: 'not-by',
+      atMs: NOW + 14 * DAY_MS,
+    });
+  });
+
+  test('only upward jumps at least minDelta are labelled', () => {
+    const series = [
+      { t: 0, v: 1 },
+      { t: 5, v: 0.5 },
+      { t: 5, v: 1.2 },
+      { t: 6, v: 1.19 },
+      { t: 8, v: 1.19 },
+      { t: 8, v: 1.2 },
+      { t: 9, v: 1.2 },
+      { t: 9, v: 0.9 },
+    ];
+    expect(seriesJumps(series, 0.05)).toEqual([{ t: 5, from: 0.5, to: 1.2 }]);
+  });
+
+  test('stored preferences keep valid fields over the defaults', () => {
+    expect(parseForecastPrefs(null)).toEqual(DEFAULT_FORECAST_PREFS);
+    expect(
+      parseForecastPrefs({ collapsed: { meta: false, claude: 'yes' }, burnHours: 6, future: 'x' })
+    ).toEqual({
+      collapsed: { claude: false, codex: false, meta: false },
+      burnHours: 6,
+      future: 'usual',
     });
   });
 });

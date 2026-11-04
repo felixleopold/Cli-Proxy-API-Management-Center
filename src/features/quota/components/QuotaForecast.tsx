@@ -1,53 +1,56 @@
 /**
- * Pooled quota forecast: how much of a provider's weekly quota is left across
- * all its credentials, where it is heading, and how fast it has been draining.
+ * Pool cards: one card per forecast provider with how much of its weekly quota is
+ * left across every credential, when it (or its first account) runs dry, the next
+ * reset and the recent burn, over a chart of where it is heading. One control bar
+ * above the cards drives them all.
  *
- * QuotaTimeline answers "when does each credential come back"; this answers
- * "how much do I have, in total, over the next days". Pools read in plan
- * multipliers (11× of Claude vs 3.4× of Codex), with the share of our
- * multiplier second. On the All tab each provider gets its own row on its own
- * scale, all on one time axis.
+ * QuotaTimeline answers "when does each credential come back"; this answers "how
+ * much do I have, in total, over the next days". Pools read in plan multipliers.
  */
 
-import { useCallback, useId, useMemo, useState } from 'react';
-import type { CSSProperties } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconChevronDown } from '@/components/ui/icons';
 import { Select } from '@/components/ui/Select';
 import { useNow } from '@/hooks/useNow';
+import { useThemeStore } from '@/stores';
 import type { AuthFileItem } from '@/types';
-import { getTypeLabel } from '@/features/authFiles/constants';
+import { getAuthFileIcon, getTypeLabel } from '@/features/authFiles/constants';
 import {
+  BURN_WINDOW_HOURS,
   DAY_MS,
   DEFAULT_SLEEP_HOURS,
   DRAIN_SPAN_DAYS,
   FORECAST_HORIZON_DAYS,
+  FUTURE_USAGE,
   buildPools,
   drainBuckets,
   drainEdges,
+  firstCredentialEmpty,
+  futureScenario,
   learnActivity,
   nightHours,
+  poolEmpty,
   poolHistory,
   poolResetCredits,
   projectPool,
-  runsOutAt,
+  recentBurn,
+  steadyActivity,
   summarizePool,
   type CardReading,
   type DrainSpanDays,
   type ForecastHorizonDays,
   type ForecastProvider,
+  type PoolEmpty,
   type ResetCreditLike,
   type SleepHours,
 } from '../quotaForecastModel';
+import { readForecastPrefs, writeForecastPrefs, type ForecastPrefs } from '../quotaForecastPrefs';
 import { formatMultiplier, shareLeft } from '../planMultipliers';
 import type { QuotaHistoryState } from '../hooks/useQuotaHistory';
 import { readQuotaUiState, writeQuotaUiState } from '../uiState';
-import {
-  DrainChart,
-  RemainingChart,
-  type DrainSeries,
-  type ForecastRow,
-} from './QuotaForecastChart';
+import { DrainChart, RemainingChart, type ForecastRow } from './QuotaForecastChart';
 import styles from './QuotaForecast.module.scss';
 
 const SERIES_COLOR: Record<ForecastProvider, string> = {
@@ -60,6 +63,15 @@ const SERIES_COLOR: Record<ForecastProvider, string> = {
 const MAX_HISTORY_DAYS = 7;
 
 type ForecastView = 'remaining' | 'drain';
+
+const LEGEND_KEY = {
+  area: styles.keyArea,
+  dashed: styles.keyDashed,
+  range: styles.keyRange,
+  bar: styles.keyBar,
+  band: styles.keyBand,
+  tick: styles.keyTick,
+};
 
 export interface QuotaForecastProps {
   files: AuthFileItem[];
@@ -85,9 +97,9 @@ export function QuotaForecast({
 }: QuotaForecastProps) {
   const { t, i18n } = useTranslation();
   const language = i18n.resolvedLanguage || i18n.language;
+  const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
   const tick = useNow(nowProp === undefined);
   const nowMs = nowProp ?? tick;
-  const bodyId = useId();
 
   const samples = history.status === 'ok' ? history.samples : null;
   const ledger = history.status === 'ok' ? history.ledger : null;
@@ -97,7 +109,7 @@ export function QuotaForecast({
     [files, samples, cardReadings]
   );
 
-  const [collapsed, setCollapsed] = useState(() => readQuotaUiState()?.forecastCollapsed ?? false);
+  const [prefs, setPrefs] = useState<ForecastPrefs>(readForecastPrefs);
   const [horizon, setHorizon] = useState<ForecastHorizonDays>(
     () => readQuotaUiState()?.forecastHorizon ?? 7
   );
@@ -115,11 +127,9 @@ export function QuotaForecast({
     () => (tab === 'all' ? pools : pools.filter((pool) => pool.provider === tab)),
     [pools, tab]
   );
-  const comparative = visible.length > 1;
 
   const numbers = useMemo(() => {
     const whole = new Intl.NumberFormat(language, { maximumFractionDigits: 0 });
-    const tenth = new Intl.NumberFormat(language, { maximumFractionDigits: 1 });
     const when = new Intl.DateTimeFormat(language, {
       weekday: 'short',
       hour: 'numeric',
@@ -132,23 +142,25 @@ export function QuotaForecast({
       hour: 'numeric',
       minute: '2-digit',
     });
+    const date = new Intl.DateTimeFormat(language, { month: 'short', day: 'numeric' });
     const clockHour = new Intl.DateTimeFormat(language, { hour: 'numeric', minute: '2-digit' });
     return {
-      percent: (value: number) => whole.format(value),
       multiplier: (value: number) => formatMultiplier(value, language),
       /** Remaining as a whole percent of `of`. */
       share: (remaining: number, of: number) => whole.format((shareLeft(remaining, of) ?? 0) * 100),
-      rate: (value: number) => (value >= 10 ? whole.format(value) : tenth.format(value)),
       when: (ms: number) => (ms - nowMs < 6 * DAY_MS ? when : whenWithDate).format(ms),
+      date: (ms: number) => date.format(ms),
       hour: (hour: number) => clockHour.format(new Date(2000, 0, 1, hour)),
     };
   }, [language, nowMs]);
-  const formatRate = useCallback((value: number) => `${numbers.rate(value)}%`, [numbers]);
-  const formatMultiplierValue = numbers.multiplier;
   const formatPoint = useCallback(
     (value: number, capacity: number) =>
       `${numbers.multiplier(value)} · ${numbers.share(value, capacity)}%`,
     [numbers]
+  );
+  const formatJump = useCallback(
+    (delta: number) => t('quota_forecast.jump', { amount: numbers.multiplier(delta) }),
+    [numbers, t]
   );
 
   // Learned from every pool, not just the visible ones: one person sleeps once.
@@ -156,94 +168,100 @@ export function QuotaForecast({
     () => learnActivity(pools, samples ?? [], nowMs, sleep, ledger ?? []),
     [pools, samples, nowMs, sleep, ledger]
   );
-  const night = useMemo(() => nightHours(activity.sleep), [activity]);
-  const summaries = useMemo(
+  // "Same as now" needs history to measure the burn; without it the usual pattern stands in.
+  const future = prefs.future === 'same' && !samples ? 'usual' : prefs.future;
+  const projected = useMemo(
     () =>
-      visible.map((pool) => ({
-        pool,
-        summary: summarizePool(pool, nowMs, activity),
-        credits: resetCreditsFor ? poolResetCredits(pool, files, resetCreditsFor, nowMs) : [],
-      })),
-    [visible, nowMs, activity, files, resetCreditsFor]
+      future === 'same' && samples
+        ? steadyActivity(pools, samples, nowMs, prefs.burnHours, activity)
+        : activity,
+    [future, samples, pools, nowMs, prefs.burnHours, activity]
   );
+  const scenario = futureScenario(future);
+  const night = useMemo(() => nightHours(activity.sleep), [activity]);
 
   const historyDays = Math.min(horizon, MAX_HISTORY_DAYS);
   const startMs = samples ? nowMs - historyDays * DAY_MS : nowMs;
   const endMs = nowMs + horizon * DAY_MS;
+  const edges = useMemo(() => drainEdges(nowMs, drainDays), [nowMs, drainDays]);
 
-  const rows = useMemo<ForecastRow[]>(
+  const accountNames = useMemo(
     () =>
-      summaries.map(({ pool, summary, credits }) => {
-        const range = {
-          low: projectPool(pool, nowMs, endMs, activity, 'busy'),
-          high: projectPool(pool, nowMs, endMs, activity, 'quiet'),
-        };
-        const soonest = runsOutAt(range.low);
-        const latest = runsOutAt(range.high);
-        const facts = [
-          summary.nextReset &&
-            t('quota_management.forecast_next_reset', {
-              amount: numbers.multiplier(summary.nextReset.restore),
-              when: numbers.when(summary.nextReset.atMs),
-            }),
-          // A quiet pace may outlast the view or a reset; then only the soonest is known.
-          soonest !== null &&
-            (latest === null
-              ? t('quota_management.forecast_runs_out_soonest', { when: numbers.when(soonest) })
-              : numbers.when(soonest) === numbers.when(latest)
-                ? t('quota_management.forecast_runs_out', { when: numbers.when(soonest) })
-                : t('quota_management.forecast_runs_out_range', {
-                    from: numbers.when(soonest),
-                    to: numbers.when(latest),
-                  })),
-          // Manual resets are redeemed by hand, so the projection ignores them; say one could extend it.
-          soonest !== null &&
-            credits.length > 0 &&
-            t('quota_management.forecast_runs_out_credit', {
-              count: credits.length,
-              when: numbers.when(credits[0]),
-            }),
-        ];
-        return {
+      new Map(
+        files.flatMap((file) =>
+          typeof file.id === 'string' ? [[file.id, file.email || file.name] as const] : []
+        )
+      ),
+    [files]
+  );
+
+  const cards = useMemo(
+    () =>
+      visible.map((pool) => {
+        const credits = resetCreditsFor
+          ? poolResetCredits(pool, files, resetCreditsFor, nowMs)
+          : [];
+        const row: ForecastRow = {
           key: pool.provider,
           label: getTypeLabel(t, pool.provider),
           color: SERIES_COLOR[pool.provider],
           capacity: pool.capacity,
           history: samples ? poolHistory(pool, samples, startMs, nowMs) : [],
-          projection: projectPool(pool, nowMs, endMs, activity),
-          range,
+          projection: projectPool(pool, nowMs, endMs, projected, scenario),
+          // The likely range is the usual pattern's spread; the other choices are one pace each.
+          range:
+            future === 'usual'
+              ? {
+                  low: projectPool(pool, nowMs, endMs, activity, 'busy'),
+                  high: projectPool(pool, nowMs, endMs, activity, 'quiet'),
+                }
+              : null,
           credits,
-          facts: facts.filter(Boolean).join(' · '),
+        };
+        const first = firstCredentialEmpty(pool, nowMs, projected, scenario);
+        return {
+          pool,
+          row,
+          summary: summarizePool(pool, nowMs, projected, scenario),
+          empty: poolEmpty(pool, nowMs, endMs, projected, scenario),
+          first: first && {
+            name: accountNames.get(first.authId) ?? first.authId,
+            atMs: first.atMs,
+          },
+          burn: samples ? recentBurn(pool, samples, nowMs, prefs.burnHours) : null,
+          drain: samples ? drainBuckets(pool, samples, edges) : null,
         };
       }),
-    [summaries, samples, startMs, nowMs, endMs, activity, numbers, t]
+    [
+      visible,
+      resetCreditsFor,
+      files,
+      nowMs,
+      t,
+      samples,
+      startMs,
+      endMs,
+      projected,
+      scenario,
+      future,
+      activity,
+      accountNames,
+      prefs.burnHours,
+      edges,
+    ]
   );
-
-  const drain = useMemo(() => {
-    if (!samples) return null;
-    const edges = drainEdges(nowMs, drainDays);
-    const series: DrainSeries[] = visible.map((pool) => {
-      const values = drainBuckets(pool, samples, edges);
-      return {
-        key: pool.provider,
-        label: getTypeLabel(t, pool.provider),
-        color: SERIES_COLOR[pool.provider],
-        // Several pools compare as shares of each; one pool reads in multipliers.
-        values: comparative ? values.map((value) => (value / pool.capacity) * 100) : values,
-      };
-    });
-    const empty = series.every((entry) => entry.values.every((value) => value === 0));
-    return { edges, hourly: drainDays <= 3, series, empty, partialIndex: edges.length - 2 };
-  }, [samples, nowMs, drainDays, visible, comparative, t]);
 
   if (visible.length === 0) return null;
 
-  const toggleCollapsed = () => {
-    setCollapsed((value) => {
-      writeQuotaUiState({ forecastCollapsed: !value });
-      return !value;
+  const updatePrefs = (patch: Partial<ForecastPrefs>) => {
+    setPrefs((current) => {
+      const next = { ...current, ...patch };
+      writeForecastPrefs(next);
+      return next;
     });
   };
+  const toggleCollapsed = (provider: ForecastProvider) =>
+    updatePrefs({ collapsed: { ...prefs.collapsed, [provider]: !prefs.collapsed[provider] } });
   const chooseHorizon = (days: ForecastHorizonDays) => {
     setHorizon(days);
     writeQuotaUiState({ forecastHorizon: days });
@@ -256,16 +274,10 @@ export function QuotaForecast({
     value: String(hour),
     label: numbers.hour(hour),
   }));
+  // A provider tab shows its one card open; the All tab remembers each card's state.
+  const collapsible = tab === 'all';
+  const drainHourly = drainDays <= 3;
   const hasNight = night.some(Boolean);
-  const hasCreditMarker = rows.some((row) =>
-    row.credits.some((expiresAtMs) => expiresAtMs <= endMs)
-  );
-  const paceHint = t('quota_management.forecast_pace_hint');
-  const keyColor = comparative ? 'var(--text-secondary)' : rows[0].color;
-
-  const single = summaries[0];
-  const drainPace =
-    drain && !comparative ? single.summary.pacePerHour * (drain.hourly ? 1 : 24) : null;
   const historyNote =
     history.status === 'disabled'
       ? t('quota_management.forecast_history_off')
@@ -273,46 +285,16 @@ export function QuotaForecast({
         ? t('quota_management.forecast_history_error')
         : null;
 
-  const legendKey = (
-    variant: 'area' | 'dashed' | 'range' | 'bar' | 'band' | 'tick',
-    color: string
-  ) => (
-    <span
-      className={
-        variant === 'tick'
-          ? styles.keyTick
-          : variant === 'band'
-            ? styles.keyBand
-            : variant === 'bar'
-              ? styles.keyBar
-              : variant === 'range'
-                ? styles.keyRange
-                : variant === 'dashed'
-                  ? styles.keyDashed
-                  : styles.keyArea
-      }
-      style={{ '--series': color } as CSSProperties}
-      aria-hidden="true"
-    />
-  );
-
-  const creditCount = (credits: number[]) =>
-    credits.length > 0 && (
-      <span className={styles.credits}>
-        {legendKey('tick', 'var(--amber-color)')}
-        {t('quota_management.forecast_reset_credits', { count: credits.length })}
-      </span>
-    );
-
   const segmented = <T extends number>(
     options: readonly T[],
     value: T,
     onChange: (next: T) => void,
     label: string,
-    prefix: string
+    prefix: string,
+    format: (option: T) => string
   ) => (
-    <div className={styles.rangeControl}>
-      <span className={styles.rangePrefix} aria-hidden="true">
+    <div className={styles.control}>
+      <span className={styles.controlLabel} aria-hidden="true">
         {prefix}
       </span>
       <div className={styles.segmented} role="group" aria-label={label}>
@@ -323,215 +305,240 @@ export function QuotaForecast({
             aria-pressed={option === value}
             onClick={() => onChange(option)}
           >
-            {t('quota_management.forecast_days_short', { count: option })}
+            {format(option)}
           </button>
         ))}
       </div>
     </div>
   );
+  const daysShort = (count: number) => t('quota_management.forecast_days_short', { count });
+
+  const emptyText = (empty: PoolEmpty) =>
+    empty.kind === 'now'
+      ? t('quota_forecast.pool_empty_now')
+      : empty.kind === 'at'
+        ? numbers.when(empty.atMs)
+        : empty.kind === 'not-before-reset'
+          ? t('quota_forecast.pool_not_before_reset')
+          : t('quota_forecast.pool_not_by', { date: numbers.date(empty.atMs) });
+
+  const legendKey = (variant: keyof typeof LEGEND_KEY, color: string) => (
+    <span
+      className={LEGEND_KEY[variant]}
+      style={{ '--series': color } as CSSProperties}
+      aria-hidden="true"
+    />
+  );
+  const legendItem = (key: ReactNode, label: string) => (
+    <span key={label} className={styles.legendItem}>
+      {key}
+      {label}
+    </span>
+  );
 
   return (
     <section className={styles.forecast} aria-label={t('quota_management.forecast_title')}>
-      <header className={styles.summary}>
-        {comparative ? (
-          <div className={styles.pools}>
-            {summaries.map(({ pool, summary, credits }) => (
-              <span key={pool.provider} className={styles.poolSummary}>
-                <span className={styles.poolHead}>
-                  <span
-                    className={styles.poolDot}
-                    style={{ '--series': SERIES_COLOR[pool.provider] } as CSSProperties}
-                    aria-hidden="true"
-                  />
-                  <span className={styles.poolName}>{getTypeLabel(t, pool.provider)}</span>
-                </span>
-                <span className={styles.poolLine}>
-                  <strong className={styles.poolValue}>
-                    {numbers.multiplier(summary.remaining)}
-                  </strong>
-                  <span className={styles.poolOf}>
-                    {t('quota_management.forecast_remaining_of', {
-                      capacity: numbers.multiplier(summary.capacity),
-                      percent: numbers.share(summary.remaining, summary.capacity),
-                    })}
-                  </span>
-                </span>
-                <span className={styles.poolMeta}>
-                  <span className={styles.pace} title={paceHint}>
-                    {t('quota_management.forecast_pace_short', {
-                      pace: numbers.multiplier(summary.pacePerHour * 24),
-                    })}
-                  </span>
-                  {creditCount(credits)}
-                </span>
-              </span>
-            ))}
-          </div>
-        ) : (
-          <div className={styles.hero}>
-            <strong className={styles.heroValue}>
-              {numbers.multiplier(single.summary.remaining)}
-            </strong>
-            <span className={styles.heroOf}>
-              {t('quota_management.forecast_remaining_of', {
-                capacity: numbers.multiplier(single.summary.capacity),
-                percent: numbers.share(single.summary.remaining, single.summary.capacity),
-              })}
+      <div className={styles.controls}>
+        <div
+          className={styles.segmented}
+          role="tablist"
+          aria-label={t('quota_forecast.view_label')}
+        >
+          {(['remaining', 'drain'] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={view === value}
+              onClick={() => setView(value)}
+            >
+              {value === 'remaining'
+                ? t('quota_management.forecast_legend_remaining')
+                : t('quota_management.forecast_tab_drain')}
+            </button>
+          ))}
+        </div>
+        {segmented(
+          BURN_WINDOW_HOURS,
+          prefs.burnHours,
+          (burnHours) => updatePrefs({ burnHours }),
+          t('quota_forecast.burn_window_label'),
+          t('quota_forecast.burn_label'),
+          (count) => t('quota_forecast.hours_short', { count })
+        )}
+        {view === 'remaining' && (
+          <div className={styles.control}>
+            <span className={styles.controlLabel} aria-hidden="true">
+              {t('quota_forecast.future_label')}
             </span>
-            <span className={styles.pace} title={paceHint}>
-              {t('quota_management.forecast_pace', {
-                pace: numbers.multiplier(single.summary.pacePerHour * 24),
-              })}
-            </span>
-            {creditCount(single.credits)}
+            <Select
+              size="sm"
+              className={styles.futureSelect}
+              value={future}
+              options={FUTURE_USAGE.map((value) => ({
+                value,
+                label: t(`quota_forecast.future_${value}`),
+              }))}
+              ariaLabel={t('quota_forecast.future_label')}
+              onChange={(value) => {
+                const next = FUTURE_USAGE.find((option) => option === value);
+                if (next) updatePrefs({ future: next });
+              }}
+            />
           </div>
         )}
-        <button
-          type="button"
-          className={styles.collapse}
-          aria-expanded={!collapsed}
-          aria-controls={bodyId}
-          aria-label={
-            collapsed
-              ? t('quota_management.forecast_expand')
-              : t('quota_management.forecast_collapse')
-          }
-          title={
-            collapsed
-              ? t('quota_management.forecast_expand')
-              : t('quota_management.forecast_collapse')
-          }
-          onClick={toggleCollapsed}
-        >
-          <IconChevronDown size={16} aria-hidden="true" />
-        </button>
-      </header>
+        {view === 'remaining'
+          ? segmented(
+              FORECAST_HORIZON_DAYS,
+              horizon,
+              chooseHorizon,
+              t('quota_management.forecast_horizon_label'),
+              t('quota_management.forecast_next'),
+              daysShort
+            )
+          : segmented(
+              DRAIN_SPAN_DAYS,
+              drainDays,
+              setDrainDays,
+              t('quota_management.forecast_drain_span_label'),
+              t('quota_management.forecast_last'),
+              daysShort
+            )}
+      </div>
+      {historyNote && view === 'remaining' && <p className={styles.note}>{historyNote}</p>}
 
-      {!collapsed && (
-        <div id={bodyId} className={styles.body}>
-          <div className={styles.views} role="tablist">
-            {(['remaining', 'drain'] as const).map((value) => (
+      {cards.map(({ pool, row, summary, empty, first, burn, drain }) => {
+        const provider = pool.provider;
+        const name = getTypeLabel(t, provider);
+        const icon = getAuthFileIcon(provider, resolvedTheme);
+        const collapsed = collapsible && prefs.collapsed[provider];
+        const accounts = t('quota_forecast.accounts', { count: pool.credentials.length });
+        const identity = (
+          <span className={styles.identity}>
+            {icon ? (
+              <img src={icon} alt="" className={styles.providerIcon} />
+            ) : (
+              <span className={styles.providerDot} aria-hidden="true" />
+            )}
+            <span className={styles.providerName}>{name}</span>
+            <span className={styles.accounts}>{accounts}</span>
+          </span>
+        );
+        const remaining = numbers.multiplier(summary.remaining);
+        const of = t('quota_forecast.of', { capacity: numbers.multiplier(summary.capacity) });
+        const nextReset = summary.nextReset && (
+          <>
+            <span className={styles.gain}>{formatJump(summary.nextReset.restore)}</span>{' '}
+            {numbers.when(summary.nextReset.atMs)}
+          </>
+        );
+        const style = { '--series': row.color } as CSSProperties;
+
+        if (collapsed) {
+          return (
+            <article key={provider} className={styles.card} style={style}>
               <button
-                key={value}
                 type="button"
-                role="tab"
-                aria-selected={view === value}
-                onClick={() => setView(value)}
+                className={styles.collapsedRow}
+                aria-expanded={false}
+                aria-label={t('quota_forecast.expand', { provider: name })}
+                onClick={() => toggleCollapsed(provider)}
               >
-                {value === 'remaining'
-                  ? t('quota_management.forecast_tab_remaining')
-                  : t('quota_management.forecast_tab_drain')}
+                {identity}
+                <span className={styles.collapsedValue}>
+                  <strong>{remaining}</strong> <span className={styles.of}>{of}</span>
+                </span>
+                {nextReset && (
+                  <span className={styles.collapsedFact}>
+                    <span className={styles.collapsedFactLabel}>
+                      {t('quota_forecast.stat_next_reset')}
+                    </span>{' '}
+                    {nextReset}
+                  </span>
+                )}
+                <IconChevronDown size={16} className={styles.chevron} aria-hidden="true" />
               </button>
-            ))}
-          </div>
+            </article>
+          );
+        }
 
-          <div role="tabpanel" className={styles.panel}>
-            <div className={styles.legendRow}>
-              <div className={styles.legend}>
-                {view === 'remaining' && (
-                  <>
-                    <span className={styles.legendItem}>
-                      {legendKey('area', keyColor)}
-                      {t('quota_management.forecast_legend_remaining')}
-                    </span>
-                    <span className={styles.legendItem}>
-                      {legendKey('dashed', keyColor)}
-                      {t('quota_management.forecast_legend_projected')}
-                    </span>
-                    <span className={styles.legendItem}>
-                      {legendKey('range', keyColor)}
-                      {t('quota_management.forecast_legend_range')}
-                    </span>
-                  </>
-                )}
-                {view === 'remaining' && hasNight && (
-                  <span className={styles.legendItem}>
-                    {legendKey('band', 'var(--text-tertiary)')}
-                    {t('quota_management.forecast_legend_night')}
-                  </span>
-                )}
-                {view === 'remaining' && hasCreditMarker && (
-                  <span className={styles.legendItem}>
-                    {legendKey('tick', 'var(--amber-color)')}
-                    {t('quota_management.forecast_legend_reset_credit')}
-                  </span>
-                )}
-                {view === 'drain' &&
-                  drain &&
-                  (comparative ? (
+        const drainPace = summary.pacePerHour * (drainHourly ? 1 : 24);
+        const hasCreditMarker = row.credits.some(
+          (expiresAtMs) => expiresAtMs >= startMs && expiresAtMs <= endMs
+        );
+        return (
+          <article key={provider} className={styles.card} style={style}>
+            <header className={styles.cardHead}>
+              {identity}
+              {collapsible && (
+                <button
+                  type="button"
+                  className={styles.collapse}
+                  aria-expanded
+                  aria-label={t('quota_forecast.collapse', { provider: name })}
+                  title={t('quota_forecast.collapse', { provider: name })}
+                  onClick={() => toggleCollapsed(provider)}
+                >
+                  <IconChevronDown size={16} aria-hidden="true" />
+                </button>
+              )}
+            </header>
+
+            <div className={styles.cardSummary}>
+              <div className={styles.hero}>
+                <strong className={styles.heroValue}>{remaining}</strong>
+                <span className={styles.of}>{of}</span>
+              </div>
+              <dl className={styles.stats}>
+                <Stat label={t('quota_forecast.stat_pool_empty')}>{emptyText(empty)}</Stat>
+                <Stat label={t('quota_forecast.stat_first_empty')}>
+                  {first ? (
                     <>
-                      {drain.series.map((entry) => (
-                        <span key={entry.key} className={styles.legendItem}>
-                          {legendKey('bar', entry.color)}
-                          {entry.label}
-                        </span>
-                      ))}
-                      <span className={styles.legendNote}>
-                        {drain.hourly
-                          ? t('quota_management.forecast_share_per_hour')
-                          : t('quota_management.forecast_share_per_day')}
-                      </span>
+                      <span className={styles.account} title={first.name}>
+                        {first.name}
+                      </span>{' '}
+                      {first.atMs <= nowMs
+                        ? t('quota_forecast.pool_empty_now')
+                        : numbers.when(first.atMs)}
                     </>
                   ) : (
-                    <>
-                      <span className={styles.legendItem}>
-                        {legendKey('bar', drain.series[0].color)}
-                        {drain.hourly
-                          ? t('quota_management.forecast_used_per_hour')
-                          : t('quota_management.forecast_used_per_day')}
-                      </span>
-                      {drainPace !== null && (
-                        <span className={styles.legendItem}>
-                          {legendKey('dashed', 'var(--text-secondary)')}
-                          {t('quota_management.forecast_pace_line', {
-                            pace: numbers.multiplier(drainPace),
-                          })}
-                        </span>
-                      )}
-                    </>
-                  ))}
-              </div>
-              {view === 'remaining'
-                ? segmented(
-                    FORECAST_HORIZON_DAYS,
-                    horizon,
-                    chooseHorizon,
-                    t('quota_management.forecast_horizon_label'),
-                    t('quota_management.forecast_next')
-                  )
-                : segmented(
-                    DRAIN_SPAN_DAYS,
-                    drainDays,
-                    setDrainDays,
-                    t('quota_management.forecast_drain_span_label'),
-                    t('quota_management.forecast_last')
+                    t('quota_forecast.first_empty_none')
                   )}
+                </Stat>
+                {nextReset && <Stat label={t('quota_forecast.stat_next_reset')}>{nextReset}</Stat>}
+                <Stat label={t('quota_forecast.stat_burn', { count: prefs.burnHours })}>
+                  {burn === null
+                    ? '–'
+                    : t('quota_forecast.per_hour', { rate: numbers.multiplier(burn) })}
+                </Stat>
+              </dl>
             </div>
 
             {view === 'remaining' ? (
               <RemainingChart
-                rows={rows}
+                row={row}
                 night={night}
                 fromMs={startMs}
                 toMs={endMs}
                 nowMs={nowMs}
-                formatValue={formatMultiplierValue}
+                formatValue={numbers.multiplier}
                 formatPoint={formatPoint}
-                ariaLabel={t('quota_management.forecast_aria_remaining', { count: horizon })}
-                remainingLabel={t('quota_management.forecast_legend_remaining')}
+                formatJump={formatJump}
+                ariaLabel={t('quota_forecast.aria_remaining', { provider: name, count: horizon })}
+                remainingLabel={t('quota_forecast.legend_recorded')}
                 projectedLabel={t('quota_management.forecast_legend_projected')}
                 nowLabel={t('quota_management.forecast_now')}
                 creditLabel={t('quota_management.forecast_legend_reset_credit')}
               />
             ) : drain ? (
               <DrainChart
-                series={drain.series}
-                edges={drain.edges}
-                partialIndex={drain.partialIndex}
+                series={[{ key: provider, label: name, color: row.color, values: drain }]}
+                edges={edges}
+                partialIndex={edges.length - 2}
                 pace={drainPace}
-                formatValue={comparative ? formatRate : formatMultiplierValue}
+                formatValue={numbers.multiplier}
                 ariaLabel={
-                  drain.hourly
+                  drainHourly
                     ? t('quota_management.forecast_used_per_hour')
                     : t('quota_management.forecast_used_per_day')
                 }
@@ -547,50 +554,90 @@ export function QuotaForecast({
               </div>
             )}
 
-            <footer className={styles.footer}>
-              <div className={styles.footerFacts}>
-                {view === 'drain' && drain?.empty && (
-                  <span>{t('quota_management.forecast_drain_empty')}</span>
-                )}
-              </div>
-              {view === 'remaining' && historyNote && (
-                <span className={styles.note}>{historyNote}</span>
-              )}
-              {view === 'remaining' && (
-                <details className={styles.settings}>
-                  <summary>{t('quota_management.forecast_settings')}</summary>
-                  <div className={styles.settingsBody}>
-                    <span className={styles.settingsLabel}>
-                      {t('quota_management.forecast_sleep_label')}
-                    </span>
-                    <Select
-                      size="sm"
-                      className={styles.hourSelect}
-                      value={String(sleep.startHour)}
-                      options={hourOptions}
-                      ariaLabel={t('quota_management.forecast_sleep_start')}
-                      onChange={(value) => chooseSleep({ ...sleep, startHour: Number(value) })}
-                    />
-                    <span aria-hidden="true">–</span>
-                    <Select
-                      size="sm"
-                      className={styles.hourSelect}
-                      value={String(sleep.endHour)}
-                      options={hourOptions}
-                      ariaLabel={t('quota_management.forecast_sleep_end')}
-                      onChange={(value) => chooseSleep({ ...sleep, endHour: Number(value) })}
-                    />
-                    <p className={styles.settingsHint}>
-                      {t('quota_management.forecast_sleep_hint')}
-                    </p>
-                    <p className={styles.settingsHint}>{paceHint}</p>
-                  </div>
-                </details>
-              )}
-            </footer>
-          </div>
+            <div className={styles.legend}>
+              {view === 'remaining'
+                ? [
+                    row.history.length > 1 &&
+                      legendItem(legendKey('area', row.color), t('quota_forecast.legend_recorded')),
+                    legendItem(
+                      legendKey('dashed', row.color),
+                      t('quota_management.forecast_legend_projected')
+                    ),
+                    row.range &&
+                      legendItem(
+                        legendKey('range', row.color),
+                        t('quota_management.forecast_legend_range')
+                      ),
+                    hasNight &&
+                      legendItem(
+                        legendKey('band', 'var(--text-tertiary)'),
+                        t('quota_management.forecast_legend_night')
+                      ),
+                    hasCreditMarker &&
+                      legendItem(
+                        legendKey('tick', 'var(--amber-color)'),
+                        t('quota_management.forecast_legend_reset_credit')
+                      ),
+                  ]
+                : drain && [
+                    legendItem(
+                      legendKey('bar', row.color),
+                      drainHourly
+                        ? t('quota_management.forecast_used_per_hour')
+                        : t('quota_management.forecast_used_per_day')
+                    ),
+                    legendItem(
+                      legendKey('dashed', 'var(--text-secondary)'),
+                      t('quota_management.forecast_pace_line', {
+                        pace: numbers.multiplier(drainPace),
+                      })
+                    ),
+                    drain.every((value) => value === 0) && (
+                      <span key="empty" className={styles.legendNote}>
+                        {t('quota_management.forecast_drain_empty')}
+                      </span>
+                    ),
+                  ]}
+            </div>
+          </article>
+        );
+      })}
+
+      <details className={styles.settings}>
+        <summary>{t('quota_management.forecast_settings')}</summary>
+        <div className={styles.settingsBody}>
+          <span>{t('quota_management.forecast_sleep_label')}</span>
+          <Select
+            size="sm"
+            className={styles.hourSelect}
+            value={String(sleep.startHour)}
+            options={hourOptions}
+            ariaLabel={t('quota_management.forecast_sleep_start')}
+            onChange={(value) => chooseSleep({ ...sleep, startHour: Number(value) })}
+          />
+          <span aria-hidden="true">–</span>
+          <Select
+            size="sm"
+            className={styles.hourSelect}
+            value={String(sleep.endHour)}
+            options={hourOptions}
+            ariaLabel={t('quota_management.forecast_sleep_end')}
+            onChange={(value) => chooseSleep({ ...sleep, endHour: Number(value) })}
+          />
+          <p className={styles.settingsHint}>{t('quota_management.forecast_sleep_hint')}</p>
+          <p className={styles.settingsHint}>{t('quota_forecast.future_hint')}</p>
+          <p className={styles.settingsHint}>{t('quota_management.forecast_pace_hint')}</p>
         </div>
-      )}
+      </details>
     </section>
+  );
+}
+
+function Stat({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className={styles.stat}>
+      <dt>{label}</dt>
+      <dd>{children}</dd>
+    </div>
   );
 }

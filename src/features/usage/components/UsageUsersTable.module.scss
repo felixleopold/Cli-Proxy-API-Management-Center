@@ -14,8 +14,8 @@
 
   th,
   td {
-    padding: 9px $spacing-sm;
-    border-bottom: 1px solid var(--border-color);
+    padding: 10px $spacing-sm;
+    border-bottom: 1px solid var(--border-secondary);
     color: var(--text-secondary);
     text-align: left;
     vertical-align: middle;
@@ -24,7 +24,7 @@
   thead th {
     padding-top: 0;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text-tertiary);
     white-space: nowrap;
   }
@@ -179,7 +179,7 @@
   position: relative;
   flex: 1;
   min-width: 60px;
-  height: 6px;
+  height: 4px;
   border-radius: $radius-full;
   background: var(--bg-tertiary);
   overflow: hidden;

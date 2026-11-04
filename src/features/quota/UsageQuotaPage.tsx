@@ -1,10 +1,11 @@
 /**
- * Usage & quota page: the global Claude API credit switch, then one provider
- * filter over the account cards (each credential's live quota with its spend in
- * its current window), the current quota windows (pooled forecast and timeline)
- * and the spend history. This shell owns the credential list and the account
- * cards; ClaudeCreditCard owns its switch; UsageSections owns the ledger, the
- * tabs and the header refresh.
+ * Usage & quota page: the header (with the global Claude API credit switch),
+ * then one provider filter over the pooled forecast and reserve pool, the
+ * account rows (each credential's live quota with its spend in its current
+ * window), the quota window timeline and the spend history. This shell owns the
+ * credential list; AccountsList renders the account rows; ClaudeCreditCard owns
+ * its switch; UsageSections owns the ledger, the tabs, the section order and the
+ * header refresh.
  *
  * Behaviour contracts kept from the quota page:
  * - existing providers load on click; Devin queries once when first visible, without polling;
@@ -16,11 +17,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { authFilesApi } from '@/services/api';
-import { Button } from '@/components/ui/Button';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { IconSearch, IconX } from '@/components/ui/icons';
-import { Select } from '@/components/ui/Select';
-import { Skeleton } from '@/components/ui/Skeleton';
 import { triggerHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useNow } from '@/hooks/useNow';
 import { useRevealGroup } from '@/hooks/motion';
@@ -29,23 +25,17 @@ import type { AuthFileItem, ResolvedTheme } from '@/types';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import type { AccountSpendContext } from '@/features/usage/components/AccountSpend';
 import { UsageSections } from '@/features/usage/UsageSections';
-import { pairAccountSpend } from './accountCards';
 import { ClaudeCreditCard } from './components/ClaudeCreditCard';
 import { QuotaHeader } from './components/QuotaHeader';
-import { QuotaCard, SpendOnlyCard } from './components/QuotaCard';
+import { AccountsList } from './components/AccountsList';
 import { QuotaForecast } from './components/QuotaForecast';
 import { QuotaTimeline } from './components/QuotaTimeline';
 import { UsagePool } from './components/UsagePool';
-import {
-  CARD_ENTRANCE_BUDGET_MS,
-  QUOTA_PAGE_SIZE,
-  QUOTA_SORT_MODES,
-  QUOTA_TAB_ORDER,
-  type QuotaSortMode,
-} from './constants';
+import { QUOTA_PAGE_SIZE, QUOTA_TAB_ORDER, type QuotaSortMode } from './constants';
 import {
   canRefreshQuotaAfterList,
   classifyQuotaFiles,
+  disabledAccountFiles,
   filterEntriesByTab,
   filterEntriesBySearch,
   paginate,
@@ -55,14 +45,9 @@ import {
 import {
   buildPools,
   cardReading,
-  credentialNow,
   gatewayResetCredits,
   hasForecastCredentials,
-  providerMultipliers,
 } from './quotaForecastModel';
-import { planShareOf, remainingMultiplier, type AccountMultiplier } from './planMultipliers';
-import { supportsAuthFileUsageCap } from '@/features/authFiles/constants';
-import { PlanMultiplierTotals } from './components/PlanMultipliers';
 import { nextRecoveryMs } from './resetSchedule';
 import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from './providers';
 import type { QuotaProviderType } from './providers/types';
@@ -72,8 +57,6 @@ import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
 import { useQuotaHistory } from './hooks/useQuotaHistory';
 import { isQuotaTabId, readQuotaUiState, writeQuotaUiState } from './uiState';
 import styles from './UsageQuotaPage.module.scss';
-
-const SKELETON_CARD_COUNT = 6;
 
 /**
  * Existing providers display filenames; Devin's card and timeline share an
@@ -96,7 +79,6 @@ export function UsageQuotaPage() {
   );
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const searchInputRef = useRef<HTMLInputElement>(null);
   // Entrance cascade for header + tabs (title → meta → action → tabs, 70ms apart)
   const revealRef = useRevealGroup<HTMLDivElement>();
 
@@ -142,6 +124,13 @@ export function UsageQuotaPage() {
           ? { ...file, lenderReserveOverrideUntilMs: untilMs ?? undefined }
           : file
       )
+    );
+  }, []);
+
+  // One credential changed in place, e.g. by its row's enabled toggle.
+  const handleFileChange = useCallback((key: string, patch: Partial<AuthFileItem>) => {
+    setFiles((current) =>
+      current.map((file) => (getQuotaCacheKey(file) === key ? { ...file, ...patch } : file))
     );
   }, []);
 
@@ -203,6 +192,10 @@ export function UsageQuotaPage() {
   const sortNow = sortMode === 'default' ? 0 : tick;
 
   const entries = useMemo(() => classifyQuotaFiles(files), [files]);
+  const disabledFiles = useMemo(
+    () => disabledAccountFiles(files, tab, search),
+    [files, tab, search]
+  );
   // A provider without quota support has no cards.
   const filteredEntries = useMemo(
     () =>
@@ -241,20 +234,13 @@ export function UsageQuotaPage() {
     writeQuotaUiState({ sortMode: next as QuotaSortMode });
   }, []);
 
-  const sortOptions = useMemo(
-    () =>
-      QUOTA_SORT_MODES.map((mode) => ({ value: mode, label: t(`quota_management.sort_${mode}`) })),
-    [t]
-  );
-
   // Shared by the forecast and the subscription cards (windows for credentials without live signals).
   const history = useQuotaHistory(hasForecastCredentials(files), files);
 
-  /* ---------- Plan multipliers ----------
-   * The same pools as the forecast: live signals, else the latest history reading, else the
-   * loaded card. */
+  /* ---------- Pools ----------
+   * Shared by the forecast and the account rows: live signals, else the latest history
+   * reading, else the loaded card. */
 
-  const multiplierNow = useNow();
   const historySamples = history.status === 'ok' ? history.samples : null;
   const cardReadings = useMemo(
     () =>
@@ -270,32 +256,6 @@ export function UsageQuotaPage() {
     () => buildPools(files, historySamples ?? [], cardReadings),
     [files, historySamples, cardReadings]
   );
-  // Every provider with an enabled credential, read or not.
-  const multiplierTotals = useMemo(
-    () =>
-      providerMultipliers(files, pools, multiplierNow, cardReadings).filter(
-        (entry) => tab === 'all' || entry.provider === tab
-      ),
-    [pools, files, tab, multiplierNow, cardReadings]
-  );
-  const multiplierFor = useMemo(() => {
-    const pooled = new Map(
-      pools.flatMap((pool) => pool.credentials.map((credential) => [credential.authId, credential]))
-    );
-    // Providers whose windows the gateway observes are the ones with a cap, and so a share.
-    return (entry: QuotaFileEntry): AccountMultiplier | null => {
-      if (!supportsAuthFileUsageCap(entry.type)) return null;
-      const credential = typeof entry.file.id === 'string' ? pooled.get(entry.file.id) : undefined;
-      const share = credential?.share ?? planShareOf(entry.file, 'weekly');
-      return {
-        share,
-        remaining: credential
-          ? remainingMultiplier(share, credentialNow(credential, multiplierNow).usedPercent)
-          : null,
-        weekly: credential?.window === 'weekly',
-      };
-    };
-  }, [pools, multiplierNow]);
 
   const { loadedCount, attentionCount } = useMemo(() => {
     let loaded = 0;
@@ -384,175 +344,40 @@ export function UsageQuotaPage() {
 
   const canUseActions = !disableControls && !loading && filesGeneration === sessionGeneration;
 
-  /* ---------- 首屏卡片一次性级联入场 ----------
-   * 首批数据渲染后立即翻转 cardsAnimated；已挂载的卡片在挂载时捕获过自己的
-   * 延迟（QuotaCard 内 useState 初始化），后续切 tab/翻页/刷新新挂载的卡片
-   * 拿到 null —— 不重播。 */
-
-  const [cardsAnimated, setCardsAnimated] = useState(false);
-  const enableCardEntrance = !cardsAnimated && !loading && pageItems.length > 0;
-  useEffect(() => {
-    if (enableCardEntrance) {
-      setCardsAnimated(true);
-    }
-  }, [enableCardEntrance]);
-  const cardEntranceDelay = (index: number): number | null => {
-    if (!enableCardEntrance) return null;
-    if (pageItems.length <= 1) return 0;
-    return Math.round((index / (pageItems.length - 1)) * CARD_ENTRANCE_BUDGET_MS);
-  };
-
   /* ---------- 渲染 ---------- */
 
-  const quotaTab = isQuotaTabId(tab) && tab !== 'all' ? tab : null;
-
-  const renderAccounts = (spend: AccountSpendContext) => {
-    const { spendFor, spendOnly } = pairAccountSpend(entries, spend.summaries, search, files);
-    // Credentials without quota support follow the quota cards, on the last page.
-    const spendOnlyCards =
-      spend.status === 'unavailable' || currentPage !== totalPages ? [] : spendOnly;
-    const isEmpty = !loading && filteredEntries.length === 0 && spendOnlyCards.length === 0;
-    return (
-      <>
-        <PlanMultiplierTotals providers={multiplierTotals} resolvedTheme={resolvedTheme} />
-        <div className={styles.toolbar}>
-          <div className={styles.search}>
-            <IconSearch size={16} className={styles.searchIcon} aria-hidden="true" />
-            <input
-              ref={searchInputRef}
-              className={styles.searchInput}
-              type="search"
-              value={search}
-              onChange={(event) => handleSearchChange(event.target.value)}
-              placeholder={t('quota_management.search_placeholder')}
-              aria-label={t('quota_management.search_label')}
-            />
-            {search && (
-              <button
-                type="button"
-                className={styles.clearSearch}
-                aria-label={t('quota_management.search_clear')}
-                title={t('quota_management.search_clear')}
-                onClick={() => {
-                  handleSearchChange('');
-                  searchInputRef.current?.focus();
-                }}
-              >
-                <IconX size={14} aria-hidden="true" />
-              </button>
-            )}
-          </div>
-          <div className={styles.sort}>
-            <Select
-              value={sortMode}
-              options={sortOptions}
-              onChange={handleSortModeChange}
-              ariaLabel={t('quota_management.sort_label')}
-              size="sm"
-            />
-          </div>
-        </div>
-
-        {error && (
-          <div className={styles.errorBanner} role="alert">
-            {error}
-          </div>
-        )}
-
-        {loading ? (
-          <div className={styles.grid} aria-hidden="true">
-            {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
-              <Skeleton key={index} height={168} rounded={14} />
-            ))}
-          </div>
-        ) : isEmpty ? (
-          <EmptyState
-            title={
-              search.trim()
-                ? t('quota_management.search_empty_title')
-                : quotaTab
-                  ? t(`${QUOTA_ADAPTERS[quotaTab].i18nPrefix}.empty_title`)
-                  : t('quota_management.empty_title')
-            }
-            description={
-              search.trim()
-                ? t('quota_management.search_empty_desc')
-                : quotaTab
-                  ? t(`${QUOTA_ADAPTERS[quotaTab].i18nPrefix}.empty_desc`)
-                  : t('quota_management.empty_desc')
-            }
-            action={
-              search.trim() ? (
-                <Button variant="secondary" size="sm" onClick={() => handleSearchChange('')}>
-                  {t('quota_management.search_clear')}
-                </Button>
-              ) : tab === 'all' ? undefined : (
-                <Button variant="secondary" size="sm" onClick={() => handleTabChange('all')}>
-                  {t('auth_files.filter_all')}
-                </Button>
-              )
-            }
-          />
-        ) : (
-          <div className={styles.grid}>
-            {pageItems.map((entry, index) => (
-              <QuotaCard
-                key={`${entry.type}:${getQuotaCacheKey(entry.file)}`}
-                entry={entry}
-                quota={getQuota(entry)}
-                resolvedTheme={resolvedTheme}
-                canRefresh={canUseActions && !entry.file.disabled}
-                resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
-                entranceDelayMs={cardEntranceDelay(index)}
-                summary={spendFor(entry)}
-                spend={spend}
-                multiplier={multiplierFor(entry)}
-                onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
-                onReset={() => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
-                onLenderReleaseChange={handleLenderRelease}
-              />
-            ))}
-            {spendOnlyCards.map((summary) => (
-              <SpendOnlyCard
-                key={`spend:${summary.subscription.id}`}
-                summary={summary}
-                spend={spend}
-                resolvedTheme={resolvedTheme}
-              />
-            ))}
-          </div>
-        )}
-
-        {!loading && filteredEntries.length > QUOTA_PAGE_SIZE && (
-          <div className={styles.pagination}>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage <= 1}
-            >
-              {t('auth_files.pagination_prev')}
-            </Button>
-            <div className={styles.pageInfo}>
-              {t('auth_files.pagination_info', {
-                current: currentPage,
-                total: totalPages,
-                count: filteredEntries.length,
-              })}
-            </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage >= totalPages}
-            >
-              {t('auth_files.pagination_next')}
-            </Button>
-          </div>
-        )}
-      </>
-    );
-  };
+  const renderAccounts = (spend: AccountSpendContext) => (
+    <AccountsList
+      spend={spend}
+      files={files}
+      entries={entries}
+      disabledFiles={disabledFiles}
+      filteredCount={filteredEntries.length}
+      pageItems={pageItems}
+      currentPage={currentPage}
+      totalPages={totalPages}
+      onPageChange={setPage}
+      search={search}
+      onSearchChange={handleSearchChange}
+      sortMode={sortMode}
+      onSortModeChange={handleSortModeChange}
+      loading={loading}
+      error={error}
+      tab={tab}
+      onTabChange={handleTabChange}
+      getQuota={getQuota}
+      pools={pools}
+      cardReadings={cardReadings}
+      canUseActions={canUseActions}
+      resettingQuotaName={resettingQuotaName}
+      onRefreshQuota={(entry) => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+      onResetQuota={(entry) => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+      onLenderReleaseChange={handleLenderRelease}
+      onFileChange={handleFileChange}
+      onReload={() => void loadFiles()}
+      resolvedTheme={resolvedTheme}
+    />
+  );
 
   return (
     <div className={styles.page} ref={revealRef}>
@@ -563,10 +388,9 @@ export function UsageQuotaPage() {
         refreshing={loading || batchLoading}
         disableControls={disableControls}
         onRefreshAll={handleRefreshAll}
+        // Global, so in the header above the provider tabs; hidden without the switch.
+        extra={<ClaudeCreditCard />}
       />
-
-      {/* Global, so above the provider tabs; hidden on gateways without the switch. */}
-      <ClaudeCreditCard />
 
       <UsageSections
         files={files}
@@ -578,8 +402,6 @@ export function UsageQuotaPage() {
         accounts={renderAccounts}
         forecast={
           <>
-            {/* The gateway's reserve pool; hidden on gateways without usage reserves. */}
-            <UsagePool files={files} tab={tab} resolvedTheme={resolvedTheme} />
             {/* Pooled across every credential of the provider, independent of search and paging. */}
             <QuotaForecast
               files={files}
@@ -588,14 +410,18 @@ export function UsageQuotaPage() {
               cardReadings={cardReadings}
               resetCreditsFor={resetCreditsFor}
             />
-            {/* 时间线只比较当前页凭证，避免大量凭证一次性生成无界泳道。 */}
-            <QuotaTimeline
-              entries={pageItems}
-              quotaFor={getQuota}
-              displayNameFor={displayNameFor}
-              resolvedTheme={resolvedTheme}
-            />
+            {/* The gateway's reserve pool; hidden on gateways without usage reserves. */}
+            <UsagePool files={files} tab={tab} resolvedTheme={resolvedTheme} />
           </>
+        }
+        timeline={
+          // Only the current page's credentials, so many credentials never build unbounded lanes.
+          <QuotaTimeline
+            entries={pageItems}
+            quotaFor={getQuota}
+            displayNameFor={displayNameFor}
+            resolvedTheme={resolvedTheme}
+          />
         }
       />
     </div>

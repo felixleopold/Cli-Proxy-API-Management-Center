@@ -698,9 +698,10 @@ export interface PoolSummary {
 export function summarizePool(
   pool: ProviderPool,
   nowMs: number,
-  activity: PoolActivity = FLAT_ACTIVITY
+  activity: PoolActivity = FLAT_ACTIVITY,
+  scenario: PaceScenario = 'expected'
 ): PoolSummary {
-  const states = credentialStates(pool, nowMs, activity);
+  const states = credentialStates(pool, nowMs, activity, scenario);
   const remaining = states.reduce(
     (sum, state) => sum + remainingMultiplier(state.share, state.usedPercent),
     0
@@ -731,6 +732,69 @@ export function summarizePool(
 
   return { remaining, capacity: pool.capacity, pacePerHour, nextReset };
 }
+
+/** When the pooled projection runs dry, judged up to the view's end or every credential's next reset. */
+export type PoolEmpty =
+  | { kind: 'now' }
+  | { kind: 'at'; atMs: number }
+  /** Every credential resets (after the view's end) before the pool runs dry. */
+  | { kind: 'not-before-reset' }
+  /** Still not dry at the view's end, which lies past every credential's next reset. */
+  | { kind: 'not-by'; atMs: number };
+
+export function poolEmpty(
+  pool: ProviderPool,
+  nowMs: number,
+  endMs: number,
+  activity: PoolActivity = FLAT_ACTIVITY,
+  scenario: PaceScenario = 'expected'
+): PoolEmpty {
+  const states = credentialStates(pool, nowMs, activity, scenario);
+  const lastReset = Math.max(nowMs, ...states.map((state) => state.resetAtMs));
+  const series = projectPool(pool, nowMs, Math.max(endMs, lastReset), activity, scenario);
+  if (series.length > 0 && series[0].v <= 1e-9) return { kind: 'now' };
+  const atMs = runsOutAt(series);
+  if (atMs !== null) return { kind: 'at', atMs };
+  return lastReset >= endMs ? { kind: 'not-before-reset' } : { kind: 'not-by', atMs: endMs };
+}
+
+/**
+ * The credential projected to run dry first, before its own next reset; one already
+ * dry is dry at nowMs.
+ */
+export function firstCredentialEmpty(
+  pool: ProviderPool,
+  nowMs: number,
+  activity: PoolActivity = FLAT_ACTIVITY,
+  scenario: PaceScenario = 'expected'
+): { authId: string; atMs: number } | null {
+  let first: { authId: string; atMs: number } | null = null;
+  credentialStates(pool, nowMs, activity, scenario).forEach((state, index) => {
+    const left = state.share.capPercent - state.usedPercent;
+    if (state.share.effective <= 0 || (left > 0 && !(state.pace > 0))) return;
+    // Already dry counts as now, so it agrees with an empty pool.
+    const atMs =
+      left <= 0
+        ? nowMs
+        : activityClock(activity.profile, nowMs, state.resetAtMs).reach(left / state.pace);
+    if (atMs < state.resetAtMs && (first === null || atMs < first.atMs)) {
+      first = { authId: pool.credentials[index].authId, atMs };
+    }
+  });
+  return first;
+}
+
+/** Upward jumps of a series (a reset landing, or a credential joining) of at least minDelta. */
+export const seriesJumps = (
+  series: SeriesPoint[],
+  minDelta: number
+): { t: number; from: number; to: number }[] =>
+  series.flatMap((point, index) => {
+    const previous = series[index - 1];
+    return previous && previous.t === point.t && point.v - previous.v >= minDelta
+      ? [{ t: point.t, from: previous.v, to: point.v }]
+      : [];
+  });
 
 /* ---------- History ---------- */
 
@@ -949,6 +1013,36 @@ export function drainBuckets(
     );
   });
   return buckets.map((value) => value / 100);
+}
+
+export const BURN_WINDOW_HOURS = [1, 3, 6] as const;
+export type BurnWindowHours = (typeof BURN_WINDOW_HOURS)[number];
+
+/** Percent of its own window a credential drained in (fromMs, toMs]. */
+const drainedPercent = (
+  credential: PoolCredential,
+  samples: QuotaHistorySample[],
+  fromMs: number,
+  toMs: number
+): number =>
+  drainOf(samplesFor(credential, samples), rationedAbove(credential))
+    .filter(({ atMs }) => atMs > fromMs && atMs <= toMs)
+    .reduce((sum, { delta }) => sum + delta, 0);
+
+/** Pooled multiplier drained per hour over the last `hours`, as drainBuckets counts it. */
+export function recentBurn(
+  pool: ProviderPool,
+  samples: QuotaHistorySample[],
+  nowMs: number,
+  hours: BurnWindowHours
+): number {
+  const fromMs = nowMs - hours * HOUR_MS;
+  const drained = pool.credentials.reduce(
+    (sum, credential) =>
+      sum + drainedPercent(credential, samples, fromMs, nowMs) * credential.share.multiplier,
+    0
+  );
+  return drained / 100 / hours;
 }
 
 /* ---------- Activity: when in the day quota gets used ---------- */
@@ -1424,6 +1518,44 @@ export function learnActivity(
 
   return { profile, sleep: stretch, learnedDays: days.size, rates, ranges };
 }
+
+/**
+ * "Same as now": every credential keeps the rate it drained at over the last `hours`, but
+ * only while awake (the learned sleep stretch stays idle).
+ */
+export function steadyActivity(
+  pools: ProviderPool[],
+  samples: QuotaHistorySample[],
+  nowMs: number,
+  hours: BurnWindowHours,
+  learned: PoolActivity
+): PoolActivity {
+  const profile = baselineProfile(learned.sleep);
+  // The clock runs at this weight while awake, so a real-time rate divides by it.
+  const awakeWeight = Math.max(...profile);
+  const spanMs = hours * HOUR_MS;
+  const fromMs = nowMs - spanMs;
+  // Only a credential whose history reaches back past the window has a measured burn (zero
+  // included); the rest keep the learned rate or the window pace.
+  const rates = new Map(learned.rates);
+  pools.forEach((pool) =>
+    pool.credentials.forEach((credential) => {
+      if (!samplesFor(credential, samples).some((snapshot) => snapshot.atMs <= fromMs)) return;
+      rates.set(
+        credential.authId,
+        drainedPercent(credential, samples, fromMs, nowMs) / spanMs / awakeWeight
+      );
+    })
+  );
+  return { ...learned, profile, rates };
+}
+
+export const FUTURE_USAGE = ['usual', 'same', 'busier', 'quieter'] as const;
+export type FutureUsage = (typeof FUTURE_USAGE)[number];
+
+/** The pace a future-usage choice projects at; "same" changes the activity instead. */
+export const futureScenario = (future: FutureUsage): PaceScenario =>
+  future === 'busier' ? 'busy' : future === 'quieter' ? 'quiet' : 'expected';
 
 /** Hours of the day inside the sleep stretch. */
 export const nightHours = (sleep: SleepHours): boolean[] =>

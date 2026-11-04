@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
-const source = readFileSync('src/features/quota/UsageQuotaPage.tsx', 'utf8');
-const styles = readFileSync('src/features/quota/UsageQuotaPage.module.scss', 'utf8');
+const source = readFileSync('src/features/quota/components/AccountsList.tsx', 'utf8');
+const page = readFileSync('src/features/quota/UsageQuotaPage.tsx', 'utf8');
+const styles = readFileSync('src/features/quota/components/Accounts.module.scss', 'utf8');
 const sections = readFileSync('src/features/usage/UsageSections.tsx', 'utf8');
 
 describe('quota toolbar presentation contracts', () => {
@@ -12,7 +13,7 @@ describe('quota toolbar presentation contracts', () => {
     expect(source).toContain('{search && (');
     expect(source).toContain("aria-label={t('quota_management.search_clear')}");
     expect(source).toContain(
-      "handleSearchChange('');\n                  searchInputRef.current?.focus();"
+      "onSearchChange('');\n                searchInputRef.current?.focus();"
     );
     expect(source).toContain('<IconX size={14} aria-hidden="true" />');
     expect(styles).toMatch(/&::-webkit-search-cancel-button,[\s\S]*?appearance: none;/);
@@ -22,10 +23,16 @@ describe('quota toolbar presentation contracts', () => {
     const toolbarStart = source.indexOf('<div className={styles.toolbar}>');
     const searchStart = source.indexOf('<div className={styles.search}>');
     const sortStart = source.indexOf('<div className={styles.sort}>');
-    // Provider navigation is the page-wide tab row; the toolbar sits in the account cards slot.
+    // Provider navigation is the page-wide tab row; the toolbar sits in the accounts slot.
     expect(source).not.toContain('<ProviderTabs');
-    expect(sections.indexOf('{accounts(spend)}')).toBeGreaterThan(sections.indexOf('<ProviderTabs'));
-    expect(toolbarStart).toBeGreaterThan(source.indexOf('const renderAccounts = ('));
+    expect(page).not.toContain('<ProviderTabs');
+    expect(sections.indexOf('{accounts(spend)}')).toBeGreaterThan(
+      sections.indexOf('<ProviderTabs')
+    );
+    expect(page).toContain(
+      'const renderAccounts = (spend: AccountSpendContext) => (\n    <AccountsList'
+    );
+    expect(toolbarStart).toBeGreaterThan(-1);
     expect(searchStart).toBeGreaterThan(toolbarStart);
     expect(sortStart).toBeGreaterThan(searchStart);
     expect(styles).toMatch(/\.toolbar\s*\{[^}]*flex-wrap: wrap;/);

@@ -15,12 +15,13 @@ import {
   creditsNear,
   nightBands,
   valueAt,
+  seriesJumps,
   type SeriesPoint,
 } from '../quotaForecastModel';
 import styles from './QuotaForecast.module.scss';
 
-const PLOT_HEIGHT = 196;
-const MARGIN = { top: 24, right: 14, bottom: 28, left: 52 };
+const PLOT_HEIGHT = 180;
+const MARGIN = { top: 30, right: 8, bottom: 40, left: 48 };
 const HEIGHT = PLOT_HEIGHT + MARGIN.top + MARGIN.bottom;
 const FALLBACK_WIDTH = 760;
 const TIME_STEPS = [3 * HOUR_MS, 6 * HOUR_MS, 12 * HOUR_MS, DAY_MS, 2 * DAY_MS, 7 * DAY_MS];
@@ -99,6 +100,8 @@ function useTimeFormats() {
   const language = i18n.resolvedLanguage || i18n.language;
   return useMemo(() => {
     const day = new Intl.DateTimeFormat(language, { month: 'short', day: 'numeric' });
+    const weekday = new Intl.DateTimeFormat(language, { weekday: 'short' });
+    const dayNumber = new Intl.DateTimeFormat(language, { day: 'numeric' });
     const hour = new Intl.DateTimeFormat(language, { hour: 'numeric' });
     const time = new Intl.DateTimeFormat(language, { hour: 'numeric', minute: '2-digit' });
     const full = new Intl.DateTimeFormat(language, {
@@ -108,8 +111,11 @@ function useTimeFormats() {
       hour: 'numeric',
       minute: '2-digit',
     });
+    /** Weekday over the day of the month, like a calendar column. */
+    const dayTick = (ms: number) => [weekday.format(ms), dayNumber.format(ms)];
     return {
-      tick: (ms: number) => (isMidnight(ms) ? day.format(ms) : hour.format(ms)),
+      tick: (ms: number) => (isMidnight(ms) ? dayTick(ms) : [hour.format(ms)]),
+      dayTick,
       full: (ms: number) => full.format(ms),
       day: (ms: number) => day.format(ms),
       time: (ms: number) => time.format(ms),
@@ -131,14 +137,9 @@ interface Frame {
   invertX: (px: number) => number;
 }
 
-const makeFrame = (
-  width: number,
-  fromMs: number,
-  toMs: number,
-  yMax: number,
-  top = MARGIN.top,
-  plotHeight = PLOT_HEIGHT
-): Frame => {
+const makeFrame = (width: number, fromMs: number, toMs: number, yMax: number): Frame => {
+  const top = MARGIN.top;
+  const plotHeight = PLOT_HEIGHT;
   const plotWidth = width - MARGIN.left - MARGIN.right;
   const span = Math.max(1, toMs - fromMs);
   return {
@@ -155,19 +156,17 @@ const makeFrame = (
 
 function Axes({
   frame,
-  height = HEIGHT,
   yTicks,
   formatValue,
   xTicks,
   formatTick,
 }: {
   frame: Frame;
-  /** Height of the SVG; x tick labels sit at its bottom. */
-  height?: number;
   yTicks: number[];
   formatValue: (v: number) => string;
   xTicks: number[];
-  formatTick: (ms: number) => string;
+  /** One or two lines per tick, e.g. ["Thu", "22"]. */
+  formatTick: (ms: number) => string[];
 }) {
   const right = frame.width - MARGIN.right;
   return (
@@ -186,23 +185,28 @@ function Axes({
           </text>
         </g>
       ))}
-      {xTicks.map((tick, index) => (
-        <text
-          key={tick}
-          className={styles.xTick}
-          x={frame.x(tick)}
-          y={height - 8}
-          textAnchor={
-            index === 0 && frame.x(tick) - MARGIN.left < 24
-              ? 'start'
-              : right - frame.x(tick) < 24
-                ? 'end'
-                : 'middle'
-          }
-        >
-          {formatTick(tick)}
-        </text>
-      ))}
+      {xTicks.map((tick, index) => {
+        const [main, sub] = formatTick(tick);
+        const x = frame.x(tick);
+        return (
+          <text
+            key={tick}
+            className={styles.xTick}
+            x={x}
+            y={frame.baseY + 17}
+            textAnchor={
+              index === 0 && x - MARGIN.left < 16 ? 'start' : right - x < 16 ? 'end' : 'middle'
+            }
+          >
+            {main}
+            {sub && (
+              <tspan className={styles.xTickSub} x={x} dy="1.3em">
+                {sub}
+              </tspan>
+            )}
+          </text>
+        );
+      })}
     </g>
   );
 }
@@ -320,30 +324,29 @@ export interface ForecastRow {
   label: string;
   /** A CSS color, e.g. var(--fc-claude). */
   color: string;
-  /** Pool size in plan multipliers; the row's y axis runs from 0 to this. */
+  /** Pool size in plan multipliers; the y axis runs from 0 to this. */
   capacity: number;
   history: SeriesPoint[];
   projection: SeriesPoint[];
-  /** Likely range around the projection: low at a busy pace, high at a quiet one. */
-  range: { low: SeriesPoint[]; high: SeriesPoint[] };
+  /** Likely range around the projection (low at a busy pace, high at a quiet one), if shown. */
+  range: { low: SeriesPoint[]; high: SeriesPoint[] } | null;
   /** Expiry instants of manual resets not yet used, drawn as markers. */
   credits: number[];
-  /** Facts about the row, e.g. the next reset. */
-  facts: string;
 }
 
 export interface RemainingChartProps {
-  rows: ForecastRow[];
-  /** Sleep hours of the day, shaded over every row's projection alike. */
+  row: ForecastRow;
+  /** Sleep hours of the day, shaded over the projection. */
   night: boolean[];
   fromMs: number;
   toMs: number;
   nowMs: number;
   formatValue: (v: number) => string;
-  /** Tooltip and table value: a point and its row's capacity, e.g. "1.45× · 43%". */
+  /** Tooltip and table value: a point and the pool's capacity, e.g. "1.45× · 43%". */
   formatPoint: (v: number, capacity: number) => string;
+  /** A reset jump's label, e.g. "+0.89×". */
+  formatJump: (delta: number) => string;
   ariaLabel: string;
-  /** Tooltip names for a lone row, which has no series name to show. */
   remainingLabel: string;
   projectedLabel: string;
   nowLabel: string;
@@ -353,14 +356,10 @@ export interface RemainingChartProps {
 
 /** Hovering this close to a manual reset marker names it in the tooltip. */
 const CREDIT_HOVER_PX = 6;
-
-/** Plot height of each row when providers are stacked. */
-const ROW_PLOT_HEIGHT = 108;
-const ROW_TOP = 10;
-const ROW_BOTTOM = 8;
-
-const fractionTicks = (max: number, parts: number) =>
-  Array.from({ length: parts + 1 }, (_, index) => (max * index) / parts);
+/** Jumps below this share of the pool are not labelled. */
+const JUMP_LABEL_MIN_SHARE = 0.02;
+/** Labels closer than this collide; the second moves below the line, else is dropped. */
+const JUMP_LABEL_GAP_PX = 44;
 
 const areaPath = (points: { x: number; y: number }[], baseY: number) =>
   points.length > 1
@@ -379,18 +378,53 @@ const bandPath = (upper: { x: number; y: number }[], lower: { x: number; y: numb
 const seriesAt = (row: ForecastRow, t: number, nowMs: number) =>
   valueAt(t > nowMs ? row.projection : row.history, t);
 
-/**
- * Remaining quota, one row per provider in its own pool multiplier, all
- * on one time axis with one "now". A lone provider gets a single taller row.
- */
+interface JumpLabel {
+  x: number;
+  y: number;
+  text: string;
+}
+
+/** Labels for reset jumps, kept apart: above the line, else below it, else dropped. */
+const placeJumpLabels = (
+  row: ForecastRow,
+  frame: Frame,
+  nowX: number,
+  formatJump: (delta: number) => string
+): JumpLabel[] => {
+  const minDelta = row.capacity * JUMP_LABEL_MIN_SHARE;
+  const jumps = [...seriesJumps(row.history, minDelta), ...seriesJumps(row.projection, minDelta)];
+  const left = MARGIN.left + 14;
+  const right = frame.width - MARGIN.right - 14;
+  // The "Now" label already sits above the plot.
+  const taken: { x: number; above: boolean }[] = [{ x: nowX, above: true }];
+  const clear = (x: number, above: boolean) =>
+    taken.every((spot) => spot.above !== above || Math.abs(spot.x - x) >= JUMP_LABEL_GAP_PX);
+  return jumps.flatMap((jump) => {
+    const x = frame.x(jump.t);
+    if (x < MARGIN.left || x > frame.width - MARGIN.right) return [];
+    const above = clear(x, true);
+    if (!above && !clear(x, false)) return [];
+    taken.push({ x, above });
+    return [
+      {
+        x: Math.min(right, Math.max(left, x)),
+        y: above ? frame.y(jump.to) - 7 : Math.min(frame.baseY - 4, frame.y(jump.from) + 15),
+        text: formatJump(jump.to - jump.from),
+      },
+    ];
+  });
+};
+
+/** One pool's remaining quota: solid history, dashed projection inside its likely range. */
 export function RemainingChart({
-  rows,
+  row,
   night,
   fromMs,
   toMs,
   nowMs,
   formatValue,
   formatPoint,
+  formatJump,
   ariaLabel,
   remainingLabel,
   projectedLabel,
@@ -400,10 +434,10 @@ export function RemainingChart({
   const [ref, width] = useElementWidth();
   const gradientId = useId();
   const formats = useTimeFormats();
-  const single = rows.length === 1;
-  const plotWidth = width - MARGIN.left - MARGIN.right;
+  const frame = makeFrame(width, fromMs, toMs, row.capacity);
+  const plotWidth = frame.plotWidth;
   const xTicks = useMemo(
-    () => timeTicks(fromMs, toMs, Math.max(3, Math.floor(plotWidth / 92))),
+    () => timeTicks(fromMs, toMs, Math.max(3, Math.floor(plotWidth / 64))),
     [fromMs, toMs, plotWidth]
   );
   const bands = useMemo(
@@ -412,219 +446,177 @@ export function RemainingChart({
   );
   const { hoverMs, setHoverMs, focusProps } = useScrub(fromMs, toMs, nowMs);
 
-  const onPointerMove = (frame: Frame) => (event: PointerEvent<SVGRectElement>) => {
+  const onPointerMove = (event: PointerEvent<SVGRectElement>) => {
     const bounds = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
     if (bounds) setHoverMs(frame.invertX(event.clientX - bounds.left));
   };
 
   const creditTolerance = (CREDIT_HOVER_PX / Math.max(1, plotWidth)) * (toMs - fromMs);
-  const tooltipRows = (t: number): TooltipRow[] =>
-    rows.flatMap((row) => {
-      const value = seriesAt(row, t, nowMs);
-      if (value === null) return [];
-      const projected = t > nowMs;
-      const low = projected ? valueAt(row.range.low, t) : null;
-      const high = projected ? valueAt(row.range.high, t) : null;
-      const name = single ? (projected ? projectedLabel : remainingLabel) : row.label;
-      return [
-        {
-          key: row.key,
-          color: row.color,
-          dashed: projected,
-          value: formatPoint(value, row.capacity),
-          label:
-            low !== null && high !== null && formatValue(low) !== formatValue(high)
-              ? `${name} · ${formatValue(low)}–${formatValue(high)}`
-              : name,
-        },
-        ...creditsNear(row.credits, t, creditTolerance, fromMs, toMs).map((expiresAtMs, index) => ({
-          key: `${row.key}-credit-${index}`,
-          color: 'var(--amber-color)',
-          tick: true,
-          value: formats.time(expiresAtMs),
-          label: creditLabel,
-        })),
-      ];
-    });
+  const tooltipRows = (t: number): TooltipRow[] => {
+    const value = seriesAt(row, t, nowMs);
+    if (value === null) return [];
+    const projected = t > nowMs;
+    const low = projected && row.range ? valueAt(row.range.low, t) : null;
+    const high = projected && row.range ? valueAt(row.range.high, t) : null;
+    const name = projected ? projectedLabel : remainingLabel;
+    return [
+      {
+        key: row.key,
+        color: row.color,
+        dashed: projected,
+        value: formatPoint(value, row.capacity),
+        label:
+          low !== null && high !== null && formatValue(low) !== formatValue(high)
+            ? `${name} · ${formatValue(low)}–${formatValue(high)}`
+            : name,
+      },
+      ...creditsNear(row.credits, t, creditTolerance, fromMs, toMs).map((expiresAtMs, index) => ({
+        key: `credit-${index}`,
+        color: 'var(--amber-color)',
+        tick: true,
+        value: formats.time(expiresAtMs),
+        label: creditLabel,
+      })),
+    ];
+  };
 
-  const tableRows = xTicks.map((tick) => [
-    formats.full(tick),
-    ...rows.map((row) => {
-      const value = seriesAt(row, tick, nowMs);
-      return value === null ? '–' : formatPoint(value, row.capacity);
-    }),
-  ]);
-
+  const toPixels = (points: SeriesPoint[]) =>
+    points.map((point) => ({ x: frame.x(point.t), y: frame.y(point.v) }));
+  const history = toPixels(row.history);
+  const projection = toPixels(row.projection);
+  const range = row.range ? bandPath(toPixels(row.range.high), toPixels(row.range.low)) : '';
+  const current = row.projection[0];
+  const hoverValue = hoverMs === null ? null : seriesAt(row, hoverMs, nowMs);
   const hoverRows = hoverMs === null ? [] : tooltipRows(hoverMs);
+  const nowX = frame.x(nowMs);
+  const jumpLabels = placeJumpLabels(row, frame, nowX, formatJump);
 
   return (
     <div ref={ref} className={styles.chart} {...focusProps} aria-label={ariaLabel} role="group">
-      {rows.map((row, index) => {
-        const first = index === 0;
-        const last = index === rows.length - 1;
-        const top = first ? MARGIN.top : ROW_TOP;
-        const plotHeight = single ? PLOT_HEIGHT : ROW_PLOT_HEIGHT;
-        const height = top + plotHeight + (last ? MARGIN.bottom : ROW_BOTTOM);
-        const frame = makeFrame(width, fromMs, toMs, row.capacity, top, plotHeight);
-        const toPixels = (points: SeriesPoint[]) =>
-          points.map((point) => ({ x: frame.x(point.t), y: frame.y(point.v) }));
-        const history = toPixels(row.history);
-        const projection = toPixels(row.projection);
-        const range = bandPath(toPixels(row.range.high), toPixels(row.range.low));
-        const current = row.projection[0];
-        const hoverValue = hoverMs === null ? null : seriesAt(row, hoverMs, nowMs);
-        const nowX = frame.x(nowMs);
-        const fill = `${gradientId}-${row.key}`;
-        const facts = <span className={styles.rowFacts}>{row.facts}</span>;
-        return (
-          <div key={row.key} className={styles.row}>
-            {/* Stacked rows are named above their plot; a lone row keeps its facts below. */}
-            {!single && (
-              <div className={styles.rowHeader}>
-                <span className={styles.rowName}>
-                  <span
-                    className={styles.poolDot}
-                    style={{ '--series': row.color } as CSSProperties}
-                    aria-hidden="true"
-                  />
-                  {row.label}
-                </span>
-                {facts}
-              </div>
-            )}
-            <svg
-              width={width}
-              height={height}
-              className={styles.svg}
-              aria-hidden="true"
-              style={{ color: row.color }}
-            >
-              <defs>
-                <linearGradient id={fill} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="currentColor" stopOpacity={0.24} />
-                  <stop offset="100%" stopColor="currentColor" stopOpacity={0.04} />
-                </linearGradient>
-                <linearGradient id={`${fill}-p`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="currentColor" stopOpacity={0.12} />
-                  <stop offset="100%" stopColor="currentColor" stopOpacity={0.01} />
-                </linearGradient>
-              </defs>
+      <svg
+        width={width}
+        height={HEIGHT}
+        className={styles.svg}
+        aria-hidden="true"
+        style={{ color: row.color }}
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity={0.26} />
+            <stop offset="100%" stopColor="currentColor" stopOpacity={0.02} />
+          </linearGradient>
+          <linearGradient id={`${gradientId}-p`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity={0.12} />
+            <stop offset="100%" stopColor="currentColor" stopOpacity={0} />
+          </linearGradient>
+        </defs>
 
-              <Axes
-                frame={frame}
-                height={height}
-                yTicks={fractionTicks(row.capacity, single ? 4 : 2)}
-                formatValue={formatValue}
-                xTicks={last ? xTicks : []}
-                formatTick={formats.tick}
-              />
+        <Axes
+          frame={frame}
+          yTicks={[0, row.capacity / 2, row.capacity]}
+          formatValue={formatValue}
+          xTicks={xTicks}
+          formatTick={formats.tick}
+        />
 
-              {bands.map((band) => (
-                <rect
-                  key={band.startMs}
-                  className={styles.nightBand}
-                  x={frame.x(band.startMs)}
-                  y={frame.top}
-                  width={frame.x(band.endMs) - frame.x(band.startMs)}
-                  height={plotHeight}
-                />
-              ))}
+        {bands.map((band) => (
+          <rect
+            key={band.startMs}
+            className={styles.nightBand}
+            x={frame.x(band.startMs)}
+            y={frame.top}
+            width={frame.x(band.endMs) - frame.x(band.startMs)}
+            height={PLOT_HEIGHT}
+          />
+        ))}
 
-              {/* Under the data, so a reset that lands at now reads as a step in the fill. */}
-              <line
-                className={styles.nowLine}
-                x1={nowX}
-                x2={nowX}
-                y1={first ? frame.top - 6 : frame.top}
-                y2={frame.baseY}
-              />
-              {first && (
-                <text
-                  className={styles.nowLabel}
-                  x={nowX}
-                  y={frame.top - 11}
-                  textAnchor={nowX - MARGIN.left < 24 ? 'start' : 'middle'}
-                >
-                  {nowLabel}
-                </text>
-              )}
+        {/* Under the data, so a reset that lands at now reads as a step in the fill. */}
+        <line className={styles.nowLine} x1={nowX} x2={nowX} y1={frame.top - 8} y2={frame.baseY} />
+        <text
+          className={styles.nowLabel}
+          x={nowX}
+          y={frame.top - 13}
+          textAnchor={nowX - MARGIN.left < 24 ? 'start' : 'middle'}
+        >
+          {nowLabel}
+        </text>
 
-              {creditsInView(row.credits, fromMs, toMs).map((expiresAtMs, creditIndex) => (
-                <line
-                  key={`${expiresAtMs}-${creditIndex}`}
-                  className={styles.creditMarker}
-                  x1={frame.x(expiresAtMs)}
-                  x2={frame.x(expiresAtMs)}
-                  y1={frame.top + 1}
-                  y2={frame.baseY - 1}
-                />
-              ))}
+        {creditsInView(row.credits, fromMs, toMs).map((expiresAtMs, index) => (
+          <line
+            key={`${expiresAtMs}-${index}`}
+            className={styles.creditMarker}
+            x1={frame.x(expiresAtMs)}
+            x2={frame.x(expiresAtMs)}
+            y1={frame.top + 1}
+            y2={frame.baseY - 1}
+          />
+        ))}
 
-              <path d={areaPath(history, frame.baseY)} fill={`url(#${fill})`} />
-              <path d={areaPath(projection, frame.baseY)} fill={`url(#${fill}-p)`} />
-              <path className={styles.rangeBand} d={range} />
-              {history.length > 1 && (
-                <path className={styles.line} d={linePath(history)} stroke="currentColor" />
-              )}
-              {projection.length > 1 && (
-                <path
-                  className={`${styles.line} ${styles.projected}`}
-                  d={linePath(projection)}
-                  stroke="currentColor"
-                />
-              )}
-              {current && (
-                <circle
-                  className={styles.dot}
-                  cx={frame.x(current.t)}
-                  cy={frame.y(current.v)}
-                  r={4}
-                />
-              )}
+        <path d={areaPath(history, frame.baseY)} fill={`url(#${gradientId})`} />
+        <path d={areaPath(projection, frame.baseY)} fill={`url(#${gradientId}-p)`} />
+        {range && <path className={styles.rangeBand} d={range} />}
+        {history.length > 1 && (
+          <path className={styles.line} d={linePath(history)} stroke="currentColor" />
+        )}
+        {projection.length > 1 && (
+          <path
+            className={`${styles.line} ${styles.projected}`}
+            d={linePath(projection)}
+            stroke="currentColor"
+          />
+        )}
 
-              {hoverMs !== null && (
-                <line
-                  className={styles.crosshair}
-                  x1={frame.x(hoverMs)}
-                  x2={frame.x(hoverMs)}
-                  y1={frame.top}
-                  y2={frame.baseY}
-                />
-              )}
-              {hoverMs !== null && hoverValue !== null && (
-                <circle
-                  className={styles.dot}
-                  cx={frame.x(hoverMs)}
-                  cy={frame.y(hoverValue)}
-                  r={4}
-                />
-              )}
+        {jumpLabels.map((label) => (
+          <text key={`${label.x}-${label.y}`} className={styles.jumpLabel} x={label.x} y={label.y}>
+            {label.text}
+          </text>
+        ))}
 
-              <rect
-                className={styles.hitArea}
-                x={MARGIN.left}
-                y={frame.top}
-                width={frame.plotWidth}
-                height={plotHeight}
-                onPointerMove={onPointerMove(frame)}
-                onPointerLeave={() => setHoverMs(null)}
-              />
-            </svg>
-            {single && row.facts && <div className={styles.rowFooter}>{facts}</div>}
-          </div>
-        );
-      })}
+        {current && (
+          <circle className={styles.dot} cx={frame.x(current.t)} cy={frame.y(current.v)} r={4} />
+        )}
+
+        {hoverMs !== null && (
+          <line
+            className={styles.crosshair}
+            x1={frame.x(hoverMs)}
+            x2={frame.x(hoverMs)}
+            y1={frame.top}
+            y2={frame.baseY}
+          />
+        )}
+        {hoverMs !== null && hoverValue !== null && (
+          <circle className={styles.dot} cx={frame.x(hoverMs)} cy={frame.y(hoverValue)} r={4} />
+        )}
+
+        <rect
+          className={styles.hitArea}
+          x={MARGIN.left}
+          y={frame.top}
+          width={plotWidth}
+          height={PLOT_HEIGHT}
+          onPointerMove={onPointerMove}
+          onPointerLeave={() => setHoverMs(null)}
+        />
+      </svg>
 
       {hoverMs !== null && hoverRows.length > 0 && (
         <Tooltip
-          x={MARGIN.left + ((hoverMs - fromMs) / Math.max(1, toMs - fromMs)) * plotWidth}
+          x={frame.x(hoverMs)}
           width={width}
           title={formats.full(hoverMs)}
           rows={hoverRows}
         />
       )}
 
-      <SrTable caption={ariaLabel} head={['', ...rows.map((row) => row.label)]} rows={tableRows} />
+      <SrTable
+        caption={ariaLabel}
+        head={['', row.label]}
+        rows={xTicks.map((tick) => {
+          const value = seriesAt(row, tick, nowMs);
+          return [formats.full(tick), value === null ? '–' : formatPoint(value, row.capacity)];
+        })}
+      />
     </div>
   );
 }
@@ -685,7 +677,7 @@ export function DrainChart({
     () =>
       daily
         ? edges.slice(0, -1).map((edge, index) => (edge + edges[index + 1]) / 2)
-        : timeTicks(fromMs, toMs, Math.max(3, Math.floor(frame.plotWidth / 92))),
+        : timeTicks(fromMs, toMs, Math.max(3, Math.floor(frame.plotWidth / 64))),
     [daily, edges, fromMs, toMs, frame.plotWidth]
   );
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -732,7 +724,7 @@ export function DrainChart({
           yTicks={yTicks}
           formatValue={formatValue}
           xTicks={xTicks}
-          formatTick={daily ? formats.day : formats.tick}
+          formatTick={daily ? formats.dayTick : formats.tick}
         />
 
         {Array.from({ length: count }, (_, index) => {

@@ -1,29 +1,30 @@
-/* Categorical series colors: muted earth tones for the warm-paper theme, one hue per
- * slot in a fixed order. Validated with the dataviz checker against the card surfaces
- * (#f2f0ea, #ffffff; dark #1c1a17): lightness band and chroma floor pass, worst adjacent
- * CVD ΔE 11.1 light / 10.7 dark, normal-vision ΔE ≥ 21.8. Light ochre sits below 3:1,
- * so every value is also written as text (legend, tooltip, table). */
+/* Categorical series colors, one hue per slot in a fixed order. Users sort alphabetically,
+ * so slot0 is Felix (sky) and slot1 Ferdinand (violet). Validated with the dataviz checker:
+ * light (#f0eee8, #ffffff) passes every check (worst adjacent CVD ΔE 9.2, normal ΔE ≥ 19.2);
+ * dark (#0d0d0d) passes chroma, contrast and normal-vision ΔE ≥ 15.8, but the fixed sky/violet
+ * pair sits above the lightness band with deutan ΔE 5.2, so every value is also written as
+ * text (legend, tooltip, table). */
 
 .slot0 {
-  --series: #008a9b; /* petrol */
+  --series: #0284c7; /* sky */
 }
 .slot1 {
-  --series: #ce704a; /* terracotta */
+  --series: #7c3aed; /* violet */
 }
 .slot2 {
-  --series: #5073b5; /* slate */
+  --series: #b7791f; /* amber */
 }
 .slot3 {
-  --series: #cda045; /* ochre */
+  --series: #008f7a; /* teal */
 }
 .slot4 {
-  --series: #7b60ae; /* violet */
+  --series: #3f5fd0; /* indigo */
 }
 .slot5 {
-  --series: #6d8c40; /* moss */
+  --series: #c0306f; /* pink */
 }
 .slot6 {
-  --series: #a55584; /* plum */
+  --series: #5f8a12; /* lime */
 }
 .slotOther {
   --series: var(--text-tertiary);
@@ -34,18 +35,24 @@
 
 :global([data-theme='dark']) {
   .slot0 {
-    --series: #009bac;
+    --series: #38bdf8;
+  }
+  .slot1 {
+    --series: #a78bfa;
   }
   .slot2 {
-    --series: #6488cc;
+    --series: #c08410;
   }
   .slot3 {
-    --series: #b88c2e;
+    --series: #14a394;
   }
   .slot4 {
-    --series: #8f75c5;
+    --series: #5b73e8;
+  }
+  .slot5 {
+    --series: #e0609b;
   }
   .slot6 {
-    --series: #b86797;
+    --series: #6f9a1c;
   }
 }

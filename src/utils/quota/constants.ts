@@ -19,20 +19,22 @@ export const TYPE_COLORS: Record<string, TypeColorSet> = {
     dark: { bg: '#373c42', text: '#cfd3db' },
   },
   claude: {
-    light: { bg: '#fbece4', text: '#c05621' },
-    dark: { bg: '#5e2c14', text: '#e8a882' },
+    light: { bg: '#fbebe3', text: '#c4561f' },
+    dark: { bg: '#2e1810', text: '#e8795a' },
   },
+  // Silver, so Codex never clashes with Ferdinand's violet series color.
   codex: {
-    light: { bg: '#eae7ff', text: '#3538d4' },
-    dark: { bg: '#262395', text: '#b5b0ff' },
+    light: { bg: '#f0f0f1', text: '#52525b' },
+    dark: { bg: '#1f1f22', text: '#d4d4d8' },
   },
   devin: {
     light: { bg: '#e8f4ff', text: '#155e9b' },
     dark: { bg: '#123b5d', text: '#8dc9f5' },
   },
+  // Muse (Meta).
   meta: {
-    light: { bg: '#e3f2fd', text: '#1565c0' },
-    dark: { bg: '#0d47a1', text: '#64b5f6' },
+    light: { bg: '#dcf5ea', text: '#059669' },
+    dark: { bg: '#0b2a20', text: '#34d399' },
   },
   kimi: {
     light: { bg: '#dce8ff', text: '#0560cf' },

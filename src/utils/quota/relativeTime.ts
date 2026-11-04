@@ -20,7 +20,8 @@ export interface RelativeTimeParts {
 }
 
 /**
- * Coarsest unit that still describes the gap, with a signed magnitude.
+ * Coarsest unit that still describes the gap, with a signed magnitude. Days
+ * start at two days, so the last 48 hours count down in hours.
  *
  * Signed on purpose: the earlier timeline-local version clamped with
  * `Math.max(0, …)`, so a credit that expired last week read "in 1 minute" —
@@ -39,7 +40,8 @@ export function relativeTimeParts(targetMs: number, nowMs: number): RelativeTime
   const sign = delta < 0 ? -1 : 1;
   const abs = Math.abs(delta);
 
-  if (abs >= DAY_MS) return { value: sign * Math.floor(abs / DAY_MS), unit: 'day' };
+  // Hours up to two days: "in 1 day" would cover anything from 24 to 47 hours.
+  if (abs >= 2 * DAY_MS) return { value: sign * Math.floor(abs / DAY_MS), unit: 'day' };
   if (abs >= HOUR_MS) return { value: sign * Math.floor(abs / HOUR_MS), unit: 'hour' };
   return { value: sign * Math.max(1, Math.floor(abs / MINUTE_MS)), unit: 'minute' };
 }
@@ -123,4 +125,47 @@ export function buildResetDisplay(
     absolute: absolute ?? formatInstantShort(usableMs as number),
     relative: usableMs === null ? null : formatRelativeInstant(usableMs, nowMs, locale),
   };
+}
+
+export interface CountdownParts {
+  days: number;
+  hours: number;
+  minutes: number;
+}
+
+/**
+ * Time left until a reset, for "1d 3h" / "3h 12m" / "45m". Truncated like
+ * `relativeTimeParts`, so it never claims more time than remains; a gap under a
+ * minute reads as 0 minutes. Null once the instant has passed.
+ */
+export function countdownParts(targetMs: number, nowMs: number): CountdownParts | null {
+  const delta = targetMs - nowMs;
+  if (!Number.isFinite(delta) || delta <= 0) return null;
+  return {
+    days: Math.floor(delta / DAY_MS),
+    hours: Math.floor((delta % DAY_MS) / HOUR_MS),
+    minutes: Math.floor((delta % HOUR_MS) / MINUTE_MS),
+  };
+}
+
+/** Within this, a weekday names the day unambiguously. */
+const WEEKDAY_HORIZON_MS = 6 * DAY_MS;
+
+/**
+ * A reset instant as "Fri 16:00" (browser-local, 24-hour), or "Nov 14, 16:00"
+ * once it is far enough away that the weekday would be ambiguous.
+ */
+export function formatResetInstant(ms: number, nowMs: number, locale?: string): string {
+  const far = Math.abs(ms - nowMs) >= WEEKDAY_HORIZON_MS;
+  const options: Intl.DateTimeFormatOptions = {
+    ...(far ? { month: 'short', day: 'numeric' } : { weekday: 'short' }),
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  };
+  try {
+    return new Date(ms).toLocaleString(locale, options);
+  } catch {
+    return new Date(ms).toLocaleString(undefined, options);
+  }
 }

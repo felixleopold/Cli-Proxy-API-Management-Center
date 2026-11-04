@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconRefreshCw } from '@/components/ui/icons';
 import { useCountUp } from '@/hooks/motion';
@@ -10,6 +11,8 @@ export type QuotaHeaderProps = {
   refreshing: boolean;
   disableControls: boolean;
   onRefreshAll: () => void;
+  /** Inline controls before the refresh button (the Claude credit switch). */
+  extra?: ReactNode;
 };
 
 /**
@@ -20,8 +23,15 @@ export type QuotaHeaderProps = {
  * （标题 0ms → meta 70ms → 动作 140ms → tabs 210ms）。
  */
 export function QuotaHeader(props: QuotaHeaderProps) {
-  const { totalCount, loadedCount, attentionCount, refreshing, disableControls, onRefreshAll } =
-    props;
+  const {
+    totalCount,
+    loadedCount,
+    attentionCount,
+    refreshing,
+    disableControls,
+    onRefreshAll,
+    extra,
+  } = props;
   const { t } = useTranslation();
   // 批量结果陆续落地时，「已加载」是页面上唯一滚动的数字
   const displayLoadedCount = useCountUp(loadedCount);
@@ -55,13 +65,15 @@ export function QuotaHeader(props: QuotaHeaderProps) {
         </p>
       </div>
       <div className={styles.actions} data-reveal>
+        {extra}
         <button
           type="button"
           className={styles.primaryAction}
           onClick={onRefreshAll}
           disabled={disableControls || refreshing}
+          aria-busy={refreshing}
         >
-          <IconRefreshCw size={14} className={refreshing ? styles.spinning : undefined} />
+          <IconRefreshCw size={14} aria-hidden="true" />
           {t('quota_management.refresh_all_credentials')}
         </button>
       </div>
