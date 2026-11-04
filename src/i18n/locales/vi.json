@@ -1603,8 +1603,8 @@
     "stat_next_reset_hint": "Lần đặt lại gần nhất và lượng nó trả lại, dự báo theo mức dùng đến lúc đó.",
     "stat_burn_hint": "Tốc độ pool cạn trong {{count}} giờ qua, tính theo gói cơ bản mỗi giờ.",
     "hero_hint": "Lượng còn lại cho chúng ta trên mọi tài khoản, theo gói cơ bản, trên cỡ đầy đủ của pool sau phần giữ lại.",
-    "hero_person_hint": "Lượng gateway để lại cho người này sau phần giữ lại của họ. Biểu đồ vẫn là cả pool.",
-    "left_for": "còn cho {{name}} · {{percent}}% của {{capacity}}",
+    "hero_person_hint": "Lượng gateway để lại cho người này sau phần giữ lại của họ, đo theo pool riêng của gateway (mọi tài khoản dùng được theo trọng số gói), nên cỡ có thể khác chế độ Mọi người. Biểu đồ vẫn là cả pool.",
+    "left_for": "còn cho {{name}}",
     "for_label": "Cho",
     "for_hint": "Hiện số trên thẻ là lượng còn lại cho một người sau phần giữ lại của họ, theo báo cáo pool của gateway. Biểu đồ vẫn là cả pool.",
     "view_hint": "Còn lại vẽ lượng còn theo thời gian kèm dự báo; Tốc độ cạn vẽ lượng đã dùng mỗi giờ hoặc mỗi ngày.",
@@ -1619,7 +1619,9 @@
     "legend_resets_hint": "Lượng trả lại của mỗi lần đặt lại được tô màu theo mức các tài khoản đã dùng trước đó. Di chuột lên một lần đặt lại trên biểu đồ để xem tài khoản nào.",
     "legend_reset_full": "dùng hết",
     "legend_reset_partial": "một phần",
-    "legend_reset_low": "phần lớn chưa dùng"
+    "legend_reset_low": "phần lớn chưa dùng",
+    "person_pool": "{{percent}}% của pool gateway {{capacity}}",
+    "reset_row": "Đặt lại"
   },
   "quota_management": {
     "title": "Quản lý Quota",
@@ -2848,7 +2850,7 @@
     "how_long": "Trong bao lâu",
     "until_five_hour": "Đến lần đặt lại 5 giờ tiếp theo",
     "until_weekly": "Đến lần đặt lại hằng tuần tiếp theo",
-    "reset_unknown": "Chưa có thời điểm đặt lại",
+    "reset_unknown": "Không rõ thời điểm đặt lại",
     "hours_one": "{{count}} giờ",
     "hours_other": "{{count}} giờ",
     "custom_label": "Đến ngày và giờ",
@@ -2869,6 +2871,7 @@
     "release_title": "Giải phóng phần giữ lại của {{lender}}",
     "release_description": "Cho pool dùng các tài khoản của {{lender}} vượt quá {{reserve}} trong một thời gian.",
     "keep_label": "Giữ ít nhất",
-    "keep_hint": "Tùy chọn: phần của mỗi kỳ vẫn giữ cho người cho mượn khi giải phóng. Để trống để giải phóng toàn bộ."
+    "keep_hint": "Tùy chọn: phần của mỗi kỳ vẫn giữ cho người cho mượn khi giải phóng. Để trống để giải phóng toàn bộ.",
+    "keep_invalid": "Nhập 1–99, hoặc để trống để giải phóng toàn bộ."
   }
 }

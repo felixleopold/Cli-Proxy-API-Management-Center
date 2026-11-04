@@ -29,10 +29,13 @@ export function PaceControl({
   file,
   resets,
   onChange,
+  onReload,
 }: {
   file: AuthFileItem;
   resets: NextResets;
   onChange: (patch: Pick<AuthFileItem, 'paceMode' | 'paceUntilMs'>) => void;
+  /** Refetches the listing: pace changes routing, and only the gateway knows the new status. */
+  onReload: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const nowMs = useNow();
@@ -47,6 +50,7 @@ export function PaceControl({
     setBusy(true);
     try {
       onChange(await change());
+      onReload();
       setOpen(null);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('common.unknown_error');

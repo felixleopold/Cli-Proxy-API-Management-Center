@@ -1669,8 +1669,8 @@
     "stat_next_reset_hint": "最近一次重置及其恢復量，依此前的用量預測。",
     "stat_burn_hint": "過去 {{count}} 小時池的消耗速度，以每小時基礎方案計。",
     "hero_hint": "扣除出借人預留後，所有帳號留給我們的剩餘量（以基礎方案計），以及池的總規模。",
-    "hero_person_hint": "扣除此人的預留後閘道留給他的量。圖表仍顯示整個池。",
-    "left_for": "{{name}} 剩餘 · {{capacity}} 的 {{percent}}%",
+    "hero_person_hint": "扣除此人的預留後閘道留給他的量，依閘道自己的池（所有可用帳號，依方案權重）衡量，因此規模可能與「所有人」檢視不同。圖表仍顯示整個池。",
+    "left_for": "{{name}} 剩餘",
     "for_label": "對象",
     "for_hint": "依閘道的池報告，將卡片數字顯示為某人扣除其預留後的剩餘量。圖表仍顯示整個池。",
     "view_hint": "「剩餘」顯示隨時間剩餘的量及預測；「消耗速度」顯示每小時或每天用掉的量。",
@@ -1685,7 +1685,9 @@
     "legend_resets_hint": "每次重置的恢復量依重置帳號此前的使用程度著色。懸停圖表中的重置可查看哪些帳號重置。",
     "legend_reset_full": "已用滿",
     "legend_reset_partial": "部分",
-    "legend_reset_low": "大多未用"
+    "legend_reset_low": "大多未用",
+    "person_pool": "閘道池 {{capacity}} 的 {{percent}}%",
+    "reset_row": "重置"
   },
   "quota_management": {
     "search_label": "搜尋帳號",
@@ -2849,7 +2851,7 @@
     "how_long": "持續多久",
     "until_five_hour": "直到下次 5 小時重置",
     "until_weekly": "直到下次每週重置",
-    "reset_unknown": "尚未回報重置時間",
+    "reset_unknown": "重置時間未知",
     "hours": "{{count}} 小時",
     "custom_label": "直到指定日期和時間",
     "custom_set": "設定",
@@ -2868,6 +2870,7 @@
     "release_title": "釋放 {{lender}} 的預留",
     "release_description": "在一段時間內讓池使用 {{lender}} 的帳號，超出其 {{reserve}}。",
     "keep_label": "至少保留",
-    "keep_hint": "可選：釋放期間每個視窗仍為出借人保留的份額。留空則釋放全部預留。"
+    "keep_hint": "可選：釋放期間每個視窗仍為出借人保留的份額。留空則釋放全部預留。",
+    "keep_invalid": "請輸入 1–99，或留空以釋放全部預留。"
   }
 }

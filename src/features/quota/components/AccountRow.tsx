@@ -474,6 +474,7 @@ export function AccountRow(props: AccountRowProps) {
             file={file}
             resets={nextResetsOf(windows)}
             onChange={(patch) => onFileChange(getQuotaCacheKey(file), patch)}
+            onReload={onSettingsSaved}
           />
         ) : (
           <span />

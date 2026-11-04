@@ -47,6 +47,18 @@ export function resolveTimedChoice(
   return { span: { until: new Date(atMs).toISOString() }, untilMs: atMs };
 }
 
+/**
+ * The share a release keeps, as the gateway takes it (0 < x < 100): null for
+ * empty text (release the whole reserve), undefined for anything outside 1–99.
+ */
+export function parseKeepPercentText(text: string): number | null | undefined {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) return undefined;
+  const value = Number(trimmed);
+  return value >= 1 && value <= 99 ? value : undefined;
+}
+
 /** The credential's pace override while it lasts, else null. */
 export function activePace(
   file: Pick<AuthFileItem, 'paceMode' | 'paceUntilMs'>,

@@ -1646,8 +1646,8 @@
     "stat_next_reset_hint": "The soonest reset and how much it gives back, projected from the usage until then.",
     "stat_burn_hint": "How fast the pool drained over the last {{count}} hours, in base plans per hour.",
     "hero_hint": "What is left to us across every account, in base plans, of the pool's full size after lender reserves.",
-    "hero_person_hint": "What the gateway leaves this person after their reserve. The chart stays pool-wide.",
-    "left_for": "left for {{name}} · {{percent}}% of {{capacity}}",
+    "hero_person_hint": "What the gateway leaves this person after their reserve, measured against the gateway's own pool (every usable account by plan weight), so its size can differ from the Everyone view. The chart stays pool-wide.",
+    "left_for": "left for {{name}}",
     "for_label": "For",
     "for_hint": "Show the cards' numbers as what is left for one person after their reserve, from the gateway's pool report. The charts stay pool-wide.",
     "view_hint": "Remaining charts what is left over time with a projection; Drain rate charts how much was used per hour or day.",
@@ -1662,7 +1662,9 @@
     "legend_resets_hint": "Each reset's gain is coloured by how much of the resetting accounts was used before it. Hover a reset in the chart to see which accounts reset.",
     "legend_reset_full": "used up",
     "legend_reset_partial": "partly",
-    "legend_reset_low": "mostly unused"
+    "legend_reset_low": "mostly unused",
+    "person_pool": "{{percent}}% of the gateway's {{capacity}} pool",
+    "reset_row": "Reset"
   },
   "quota_management": {
     "search_label": "Search accounts",
@@ -2842,7 +2844,7 @@
     "how_long": "How long",
     "until_five_hour": "Until the next 5-hour reset",
     "until_weekly": "Until the next weekly reset",
-    "reset_unknown": "No reset reported yet",
+    "reset_unknown": "Reset time unknown",
     "hours_one": "{{count}} hour",
     "hours_other": "{{count}} hours",
     "custom_label": "Until a date and time",
@@ -2863,6 +2865,7 @@
     "release_title": "Release {{lender}}'s reserve",
     "release_description": "Let the pool use {{lender}}'s accounts past their {{reserve}} for a while.",
     "keep_label": "Keep at least",
-    "keep_hint": "Optional: the share of each window still kept for the lender while released. Empty releases the whole reserve."
+    "keep_hint": "Optional: the share of each window still kept for the lender while released. Empty releases the whole reserve.",
+    "keep_invalid": "Enter 1–99, or leave it empty to release the whole reserve."
   }
 }

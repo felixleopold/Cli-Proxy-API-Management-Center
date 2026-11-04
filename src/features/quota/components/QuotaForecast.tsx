@@ -18,7 +18,7 @@ import { Select } from '@/components/ui/Select';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { useNow } from '@/hooks/useNow';
 import { useNotificationStore, useThemeStore } from '@/stores';
-import type { UsagePoolReport } from '@/services/api/usagePool';
+import type { UsagePoolReport, UsagePoolWindow } from '@/services/api/usagePool';
 import type { AuthFileItem } from '@/types';
 import { getAuthFileIcon, getTypeLabel } from '@/features/authFiles/constants';
 import { useLedgerUsers } from '@/features/usage/hooks/useLedgerUsers';
@@ -275,8 +275,6 @@ export function QuotaForecast({
     ]
   );
 
-  if (visible.length === 0) return null;
-
   const updatePrefs = (patch: Partial<ForecastPrefs>) => {
     setPrefs((current) => {
       const next = { ...current, ...patch };
@@ -379,6 +377,58 @@ export function QuotaForecast({
       (window) => window.kind === kind && window.capacity > 0
     );
   };
+  /**
+   * The person's number is the gateway's: measured against its own pool (every
+   * usable account, by plan weight), so it is labelled as such, never "of N×".
+   */
+  const personHero = (window: UsagePoolWindow) => ({
+    value: numbers.multiplier((window.capacity * window.leftForUserPercent) / 100),
+    caption: (
+      <>
+        <span className={styles.of}>{t('quota_forecast.left_for', { name: person })}</span>
+        <span className={styles.ofPool}>
+          {t('quota_forecast.person_pool', {
+            percent: Math.round(window.leftForUserPercent),
+            capacity: numbers.multiplier(window.capacity),
+          })}
+        </span>
+      </>
+    ),
+  });
+  // Providers the gateway pools but without local readings still show the person's view.
+  const gatewayOnly = person
+    ? personPools.reports.filter(
+        (report) => !visible.some((pool) => pool.provider === report.provider)
+      )
+    : [];
+  const gatewayCard = (report: UsagePoolReport) => {
+    const window =
+      report.windows.find((entry) => entry.kind === 'weekly' && entry.capacity > 0) ??
+      report.windows.find((entry) => entry.capacity > 0);
+    if (!window) return null;
+    const icon = getAuthFileIcon(report.provider, resolvedTheme);
+    const hero = personHero(window);
+    return (
+      <article key={`gateway-${report.provider}`} className={styles.card}>
+        <header className={styles.cardHead}>
+          <span className={styles.identity}>
+            {icon && <img src={icon} alt="" className={styles.providerIcon} />}
+            <span className={styles.providerName}>{getTypeLabel(t, report.provider)}</span>
+          </span>
+        </header>
+        <div className={styles.cardSummary}>
+          <HoverCard
+            className={styles.hero}
+            focusable
+            content={t('quota_forecast.hero_person_hint')}
+          >
+            <strong className={styles.heroValue}>{hero.value}</strong>
+            {hero.caption}
+          </HoverCard>
+        </div>
+      </article>
+    );
+  };
   const shownPerson = personPools.reports.find((report) => report.user)?.user ?? null;
   const overrideUntil = activeOverrideUntil(shownPerson, nowMs);
   const overrideFor = overrideTarget(personPools.reports, person);
@@ -390,7 +440,9 @@ export function QuotaForecast({
       showNotification(t('usage_pool.override_failed', { message }), 'error');
     }
   };
-  const personPicker = users.length > 0 && personPools.supported && (
+  const canPickPerson =
+    users.length > 0 && personPools.supported && poolProviders(files, tab).length > 0;
+  const personPicker = canPickPerson && (
     <div className={styles.control}>
       <span className={styles.controlLabel} aria-hidden="true">
         {t('quota_forecast.for_label')}
@@ -425,6 +477,62 @@ export function QuotaForecast({
       {label}
     </span>
   );
+
+  const personBarNode = (
+    <>
+      {shownPerson && (
+        <div className={styles.personBar}>
+          <span>
+            <strong>
+              {shownPerson.reservePercent > 0
+                ? t('usage_pool.person_reserve', {
+                    name: shownPerson.name,
+                    percent: shownPerson.reservePercent,
+                  })
+                : shownPerson.name}
+            </strong>{' '}
+            ·{' '}
+            {overrideUntil !== null
+              ? t('usage_pool.person_override_until', {
+                  time: formatPoolTime(overrideUntil, nowMs, language),
+                })
+              : shownPerson.reservePercent <= 0
+                ? t('usage_pool.person_no_reserve')
+                : shownPerson.softStopped
+                  ? t('quota_forecast.person_paused')
+                  : t('usage_pool.person_using')}
+          </span>
+          {shownPerson.reservePercent > 0 && (
+            <label className={styles.override}>
+              <span>{t('usage_pool.override_label')}</span>
+              <ToggleSwitch
+                checked={overrideUntil !== null}
+                onChange={(on) => void toggleOverride(on)}
+                disabled={personPools.saving || overrideFor === null}
+                ariaLabel={t('usage_pool.override_aria', { name: shownPerson.name })}
+              />
+            </label>
+          )}
+        </div>
+      )}
+    </>
+  );
+
+  // No local readings yet: the gateway's person view alone, when it has one.
+  if (visible.length === 0) {
+    if (!canPickPerson) return null;
+    return (
+      <section
+        className={styles.forecast}
+        aria-label={t('quota_management.forecast_title')}
+        data-shot-section="pools"
+      >
+        <div className={styles.controls}>{personPicker}</div>
+        {personBarNode}
+        {gatewayOnly.map(gatewayCard)}
+      </section>
+    );
+  }
 
   return (
     <section
@@ -518,41 +626,7 @@ export function QuotaForecast({
           {t('usage_pool.load_failed', { message: personPools.error })}
         </p>
       )}
-      {shownPerson && (
-        <div className={styles.personBar}>
-          <span>
-            <strong>
-              {shownPerson.reservePercent > 0
-                ? t('usage_pool.person_reserve', {
-                    name: shownPerson.name,
-                    percent: shownPerson.reservePercent,
-                  })
-                : shownPerson.name}
-            </strong>{' '}
-            ·{' '}
-            {overrideUntil !== null
-              ? t('usage_pool.person_override_until', {
-                  time: formatPoolTime(overrideUntil, nowMs, language),
-                })
-              : shownPerson.reservePercent <= 0
-                ? t('usage_pool.person_no_reserve')
-                : shownPerson.softStopped
-                  ? t('quota_forecast.person_paused')
-                  : t('usage_pool.person_using')}
-          </span>
-          {shownPerson.reservePercent > 0 && (
-            <label className={styles.override}>
-              <span>{t('usage_pool.override_label')}</span>
-              <ToggleSwitch
-                checked={overrideUntil !== null}
-                onChange={(on) => void toggleOverride(on)}
-                disabled={personPools.saving || overrideFor === null}
-                ariaLabel={t('usage_pool.override_aria', { name: shownPerson.name })}
-              />
-            </label>
-          )}
-        </div>
-      )}
+      {personBarNode}
 
       {cards.map(({ pool, row, summary, empty, first, burn, drain }) => {
         const provider = pool.provider;
@@ -572,16 +646,9 @@ export function QuotaForecast({
           </span>
         );
         const forPerson = personWindow(pool);
-        const remaining = numbers.multiplier(
-          forPerson ? (forPerson.capacity * forPerson.leftForUserPercent) / 100 : summary.remaining
-        );
-        const of = forPerson
-          ? t('quota_forecast.left_for', {
-              name: person,
-              percent: Math.round(forPerson.leftForUserPercent),
-              capacity: numbers.multiplier(forPerson.capacity),
-            })
-          : t('quota_forecast.of', { capacity: numbers.multiplier(summary.capacity) });
+        const hero = forPerson && personHero(forPerson);
+        const remaining = hero ? hero.value : numbers.multiplier(summary.remaining);
+        const of = t('quota_forecast.of', { capacity: numbers.multiplier(summary.capacity) });
         const nextReset = summary.nextReset && (
           <>
             <span className={styles.gain}>{formatJump(summary.nextReset.restore)}</span>{' '}
@@ -602,7 +669,8 @@ export function QuotaForecast({
               >
                 {identity}
                 <span className={styles.collapsedValue}>
-                  <strong>{remaining}</strong> <span className={styles.of}>{of}</span>
+                  <strong>{remaining}</strong>{' '}
+                  {hero ? hero.caption : <span className={styles.of}>{of}</span>}
                 </span>
                 {nextReset && (
                   <span className={styles.collapsedFact}>
@@ -649,7 +717,7 @@ export function QuotaForecast({
                 }
               >
                 <strong className={styles.heroValue}>{remaining}</strong>
-                <span className={styles.of}>{of}</span>
+                {hero ? hero.caption : <span className={styles.of}>{of}</span>}
               </HoverCard>
               <dl className={styles.stats}>
                 <Stat
@@ -709,6 +777,7 @@ export function QuotaForecast({
                 projectedLabel={t('quota_management.forecast_legend_projected')}
                 nowLabel={t('quota_management.forecast_now')}
                 creditLabel={t('quota_management.forecast_legend_reset_credit')}
+                resetLabel={t('quota_forecast.reset_row')}
                 formatResetAccount={formatResetAccount}
               />
             ) : drain ? (
@@ -799,6 +868,8 @@ export function QuotaForecast({
           </article>
         );
       })}
+
+      {gatewayOnly.map(gatewayCard)}
 
       <details className={styles.settings}>
         <summary>{t('quota_management.forecast_settings')}</summary>

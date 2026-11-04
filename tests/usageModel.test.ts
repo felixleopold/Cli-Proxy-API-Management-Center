@@ -398,12 +398,16 @@ describe('rollups', () => {
     const two = userSlots(clients('Felix', 'Ferdinand'));
     expect(two.get('Felix')).toBe(3);
     expect(two.get('Ferdinand')).toBe(6);
-    const more = userSlots(clients('Anna', 'Felix', 'Ferdinand', 'Isabella'));
-    expect(more.get('Felix')).toBe(3);
-    expect(more.get('Ferdinand')).toBe(6);
-    // Isabella's name hashes to Felix's slot too and takes the next free one.
-    expect(more.get('Isabella')).toBe(4);
-    expect(more.get('')).toBe('none');
+    const alone = userSlots(clients('Isabella'));
+    const many = userSlots(clients('Anna', 'felix', 'Ferdinand', 'Hanna', 'Isabella', 'Ziggy'));
+    // Adding people never moves anyone, and no one else takes the pinned colours.
+    expect(many.get('felix')).toBe(3);
+    expect(many.get('Ferdinand')).toBe(6);
+    expect(many.get('Isabella')).toBe(alone.get('Isabella'));
+    for (const name of ['Anna', 'Hanna', 'Isabella', 'Ziggy']) {
+      expect([3, 6]).not.toContain(many.get(name));
+    }
+    expect(many.get('')).toBe('none');
   });
 });
 

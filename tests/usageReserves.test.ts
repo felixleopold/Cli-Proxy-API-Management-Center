@@ -6,8 +6,14 @@ import {
   writeVisualUsageReserves,
 } from '@/features/config/visualConfigUsageReserves';
 import { normalizeAuthFilesResponse } from '@/services/api/authFiles';
-import { normalizeUsagePoolReport } from '@/services/api/usagePool';
-import { activePace, lenderReserves, resolveTimedChoice } from '@/features/quota/accountControls';
+import { normalizeUsagePoolReport, usagePoolApi } from '@/services/api/usagePool';
+import {
+  activePace,
+  lenderReserves,
+  parseKeepPercentText,
+  resolveTimedChoice,
+} from '@/features/quota/accountControls';
+import { apiClient } from '@/services/api/client';
 import {
   changeOverride,
   lenderReleaseUntil,
@@ -362,5 +368,33 @@ describe('pace and reserve release controls', () => {
         resets: { fiveHour: nowMs + 3 * HOUR, weekly: null },
       },
     ]);
+  });
+});
+
+describe('release and pace requests', () => {
+  test('keeps only 1-99% of a released reserve; empty releases it all', () => {
+    expect(parseKeepPercentText('')).toBeNull();
+    expect(parseKeepPercentText(' 50 ')).toBe(50);
+    expect(parseKeepPercentText('1')).toBe(1);
+    expect(parseKeepPercentText('99')).toBe(99);
+    for (const text of ['0', '100', '0.5', '-5', 'abc']) {
+      expect(parseKeepPercentText(text)).toBeUndefined();
+    }
+  });
+
+  test('reads the end of a pace override from the gateway\'s `until`', async () => {
+    const post = apiClient.post;
+    const sent: unknown[] = [];
+    apiClient.post = (async (_url: string, data?: unknown) => {
+      sent.push(data);
+      return { name: 'a.json', mode: 'flash', until: '2026-11-04T17:20:00Z' };
+    }) as typeof apiClient.post;
+    try {
+      const untilMs = await usagePoolApi.setPace('a.json', 'flash', { duration: '4h' });
+      expect(untilMs).toBe(Date.parse('2026-11-04T17:20:00Z'));
+      expect(sent).toEqual([{ name: 'a.json', mode: 'flash', duration: '4h' }]);
+    } finally {
+      apiClient.post = post;
+    }
   });
 });

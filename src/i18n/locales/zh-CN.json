@@ -1643,8 +1643,8 @@
     "stat_next_reset_hint": "最近一次重置及其恢复量，按此前的用量预测。",
     "stat_burn_hint": "过去 {{count}} 小时池的消耗速度，以每小时基础套餐计。",
     "hero_hint": "扣除出借人预留后，所有账号留给我们的剩余量（以基础套餐计），以及池的总规模。",
-    "hero_person_hint": "扣除此人的预留后网关留给他的量。图表仍显示整个池。",
-    "left_for": "{{name}} 剩余 · {{capacity}} 的 {{percent}}%",
+    "hero_person_hint": "扣除此人的预留后网关留给他的量，按网关自己的池（所有可用账号，按套餐权重）衡量，因此规模可能与“所有人”视图不同。图表仍显示整个池。",
+    "left_for": "{{name}} 剩余",
     "for_label": "对象",
     "for_hint": "按网关的池报告，将卡片数字显示为某人扣除其预留后的剩余量。图表仍显示整个池。",
     "view_hint": "“剩余”显示随时间剩余的量及预测；“消耗速度”显示每小时或每天用掉的量。",
@@ -1659,7 +1659,9 @@
     "legend_resets_hint": "每次重置的恢复量按重置账号此前的使用程度着色。悬停图表中的重置可查看哪些账号重置。",
     "legend_reset_full": "已用满",
     "legend_reset_partial": "部分",
-    "legend_reset_low": "大多未用"
+    "legend_reset_low": "大多未用",
+    "person_pool": "网关池 {{capacity}} 的 {{percent}}%",
+    "reset_row": "重置"
   },
   "quota_management": {
     "search_label": "搜索账号",
@@ -2823,7 +2825,7 @@
     "how_long": "持续多久",
     "until_five_hour": "直到下次 5 小时重置",
     "until_weekly": "直到下次每周重置",
-    "reset_unknown": "尚未报告重置时间",
+    "reset_unknown": "重置时间未知",
     "custom_label": "直到指定日期和时间",
     "custom_set": "设置",
     "end": "结束",
@@ -2842,6 +2844,7 @@
     "release_description": "在一段时间内让池使用 {{lender}} 的账号，超出其 {{reserve}}。",
     "keep_label": "至少保留",
     "keep_hint": "可选：释放期间每个窗口仍为出借人保留的份额。留空则释放全部预留。",
-    "accounts": "{{count}} 个账号"
+    "accounts": "{{count}} 个账号",
+    "keep_invalid": "请输入 1–99，或留空以释放全部预留。"
   }
 }

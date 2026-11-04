@@ -1,5 +1,5 @@
-/* Categorical series colors. Users take the slot their name hashes to (usageModel.ts
- * userSlots), so slot3 is Felix (orange) and slot6 Ferdinand (violet); subscriptions take
+/* Categorical series colors. Users take a slot by name alone (usageModel.ts
+ * userSlots), which pins slot3 to Felix (orange) and slot6 to Ferdinand (violet); subscriptions take
  * slots in provider/name order. Orange replaces the earlier amber and sits apart from
  * Claude's coral by lightness; every value is also written as text (legend, tooltip, table). */
 

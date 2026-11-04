@@ -102,12 +102,11 @@ export function TimedMenu({
         type="button"
         className={styles.choice}
         disabled={busy || !known}
-        title={known ? undefined : t('timed_menu.reset_unknown')}
         onClick={() => onPick({ kind })}
       >
         <span>{t(`timed_menu.until_${kind}`)}</span>
         <span className={styles.when}>
-          {known ? formatWhen(atMs, nowMs, i18n.resolvedLanguage) : '—'}
+          {known ? formatWhen(atMs, nowMs, i18n.resolvedLanguage) : t('timed_menu.reset_unknown')}
         </span>
       </button>
     );

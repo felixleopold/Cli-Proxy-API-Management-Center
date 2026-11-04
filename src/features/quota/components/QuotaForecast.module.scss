@@ -331,6 +331,18 @@
   white-space: nowrap;
 }
 
+.ofPool {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+
+  &::before {
+    content: '·';
+    margin-right: 8px;
+    color: var(--text-quaternary);
+  }
+}
+
 .stats {
   display: flex;
   flex-wrap: wrap;

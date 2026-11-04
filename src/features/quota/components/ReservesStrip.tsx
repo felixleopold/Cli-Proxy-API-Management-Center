@@ -14,10 +14,10 @@ import { useNow } from '@/hooks/useNow';
 import { usagePoolApi } from '@/services/api/usagePool';
 import { useNotificationStore } from '@/stores';
 import type { AuthFileItem } from '@/types';
-import { parseReservePercentText } from '@/features/authFiles/constants';
 import { nextResetsOf, pooledByAuthId, windowsForFile } from '../accountCards';
 import {
   lenderReserves,
+  parseKeepPercentText,
   resolveTimedChoice,
   type LenderReserve,
   type TimedChoice,
@@ -49,11 +49,14 @@ export function ReservesStrip({
   pools,
   cardReadings,
   onChange,
+  onReload,
 }: {
   files: AuthFileItem[];
   pools: ProviderPool[];
   cardReadings: ReadonlyMap<string, CardReading>;
   onChange: (lender: string, release: LenderReleaseState) => void;
+  /** Refetches the listing: a release changes routing, and only the gateway knows the new status. */
+  onReload: () => void;
 }) {
   const { t } = useTranslation();
   const id = useId();
@@ -76,7 +79,14 @@ export function ReservesStrip({
       </span>
       <ul className={styles.chips}>
         {lenders.map((lender) => (
-          <LenderChip key={lender.lender} lender={lender} onChange={onChange} />
+          <LenderChip
+            key={lender.lender}
+            lender={lender}
+            onChange={(name, release) => {
+              onChange(name, release);
+              onReload();
+            }}
+          />
         ))}
       </ul>
     </section>
@@ -96,8 +106,9 @@ function LenderChip({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [keep, setKeep] = useState('');
+  const keepErrorId = useId();
   const close = useCallback(() => setOpen(false), []);
-  const keepPercent = parseReservePercentText(keep);
+  const keepPercent = parseKeepPercentText(keep);
   const keepInvalid = keepPercent === undefined;
   const { release } = lender;
   const time = (ms: number) => formatWhen(ms, nowMs, i18n.resolvedLanguage);
@@ -174,22 +185,30 @@ function LenderChip({
             busy={busy || keepInvalid}
             align="start"
             extra={
-              <label className={styles.keep}>
-                <span className={styles.keepLabel}>
-                  {t('reserves.keep_label')}
-                  <InfoHint label={t('reserves.keep_label')} text={t('reserves.keep_hint')} />
-                </span>
-                <span className={styles.keepInput}>
-                  <input
-                    value={keep}
-                    onChange={(event) => setKeep(event.target.value)}
-                    inputMode="decimal"
-                    placeholder="—"
-                    aria-invalid={keepInvalid || undefined}
-                  />
-                  <span aria-hidden="true">%</span>
-                </span>
-              </label>
+              <>
+                <label className={styles.keep}>
+                  <span className={styles.keepLabel}>
+                    {t('reserves.keep_label')}
+                    <InfoHint label={t('reserves.keep_label')} text={t('reserves.keep_hint')} />
+                  </span>
+                  <span className={styles.keepInput}>
+                    <input
+                      value={keep}
+                      onChange={(event) => setKeep(event.target.value)}
+                      inputMode="decimal"
+                      placeholder="—"
+                      aria-invalid={keepInvalid || undefined}
+                      aria-describedby={keepInvalid ? keepErrorId : undefined}
+                    />
+                    <span aria-hidden="true">%</span>
+                  </span>
+                </label>
+                {keepInvalid && (
+                  <p id={keepErrorId} className={styles.keepError} role="alert">
+                    {t('reserves.keep_invalid')}
+                  </p>
+                )}
+              </>
             }
             onPick={pick}
             onClose={close}

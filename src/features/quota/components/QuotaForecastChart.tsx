@@ -272,8 +272,11 @@ function Tooltip({
   );
 }
 
-/** Keyboard: arrows move the crosshair, Escape clears it. */
-const useScrub = (fromMs: number, toMs: number, startAt: number) => {
+/**
+ * Keyboard: arrows move the crosshair a 48th of the view, stopping on any of
+ * `stops` (e.g. resets) on the way so their details are reachable; Escape clears it.
+ */
+const useScrub = (fromMs: number, toMs: number, startAt: number, stops: readonly number[] = []) => {
   const [hoverMs, setHoverMs] = useState<number | null>(null);
   const step = (toMs - fromMs) / 48;
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -281,7 +284,15 @@ const useScrub = (fromMs: number, toMs: number, startAt: number) => {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
     event.preventDefault();
     const direction = event.key === 'ArrowLeft' ? -1 : 1;
-    setHoverMs((value) => Math.min(toMs, Math.max(fromMs, (value ?? startAt) + direction * step)));
+    setHoverMs((value) => {
+      const from = value ?? startAt;
+      const to = from + direction * step;
+      const passed = stops.filter((stop) =>
+        direction > 0 ? stop > from && stop < to : stop < from && stop > to
+      );
+      const next = passed.length > 0 ? passed[direction > 0 ? 0 : passed.length - 1] : to;
+      return Math.min(toMs, Math.max(fromMs, next));
+    });
   };
   return {
     hoverMs,
@@ -362,6 +373,8 @@ export interface RemainingChartProps {
   nowLabel: string;
   /** Tooltip name of a manual reset marker. */
   creditLabel: string;
+  /** Name of a reset in the accessible table. */
+  resetLabel: string;
   /** Tooltip row of one account in a reset, e.g. value "96% used", label "agent01". */
   formatResetAccount: (
     account: ResetAccount,
@@ -467,6 +480,7 @@ export function RemainingChart({
   projectedLabel,
   nowLabel,
   creditLabel,
+  resetLabel,
   formatResetAccount,
 }: RemainingChartProps) {
   const [ref, width] = useElementWidth();
@@ -482,7 +496,11 @@ export function RemainingChart({
     () => nightBands(night, Math.max(fromMs, nowMs), toMs),
     [night, fromMs, nowMs, toMs]
   );
-  const { hoverMs, setHoverMs, focusProps } = useScrub(fromMs, toMs, nowMs);
+  const resetStops = useMemo(
+    () => row.resets.map((event) => event.atMs).sort((left, right) => left - right),
+    [row.resets]
+  );
+  const { hoverMs, setHoverMs, focusProps } = useScrub(fromMs, toMs, nowMs, resetStops);
 
   const onPointerMove = (event: PointerEvent<SVGRectElement>) => {
     const bounds = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
@@ -690,10 +708,32 @@ export function RemainingChart({
       <SrTable
         caption={ariaLabel}
         head={['', row.label]}
-        rows={xTicks.map((tick) => {
-          const value = seriesAt(row, tick, nowMs);
-          return [formats.full(tick), value === null ? '–' : formatPoint(value, row.capacity)];
-        })}
+        rows={[
+          ...xTicks.map((tick) => ({
+            t: tick,
+            cells: (() => {
+              const value = seriesAt(row, tick, nowMs);
+              return [formats.full(tick), value === null ? '–' : formatPoint(value, row.capacity)];
+            })(),
+          })),
+          // Each reset with its accounts and how much they had used.
+          ...row.resets
+            .filter((event) => event.atMs >= fromMs && event.atMs <= toMs)
+            .map((event) => ({
+              t: event.atMs,
+              cells: [
+                `${formats.full(event.atMs)} · ${resetLabel}`,
+                event.accounts
+                  .map((account) => {
+                    const { label, value } = formatResetAccount(account, event.projected);
+                    return `${label} ${value}`;
+                  })
+                  .join(', '),
+              ],
+            })),
+        ]
+          .sort((left, right) => left.t - right.t)
+          .map((entry) => entry.cells)}
       />
     </div>
   );

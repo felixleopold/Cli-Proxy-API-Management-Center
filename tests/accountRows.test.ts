@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { accountWindows } from '@/features/quota/accountCards';
+import { accountWindows, nextResetsOf } from '@/features/quota/accountCards';
 import { classifyQuotaFiles, disabledAccountFiles } from '@/features/quota/logic';
 import type { AuthFileItem } from '@/types';
 import { accountSettingsDraft, buildAccountSettingsPatch } from '@/features/quota/accountSettings';
@@ -52,7 +52,12 @@ describe('accountWindows', () => {
       liveShort: null,
       nowMs: NOW,
     });
-    expect(windows.long).toEqual({ leftPercent: 30, resetAtMs: NOW + DAY_MS, periodMs: WEEK_MS });
+    expect(windows.long).toEqual({
+      leftPercent: 30,
+      resetAtMs: NOW + DAY_MS,
+      observedResetAtMs: NOW + DAY_MS,
+      periodMs: WEEK_MS,
+    });
     expect(windows.short?.leftPercent).toBe(90);
   });
 
@@ -66,13 +71,27 @@ describe('accountWindows', () => {
     expect(windows.long).toEqual({
       leftPercent: 100,
       resetAtMs: NOW - HOUR_MS + WEEK_MS,
+      observedResetAtMs: null,
       periodMs: WEEK_MS,
     });
     expect(windows.short).toEqual({
       leftPercent: 75,
       resetAtMs: NOW + 2 * HOUR_MS,
+      observedResetAtMs: NOW + 2 * HOUR_MS,
       periodMs: 5 * HOUR_MS,
     });
+  });
+
+  test('timed controls only end at a reported reset still ahead, never a rolled-forward one', () => {
+    // At 12:00 a stale 11:00 5-hour reset displays as 16:00, but is no deadline.
+    const stale = accountWindows({
+      pooled: pooled('weekly', 40, NOW + DAY_MS),
+      card: null,
+      liveShort: { minutes: 300, usedPercent: 60, resetAtMs: NOW - HOUR_MS },
+      nowMs: NOW,
+    });
+    expect(stale.short?.resetAtMs).toBe(NOW + 4 * HOUR_MS);
+    expect(nextResetsOf(stale)).toEqual({ fiveHour: null, weekly: NOW + DAY_MS });
   });
 
   test('leaves a window nothing reports unknown instead of guessing', () => {

@@ -411,6 +411,7 @@ export function UsageQuotaPage() {
               pools={pools}
               cardReadings={cardReadings}
               onChange={handleLenderRelease}
+              onReload={() => void loadFiles()}
             />
             {/* Pooled across every credential of the provider, independent of search and paging. */}
             <QuotaForecast

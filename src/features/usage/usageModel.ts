@@ -590,27 +590,27 @@ const nameHash = (name: string): number => {
   return hash;
 };
 
+/** Felix and Ferdinand keep their colours: orange and violet (seriesSlots.module.scss). */
+const PINNED_USER_SLOTS: Record<string, number> = { felix: 3, ferdinand: 6 };
+const OPEN_USER_SLOTS = Array.from({ length: SLOT_COUNT }, (_, slot) => slot).filter(
+  (slot) => !Object.values(PINNED_USER_SLOTS).includes(slot)
+);
+
 /**
- * Users by name: each takes the slot its name hashes to, so a user's colour never
- * moves when others are added or renamed. On a collision the alphabetically
- * later name takes the next free slot; past SLOT_COUNT users the rest are "other".
- * The palette is ordered so Felix (3) is orange and Ferdinand (6) violet.
+ * Users by name alone, so a colour never moves when others are added, removed
+ * or renamed: the pinned people keep theirs, everyone else hashes onto the
+ * remaining slots. Two people may share a colour; names are always shown with it.
  */
 export function userSlots(clients: readonly UsageClient[]): Map<string, SeriesSlot> {
   const slots = new Map<string, SeriesSlot>([['', 'none']]);
-  const taken = new Set<number>();
-  Array.from(new Set(clients.map((client) => client.user).filter(Boolean)))
-    .sort((a, b) => a.localeCompare(b))
-    .forEach((user) => {
-      if (taken.size >= SLOT_COUNT) {
-        slots.set(user, 'other');
-        return;
-      }
-      let slot = nameHash(user) % SLOT_COUNT;
-      while (taken.has(slot)) slot = (slot + 1) % SLOT_COUNT;
-      taken.add(slot);
-      slots.set(user, slot);
-    });
+  clients.forEach(({ user }) => {
+    if (!user || slots.has(user)) return;
+    slots.set(
+      user,
+      PINNED_USER_SLOTS[user.toLowerCase()] ??
+        OPEN_USER_SLOTS[nameHash(user) % OPEN_USER_SLOTS.length]
+    );
+  });
   return slots;
 }
 

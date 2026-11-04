@@ -168,7 +168,7 @@ export const usagePoolApi = {
   /** Sets a credential's pace override; resolves to its end when the gateway reports one. */
   async setPace(name: string, mode: AuthFilePaceMode, span: TimedSpan): Promise<number | null> {
     const data = await apiClient.post<unknown>('/usage/pace', { name, mode, ...span });
-    return time(isRecord(data) ? data.pace_until : undefined);
+    return time(isRecord(data) ? data.until : undefined);
   },
 
   clearPace: (name: string) => apiClient.delete('/usage/pace', { params: { name } }),
