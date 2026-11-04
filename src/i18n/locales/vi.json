@@ -1711,7 +1711,7 @@
     "forecast_sleep_hint": "Cho đến khi có đủ lịch sử, dự báo giả định không dùng hạn mức trong những giờ này.",
     "forecast_pace_hint": "Tốc độ là mức dùng trung bình mỗi ngày của từng thông tin xác thực trong 14 ngày qua, ngày càng gần càng có trọng số lớn (một ngày cách đây 3 ngày chỉ tính bằng một nửa hôm nay). Khi lịch sử hoạt động dưới 3 giờ thì dùng mức trung bình của cửa sổ hiện tại. Mức dùng khi thông tin xác thực còn dưới 15% bị bỏ qua, vì đó là dùng dè sẻn chứ không phải nhu cầu thật. Vùng tô bóng trải từ tốc độ của một ngày bận rộn đến tốc độ của một ngày nhàn rỗi.",
     "details_title": "Tài khoản",
-    "details_hint": "Hạn mức trực tiếp của từng tài khoản và chi phí trong chu kỳ hiện tại. Hạn mức được lấy từ nhà cung cấp khi tải thẻ.",
+    "details_hint": "Hạn mức trực tiếp của từng tài khoản và chi phí trong chu kỳ hiện tại. Nhấp vào một hàng để xem mọi chu kỳ và lượt đặt lại thủ công; ⚙ để chỉnh cài đặt sử dụng.",
     "details_more": "Chi tiết",
     "details_resets_one": "{{count}} lần đặt lại thủ công",
     "details_resets_other": "{{count}} lần đặt lại thủ công",

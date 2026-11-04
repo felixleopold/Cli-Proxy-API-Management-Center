@@ -20,21 +20,27 @@ Current base: upstream `v1.25.6`.
 - **Timeline legend explains the fill.** The current window's fill deliberately shows *used*
   quota, so its edge can be compared with the now line (past it means usage is ahead of pace),
   while the label shows remaining. A legend entry (`quota_management.windows_legend_used`) says so.
-- **Usage & quota page** (`/usage-quota`, OBSERVE; `/usage` and `/quota` redirect there). One page
-  and one provider filter, in order: *Accounts* (per-provider plan multiplier totals above the cards,
-  then one card per credential merging upstream's quota card with its spend: email title with the file
-  name on hover, provider, plan and plan multiplier badge, "resets in …" chip, the weekly headline in
-  multipliers ("0.25× of 0.75× left this week"), the limit bars as % left of that account, then "$X this window ≈ $Y at 100%" with the user split, then renewal, credit
-  balance and manual reset expiries behind a "N manual resets ›" disclosure, then Reset / Refresh),
-  *Current quota windows* (the pooled forecast and the window timeline), *Spend history* (the
-  24h/7d/30d/90d control lives in its header and only drives the KPIs, chart and users table; clicking
-  a card's spend swaps in that window, with ‹ › and "Back to 7d"), then the device label editor. A
-  quota card pairs with its spend by auth id (`file.id`, else the file name), the ledger's `auth_id`;
-  credentials without quota support get a spend-only card after the quota cards, on the last page
-  (`src/features/quota/accountCards.ts`, tests: `tests/accountCards.test.ts`). The Codex, Claude and
-  Antigravity bodies take `compact` there (plan in the header, details in the disclosure); the Auth
-  Files cards render them unchanged. Shell: `src/features/quota/UsageQuotaPage.tsx`; card:
-  `components/QuotaCard.tsx`; usage half: `src/features/usage/UsageSections.tsx`.
+- **Usage & quota page** (`/usage-quota`, OBSERVE; `/usage` and `/quota` redirect there). Near-black,
+  one provider filter, in order: header (counts, the Claude credit switch as an inline toggle, Refresh
+  all), the *pool cards* (see Quota forecast), the gateway's reserve pool as a collapsed disclosure
+  (`components/UsagePool.tsx`), *Accounts*, the *Quota windows* timeline, *Spend history*, then the
+  device label editor collapsed. *Accounts* is a compact list, one row per credential: icon, email
+  (file name on hover), plan and multiplier chip, 5-hour and weekly bars as % left (readings from the
+  forecast pools, else the loaded quota; "—" when nothing reports), the reset as "Fri 16:00 · 1d 3h",
+  "$X ≈ $Y at 100%" (clicking it swaps that window into the spend history, with ‹ › and "Back to 7d"),
+  a user split bar, the enable toggle (`PATCH /credentials/status`), reset, refresh and ⚙. A row
+  expands to every window (model-scoped ones too), manual resets and expiries, renewal and credits, the
+  plan share, the lender with its reserve release, and spend by user. ⚙ opens usage settings only
+  (priority, weight, Claude plan, plan multiplier, usage cap, lender, 5-hour and weekly reserve),
+  saved diff-only through `PATCH /credentials/fields`; file management stays on Auth Files. A row pairs
+  with its spend by auth id (`file.id`, else the file name), the ledger's `auth_id`; credentials
+  without quota support get a spend-only row after the quota rows, on the last page
+  (`src/features/quota/accountCards.ts`, `accountSettings.ts`; components `AccountsList.tsx`,
+  `AccountRow.tsx`, `QuotaAccountRow.tsx`, `AccountSettingsPopover.tsx`; tests:
+  `tests/accountCards.test.ts`, `tests/accountRows.test.ts`). The expanded rows reuse the provider
+  quota bodies with `compact`; the Auth Files cards render them unchanged. Relative times count the
+  last 48 hours in hours (`src/utils/quota/relativeTime.ts`). Shell:
+  `src/features/quota/UsageQuotaPage.tsx`; usage half: `src/features/usage/UsageSections.tsx`.
   API-equivalent USD per user across all providers comes from the fork-only gateway ledger
   (`/observability/usage/ledger`, `/observability/usage/clients` GET/PUT; needs
   `usage-ledger.enabled: true`, otherwise an empty state says so). Buckets carry the serving
@@ -45,14 +51,15 @@ Current base: upstream `v1.25.6`.
   without live signals (e.g. after a gateway restart), from its newest quota-history sample; stale
   resets roll forward by whole periods. Cards without either say they show the history range. The
   ledger refetches when the selection needs an earlier start or the clock passes the hour the
-  snapshot ends in. Cards show
+  snapshot ends in. Rows show
   spend by user and ≈ spend at 100% from ≥ 5% used; the chart stacks by user or subscription
   with reset markers; the table drills user → device → model; the label editor maps key → device/user
   (fingerprint = first 12 hex of sha256 of the key). Series colors follow identity (users
-  alphabetically, subscriptions by provider and name; `components/seriesSlots.module.scss`).
+  alphabetically, so Felix sky and Ferdinand violet; subscriptions by provider and name;
+  `components/seriesSlots.module.scss`). Provider colours: Claude coral, Codex silver, Muse green.
   Logic: `usageModel.ts`; tests: `tests/usageModel.test.ts`.
-- **Claude API credit switch** (`src/features/quota/components/ClaudeCreditCard.tsx`, top of
-  `/usage-quota`, above the provider tabs). Reads and flips the fork-only gateway switch
+- **Claude API credit switch** (`src/features/quota/components/ClaudeCreditCard.tsx`, an inline
+  toggle in the `/usage-quota` header). Reads and flips the fork-only gateway switch
   `/claude-credit-fallback` (GET/PUT `{enabled}`; `src/services/api/claudeCreditFallback.ts`) that
   lets Claude requests fall back to the paid Anthropic API key once subscriptions are exhausted.
   Turning it on asks for confirmation and lasts the gateway's `duration_seconds` (2 h), after which
@@ -85,7 +92,12 @@ Current base: upstream `v1.25.6`.
   trailing-7-day drain or its last-24h drain, whichever is higher (below 24h, the drain so far
   over its activity-weighted time; below 3h, the window pace), spread over a local hour-of-day
   profile learned from drain and blended into a configurable sleep baseline. Unused Codex manual resets show as amber expiry markers and a count,
-  but the projection never assumes one is redeemed. Tests: `tests/quotaForecast.test.ts`.
+  but the projection never assumes one is redeemed. Shown as one card per provider (Muse collapsed by
+  default, remembered in `quotaForecastPrefs.ts`) under a shared bar: Remaining | Drain rate, burn
+  rate over the last 1h/3h/6h, Future usage (*Usual pattern* = the model above with its likely range;
+  *Same as now* = each credential's selected burn rate, waking hours only; *Busier*/*Quieter* = the
+  busy/quiet pace) and the horizon. Each card reads "11.1× of 15×" with Pool empty, First account
+  empty, Next reset (+restore at time) and Burn. Tests: `tests/quotaForecast.test.ts`.
 - **Usage reserves** (gateway `usage-reserves`, f-squared/CLIProxyAPI#29). Three surfaces:
   *Credential sheet* (`src/features/authFiles/components/AuthFileReserveFields.tsx`), on Claude, Codex,
   Muse (`meta`) and Devin credentials (`AUTH_FILE_USAGE_CAP_PROVIDERS`): Claude plan (`plan`: pro,
@@ -103,7 +115,7 @@ Current base: upstream `v1.25.6`.
   usage-ledger client user labels, `/observability/usage/clients`), quiet hours, time zone, and per
   window the taper length (`release-lead`) and the lender floor (`floor-percent`, 0-100); empty fields
   are removed so the gateway defaults apply (23:00-07:00, Europe/Vienna, 1h/12h, 5%/2%).
-  *Pooled usage* on `/usage-quota` (`src/features/quota/components/UsagePool.tsx`, above the forecast):
+  *Pooled usage* on `/usage-quota` (`src/features/quota/components/UsagePool.tsx`, a collapsed disclosure below the pool cards):
   per provider and window from `GET /usage/pool?provider=&user=`: pool size, left, left for the chosen
   person, burn, forecast, refills and each account's reserve (kept, tapering as "reserve 20% → 8%
   now" from `reserve_now_percent`, or reached), plus the
@@ -111,21 +123,19 @@ Current base: upstream `v1.25.6`.
   gateways without the endpoint. Logic: `usagePoolModel.ts`, `src/services/api/usagePool.ts`; tests:
   `tests/usageReserves.test.ts`.
   *Release reserve* (gateway lender override): a credential with a lender and a reserve shows a compact
-  1h / 4h / 24h control on its Usage & quota card (`components/LenderReserveRelease.tsx`), with the lender
+  1h / 4h / 24h control in its expanded Usage & quota row (`components/LenderReserveRelease.tsx`), with the lender
   on the plan line. It calls `POST /usage/override {lender, duration}` and `DELETE /usage/override?lender=`;
   while `lender_reserve_override_until` on `/credentials` is in the future the card reads "Reserve released
   until HH:MM" with Clear. The release covers every credential of that lender. Not on the credential sheet.
-- **Plan multipliers** (`src/features/quota/planMultipliers.ts`, `components/PlanMultipliers.tsx`).
+- **Plan multipliers** (`src/features/quota/planMultipliers.ts`).
   Usage reads in base-plan units, per window. A credential's multiplier m for a window is the gateway's
   plan weight (`plan_weight_five_hour` / `plan_weight_weekly`, or the older single `plan_weight`,
   normalized in `src/services/api/authFiles.ts`), else its `plan_multiplier`, else 1 ("not set"); so a
   Claude Ultra counts 20× in the 5-hour figures and 10× in the weekly ones. Our share c of that window
   is 100 − its lender reserve (else the usage cap, else 100). Our effective multiplier is E = m·c/100,
-  and with u% of a window used R = m·max(0, c − u)/100. The Usage & quota page shows per-provider totals
-  (Σm plans, ΣE ours, ΣR left of the weekly window with ΣR/ΣE, and the 5-hour figure when every account
-  reports one; every provider with an enabled credential gets totals, and "left" reads unavailable
-  without readings), each card's "1× plan · 75% ours = 0.75×" badge and weekly headline, and the
-  forecast pool in ×. Readings come from the same pools as the forecast (live signals, else latest
+  and with u% of a window used R = m·max(0, c − u)/100. The Usage & quota page shows
+  each row's multiplier chip, the expanded row's "1× plan · 75% ours = 0.75×" share, and the pool
+  cards in ×. Readings come from the same pools as the forecast (live signals, else latest
   history, else the loaded quota card, for a credential the gateway has not routed to yet). Tests:
   `tests/planMultipliers.test.ts`, `tests/quotaForecast.test.ts`.
 

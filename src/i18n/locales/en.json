@@ -1754,7 +1754,7 @@
     "forecast_sleep_hint": "Until enough history is learned, the forecast assumes no quota use during these hours.",
     "forecast_pace_hint": "Pace is each credential's average daily use over the last 14 days, with recent days weighing more (a day 3 days ago counts half as much as today). With under 3 hours of active history it is the current window's average. Use while a credential had less than 15% left is ignored: that is rationing, not demand. The shaded range runs from a busy day's pace to a quiet day's pace.",
     "details_title": "Accounts",
-    "details_hint": "Each account's live quota and its spend in the current window. Load a card to fetch its quota from the provider.",
+    "details_hint": "Each account's live quota and its spend in the current window. Click a row for every window and its manual resets; ⚙ edits its usage settings.",
     "details_more": "Details",
     "details_resets_one": "{{count}} manual reset",
     "details_resets_other": "{{count}} manual resets",

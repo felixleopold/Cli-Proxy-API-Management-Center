@@ -20,7 +20,8 @@ export interface RelativeTimeParts {
 }
 
 /**
- * Coarsest unit that still describes the gap, with a signed magnitude.
+ * Coarsest unit that still describes the gap, with a signed magnitude. Days
+ * start at two days, so the last 48 hours count down in hours.
  *
  * Signed on purpose: the earlier timeline-local version clamped with
  * `Math.max(0, …)`, so a credit that expired last week read "in 1 minute" —
@@ -39,7 +40,8 @@ export function relativeTimeParts(targetMs: number, nowMs: number): RelativeTime
   const sign = delta < 0 ? -1 : 1;
   const abs = Math.abs(delta);
 
-  if (abs >= DAY_MS) return { value: sign * Math.floor(abs / DAY_MS), unit: 'day' };
+  // Hours up to two days: "in 1 day" would cover anything from 24 to 47 hours.
+  if (abs >= 2 * DAY_MS) return { value: sign * Math.floor(abs / DAY_MS), unit: 'day' };
   if (abs >= HOUR_MS) return { value: sign * Math.floor(abs / HOUR_MS), unit: 'hour' };
   return { value: sign * Math.max(1, Math.floor(abs / MINUTE_MS)), unit: 'minute' };
 }
