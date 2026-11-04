@@ -12,6 +12,7 @@
  * R = m × max(0, c − u)/100.
  */
 
+import type { TFunction } from 'i18next';
 import type { AuthFileItem } from '@/types';
 
 /** The gateway's window kinds: Claude 5h / Codex primary / Muse session, and weekly. */
@@ -124,4 +125,18 @@ export interface AccountMultiplier {
   remaining: number | null;
   /** Whether that window is weekly. */
   weekly: boolean;
+}
+
+/** "10× plan", "1× plan · 75% ours = 0.75×", "1× (not set)". */
+export function planShareText(t: TFunction, share: PlanShare, language?: string): string {
+  const x = (value: number) => formatMultiplier(value, language);
+  const plan = share.multiplierSet
+    ? t('quota_management.multiplier_plan', { value: x(share.multiplier) })
+    : t('quota_management.multiplier_plan_unset', { value: x(share.multiplier) });
+  return share.capPercent < 100
+    ? `${plan} · ${t('quota_management.multiplier_capped', {
+        percent: share.capPercent,
+        value: x(share.effective),
+      })}`
+    : plan;
 }
