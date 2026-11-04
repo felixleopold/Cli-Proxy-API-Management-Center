@@ -1,0 +1,746 @@
+@use '../../../styles/mixins' as *;
+
+/* ============================================================
+ * Accounts list: one dense row per credential, columns aligned across rows
+ * through one shared template. Telemetry is mono with tabular figures; colour
+ * is kept for low quota and for users, so a healthy list reads calm.
+ * ============================================================ */
+
+/* ---------- Toolbar: search + sort ---------- */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  min-width: 0;
+}
+
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 1 340px;
+  min-width: 0;
+  height: 36px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+
+  &:focus-within {
+    border-color: var(--border-hover);
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+.searchIcon {
+  position: absolute;
+  left: 11px;
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0 42px 0 35px;
+  border: 0;
+  border-radius: inherit;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  appearance: none;
+
+  &::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  &::-webkit-search-cancel-button,
+  &::-webkit-search-decoration {
+    appearance: none;
+  }
+}
+
+.clearSearch {
+  position: absolute;
+  right: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+.sort {
+  flex: 0 0 auto;
+  min-width: 148px;
+  max-width: 100%;
+
+  button[aria-haspopup='listbox'] {
+    height: 36px;
+    border-color: transparent;
+    border-radius: 10px;
+    background: transparent;
+    box-shadow: none;
+    color: var(--text-secondary);
+
+    &:focus-visible,
+    &[aria-expanded='true'] {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .clearSearch:hover,
+  .sort button[aria-haspopup='listbox']:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clearSearch:active {
+    transform: none;
+  }
+}
+
+@include mobile {
+  .search {
+    flex: 1 1 220px;
+    height: 40px;
+  }
+
+  .clearSearch {
+    width: 36px;
+    height: 36px;
+  }
+
+  .sort button[aria-haspopup='listbox'] {
+    height: 40px;
+  }
+}
+
+.errorBanner {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--danger-color);
+  background: var(--bg-error-light);
+  border: 1px solid var(--warning-border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Paging ---------- */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.pageInfo {
+  font-family: $font-mono;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* ---------- List ---------- */
+
+.list {
+  /* icon · account · plan · 5-hour · weekly · reset · spend · users · controls */
+  --account-cols: 20px minmax(150px, 1.5fr) minmax(64px, 0.55fr) minmax(96px, 1fr) minmax(96px, 1fr)
+    minmax(124px, 0.95fr) minmax(112px, 1fr) minmax(44px, 0.4fr) 140px;
+  container: accounts / inline-size;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-primary);
+}
+
+.head,
+.row {
+  display: grid;
+  grid-template-columns: var(--account-cols);
+  align-items: center;
+  column-gap: 14px;
+  padding: 0 12px;
+}
+
+.head {
+  height: 32px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+
+  > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  border-bottom: 1px solid var(--border-color);
+
+  &:last-child {
+    border-bottom: 0;
+    border-radius: 0 0 12px 12px;
+  }
+
+  &[data-active] {
+    background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+  }
+
+  /* Disabled accounts stay listed but recede; their controls stay usable. */
+  &[data-disabled] .row > :not(.controls) {
+    opacity: 0.45;
+  }
+}
+
+.row {
+  min-height: 44px;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .item:not([data-expanded]) .row:hover {
+    background: color-mix(in srgb, var(--text-primary) 3%, transparent);
+  }
+}
+
+.skeletonRow {
+  height: 44px;
+  border-bottom: 1px solid var(--border-color);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+.cell {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.muted {
+  color: var(--text-tertiary);
+}
+
+.unknown {
+  color: var(--text-tertiary);
+  font-family: $font-mono;
+}
+
+.mono {
+  font-family: $font-mono;
+}
+
+/* ---------- Identity ---------- */
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+
+  img {
+    display: block;
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+  }
+}
+
+.iconFallback {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.account {
+  @include button-reset;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 0;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+.chevron {
+  flex: none;
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition:
+    transform $transition-fast,
+    opacity $transition-fast;
+}
+
+.row:hover .chevron,
+.account:focus-visible .chevron,
+.item[data-expanded] .chevron {
+  opacity: 1;
+}
+
+.item[data-expanded] .chevron {
+  transform: rotate(90deg);
+}
+
+.name {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  @include text-ellipsis;
+}
+
+.errorIcon {
+  flex: none;
+  color: var(--danger-color);
+}
+
+.plan {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.planName {
+  min-width: 0;
+  @include text-ellipsis;
+}
+
+.chip {
+  flex: none;
+  padding: 1px 5px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  font-family: $font-mono;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.chipUnset {
+  border-style: dashed;
+  color: var(--text-tertiary);
+}
+
+/* ---------- Window bars ---------- */
+
+.windowValue,
+.reset,
+.spendValue {
+  font-family: $font-mono;
+  font-variant-numeric: tabular-nums;
+}
+
+.window {
+  display: grid;
+  grid-template-columns: 4.5ch minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.windowValue {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  color: var(--text-primary);
+  text-align: right;
+  justify-content: flex-end;
+}
+
+.windowPeriod {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.bar {
+  position: relative;
+  height: 4px;
+  border-radius: $radius-full;
+  background: color-mix(in srgb, var(--text-primary) 9%, transparent);
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--text-primary) 55%, transparent);
+}
+
+.barWarn {
+  background: var(--warning-color);
+}
+
+.barLow {
+  background: var(--danger-color);
+}
+
+/* Where our share ends: below it, only the lender's reserve is left. */
+.barTick {
+  position: absolute;
+  top: -2px;
+  width: 1px;
+  height: 8px;
+  background: var(--text-tertiary);
+}
+
+/* ---------- Reset, spend, users ---------- */
+
+.reset {
+  display: inline-flex;
+  gap: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  color: var(--text-secondary);
+}
+
+.spend {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+
+  .muted {
+    font-size: 11.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.spendValue {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.spendButton {
+  @include button-reset;
+  margin: -4px -6px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 0;
+  }
+
+  &[aria-pressed='true'] .spendValue {
+    text-decoration: underline;
+    text-decoration-color: var(--text-tertiary);
+    text-underline-offset: 3px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .spendButton:hover {
+    background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  }
+}
+
+.stale {
+  opacity: 0.6;
+}
+
+/* Static stand-in while the ledger first loads (no shimmer). */
+.placeholder {
+  display: block;
+  width: 60%;
+  height: 10px;
+  border-radius: $radius-full;
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+}
+
+.split {
+  display: flex;
+  gap: 1px;
+  height: 6px;
+  overflow: hidden;
+  border-radius: $radius-full;
+}
+
+.splitPart {
+  flex-basis: 0;
+  min-width: 2px;
+  background: var(--series);
+}
+
+/* ---------- Controls ---------- */
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  cursor: default;
+}
+
+/* The shared switch is sized for forms; rows take it at three quarters. */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 20px;
+
+  > label {
+    transform: scale(0.75);
+  }
+}
+
+.actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.iconButton {
+  @include button-reset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 0;
+  }
+
+  &[aria-expanded='true'] {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .iconButton:not(:disabled):hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+}
+
+.settingsAnchor {
+  position: relative;
+  display: inline-flex;
+}
+
+/* ---------- Details ---------- */
+
+.details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px 28px;
+  padding: 6px 12px 16px 46px;
+  cursor: default;
+}
+
+.detailsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.detailsTitle {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.detailsError {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--danger-color);
+  overflow-wrap: anywhere;
+}
+
+.details p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.fact {
+  display: grid;
+  grid-template-columns: minmax(84px, auto) minmax(0, 1fr);
+  gap: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.factLabel {
+  color: var(--text-tertiary);
+}
+
+.factValue {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  color: var(--text-secondary);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+
+  b {
+    font-family: $font-mono;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+  }
+}
+
+.swatch {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--series);
+}
+
+/* The shared button reset rings on any focus; rows ring on keyboard focus only. */
+.account,
+.iconButton,
+.spendButton {
+  &:focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+
+/* ---------- Narrow: three lines per row ---------- */
+
+@container accounts (max-width: 1000px) {
+  .head {
+    display: none;
+  }
+
+  .row {
+    grid-template-columns: 20px minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-areas:
+      'icon account plan controls'
+      '.    short   long long'
+      '.    reset   spend split';
+    row-gap: 6px;
+    padding: 8px 12px 10px;
+
+    > :nth-child(1) {
+      grid-area: icon;
+    }
+    > :nth-child(2) {
+      grid-area: account;
+    }
+    > :nth-child(3) {
+      grid-area: plan;
+      justify-self: end;
+    }
+    > :nth-child(4) {
+      grid-area: short;
+    }
+    > :nth-child(5) {
+      grid-area: long;
+    }
+    > :nth-child(6) {
+      grid-area: reset;
+    }
+    > :nth-child(7) {
+      grid-area: spend;
+    }
+    > :nth-child(8) {
+      grid-area: split;
+      align-self: center;
+      width: 56px;
+      justify-self: end;
+    }
+    > :nth-child(9) {
+      grid-area: controls;
+      gap: 8px;
+    }
+  }
+
+  .details {
+    padding-left: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}

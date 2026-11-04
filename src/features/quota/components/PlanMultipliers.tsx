@@ -11,6 +11,7 @@ import { getAuthFileIcon, getTypeLabel } from '@/features/authFiles/constants';
 import type { ProviderMultipliers } from '../quotaForecastModel';
 import {
   formatMultiplier,
+  planShareText,
   shareLeft,
   type AccountMultiplier,
   type PlanShare,
@@ -115,20 +116,6 @@ export function PlanMultiplierTotals({
       })}
     </div>
   );
-}
-
-/** "10× plan", "1× plan · 75% ours = 0.75×", "1× (not set)". */
-function planShareText(t: TFunction, share: PlanShare, language?: string): string {
-  const x = (value: number) => formatMultiplier(value, language);
-  const plan = share.multiplierSet
-    ? t('quota_management.multiplier_plan', { value: x(share.multiplier) })
-    : t('quota_management.multiplier_plan_unset', { value: x(share.multiplier) });
-  return share.capPercent < 100
-    ? `${plan} · ${t('quota_management.multiplier_capped', {
-        percent: share.capPercent,
-        value: x(share.effective),
-      })}`
-    : plan;
 }
 
 export function AccountMultiplierBadge({ share }: { share: PlanShare }) {

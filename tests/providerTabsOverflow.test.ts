@@ -5,7 +5,7 @@ const tabsStyles = readFileSync(
   'src/features/authFiles/components/ProviderTabs.module.scss',
   'utf8'
 );
-const quotaStyles = readFileSync('src/features/quota/UsageQuotaPage.module.scss', 'utf8');
+const quotaStyles = readFileSync('src/features/quota/components/Accounts.module.scss', 'utf8');
 const sectionStyles = readFileSync('src/features/usage/UsageSections.module.scss', 'utf8');
 
 describe('provider filter overflow', () => {

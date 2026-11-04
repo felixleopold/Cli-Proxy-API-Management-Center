@@ -124,3 +124,46 @@ export function buildResetDisplay(
     relative: usableMs === null ? null : formatRelativeInstant(usableMs, nowMs, locale),
   };
 }
+
+export interface CountdownParts {
+  days: number;
+  hours: number;
+  minutes: number;
+}
+
+/**
+ * Time left until a reset, for "1d 3h" / "3h 12m" / "45m". Truncated like
+ * `relativeTimeParts`, so it never claims more time than remains; a gap under a
+ * minute reads as 0 minutes. Null once the instant has passed.
+ */
+export function countdownParts(targetMs: number, nowMs: number): CountdownParts | null {
+  const delta = targetMs - nowMs;
+  if (!Number.isFinite(delta) || delta <= 0) return null;
+  return {
+    days: Math.floor(delta / DAY_MS),
+    hours: Math.floor((delta % DAY_MS) / HOUR_MS),
+    minutes: Math.floor((delta % HOUR_MS) / MINUTE_MS),
+  };
+}
+
+/** Within this, a weekday names the day unambiguously. */
+const WEEKDAY_HORIZON_MS = 6 * DAY_MS;
+
+/**
+ * A reset instant as "Fri 16:00" (browser-local, 24-hour), or "Nov 14, 16:00"
+ * once it is far enough away that the weekday would be ambiguous.
+ */
+export function formatResetInstant(ms: number, nowMs: number, locale?: string): string {
+  const far = Math.abs(ms - nowMs) >= WEEKDAY_HORIZON_MS;
+  const options: Intl.DateTimeFormatOptions = {
+    ...(far ? { month: 'short', day: 'numeric' } : { weekday: 'short' }),
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  };
+  try {
+    return new Date(ms).toLocaleString(locale, options);
+  } catch {
+    return new Date(ms).toLocaleString(undefined, options);
+  }
+}
