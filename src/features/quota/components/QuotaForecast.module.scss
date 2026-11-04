@@ -1,151 +1,182 @@
 /* ============================================================
- * Pooled quota forecast. Series colors are validated for color-vision
- * deficiency and contrast against both page surfaces; text always uses the
- * text tokens, and the colored key beside it carries identity.
+ * Pool cards. Series colors carry identity; text always uses the text
+ * tokens. Provider colors follow the redesign spec (Claude coral, Codex
+ * silver, Muse green) until the theme carries provider tokens.
  * ============================================================ */
 
 .forecast {
   --fc-claude: #c4561f;
-  --fc-codex: #4b4fd8;
-  --fc-meta: #008f6e;
-  --fc-surface: var(--bg-secondary);
+  --fc-codex: #52525b;
+  --fc-meta: #059669;
+  --fc-surface: var(--bg-primary);
 
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px 18px 14px;
-  border: 1px solid var(--border-color);
-  border-radius: 14px;
-  background: var(--fc-surface);
+  gap: 12px;
   min-width: 0;
 
   [data-theme='dark'] & {
-    --fc-claude: #d96b3e;
-    --fc-codex: #8682f2;
-    --fc-meta: #1fa37a;
+    --fc-claude: #e8795a;
+    --fc-codex: #d4d4d8;
+    --fc-meta: #34d399;
   }
 }
 
-/* ---------- Summary ---------- */
+/* ---------- Shared control bar ---------- */
 
-.summary {
+.controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.control {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--fc-surface);
+}
+
+.controlLabel {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--fc-surface);
+
+  .control & {
+    border: 0;
+    background: transparent;
+  }
+
+  button {
+    min-width: 34px;
+    padding: 5px 10px;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    cursor: pointer;
+    transition:
+      color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
+      background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+
+    &:hover {
+      color: var(--text-primary);
+    }
+
+    &[aria-pressed='true'],
+    &[aria-selected='true'] {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 1px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+}
+
+.futureSelect {
+  width: 148px;
+  margin: 3px 3px 3px 0;
+}
+
+.note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* ---------- Pool card ---------- */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 18px 20px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: var(--fc-surface);
+
+  &:has(.collapsedRow) {
+    padding: 0;
+  }
+}
+
+.cardHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-width: 0;
+  min-height: 28px;
 }
 
-.hero {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 4px 8px;
-  min-width: 0;
-}
-
-.heroValue {
-  font-size: 30px;
-  font-weight: 650;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
-}
-
-.heroOf {
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
-.pace {
-  font-size: 13px;
-  color: var(--text-tertiary);
-
-  .hero & {
-    margin-left: 8px;
-  }
-}
-
-.pools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 0;
-  min-width: 0;
-}
-
-/* One block per provider, divided like the provider tiles above. */
-.poolSummary {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 0 24px;
-  border-left: 1px solid var(--border-color);
-
-  &:first-child {
-    padding-left: 0;
-    border-left: none;
-  }
-}
-
-.poolHead,
-.poolLine,
-.poolMeta {
+.identity {
   display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
-.poolMeta {
-  gap: 12px;
+.providerIcon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
 }
 
-.poolDot {
+.providerDot {
+  flex: none;
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--series);
-  align-self: center;
 }
 
-.poolName {
-  font-size: 13px;
-  font-weight: 550;
-  color: var(--text-secondary);
-}
-
-.poolValue {
-  font-size: 22px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+.providerName {
+  font-size: 15px;
+  font-weight: 600;
   color: var(--text-primary);
+  white-space: nowrap;
 }
 
-.poolOf {
+.accounts {
   font-size: 13px;
   color: var(--text-tertiary);
-}
-
-.credits {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text-secondary);
-
-  .hero & {
-    margin-left: 8px;
-  }
+  white-space: nowrap;
 }
 
 .collapse {
   flex: none;
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   padding: 0;
-  border: 1px solid transparent;
-  border-radius: 999px;
+  border: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;
@@ -154,10 +185,6 @@
     background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
 
   svg {
-    transition: transform var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
-  }
-
-  &[aria-expanded='true'] svg {
     transform: rotate(180deg);
   }
 
@@ -172,82 +199,149 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    &,
-    svg {
-      transition: none;
-    }
+    transition: none;
   }
 }
 
-/* ---------- Body ---------- */
-
-.body {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.views {
-  display: flex;
-  gap: 22px;
-  border-bottom: 1px solid var(--border-color);
-
-  button {
-    position: relative;
-    padding: 2px 0 9px;
-    font: inherit;
-    font-size: 13px;
-    font-weight: 550;
-    color: var(--text-tertiary);
-    background: none;
-    border: 0;
-    cursor: pointer;
-    transition: color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
-
-    &::after {
-      content: '';
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: -1px;
-      height: 2px;
-      border-radius: 2px;
-      background: transparent;
-    }
-
-    &:hover {
-      color: var(--text-secondary);
-    }
-
-    &[aria-selected='true'] {
-      color: var(--text-primary);
-
-      &::after {
-        background: var(--text-primary);
-      }
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--primary-color);
-      outline-offset: 2px;
-      border-radius: 4px;
-    }
-  }
-}
-
-.panel {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.legendRow {
+/* A collapsed card is one line: identity, what is left, the next reset. */
+.collapsedRow {
   display: flex;
   align-items: center;
+  gap: 8px 20px;
+  width: 100%;
+  min-width: 0;
+  padding: 13px 14px 13px 20px;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: inherit;
+  cursor: pointer;
+  transition: background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+
+  &:hover {
+    background: var(--bg-hover);
+
+    .chevron {
+      color: var(--text-primary);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.collapsedValue {
+  margin-left: auto;
+  white-space: nowrap;
+
+  strong {
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+  }
+}
+
+.collapsedFact {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+
+  @media (max-width: 640px) {
+    display: none;
+  }
+}
+
+.collapsedFactLabel {
+  color: var(--text-tertiary);
+}
+
+.chevron {
+  flex: none;
+  color: var(--text-tertiary);
+}
+
+.cardSummary {
+  display: flex;
+  align-items: flex-end;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 8px 16px;
-  margin-top: 12px;
+  gap: 14px 40px;
+  margin-top: 6px;
+}
+
+.hero {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.heroValue {
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.of {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 36px;
+  margin: 0;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+
+  dt {
+    font-size: 12.5px;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+  }
+
+  dd {
+    display: flex;
+    align-items: baseline;
+    gap: 0 6px;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+    white-space: nowrap;
+  }
+}
+
+.gain {
+  font-weight: 600;
+}
+
+.account {
+  display: inline-block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  color: var(--text-secondary);
 }
 
 .legend {
@@ -255,8 +349,9 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 6px 18px;
+  min-height: 18px;
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
 }
 
 .legendItem {
@@ -289,13 +384,9 @@
 
 .keyArea {
   width: 14px;
-  height: 10px;
-  border-top: 2px solid var(--series);
+  height: 2px;
   border-radius: 1px;
-  background: linear-gradient(
-    color-mix(in srgb, var(--series) 30%, transparent),
-    color-mix(in srgb, var(--series) 6%, transparent)
-  );
+  background: var(--series);
 }
 
 .keyDashed {
@@ -308,7 +399,7 @@
   width: 14px;
   height: 10px;
   border-radius: 2px;
-  background: color-mix(in srgb, var(--series) 20%, transparent);
+  background: color-mix(in srgb, var(--series) 18%, transparent);
 }
 
 .keyBar {
@@ -332,64 +423,14 @@
   height: 10px;
   border-radius: 2px;
   background: var(--text-primary);
-  opacity: 0.12;
-}
-
-.rangeControl {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.rangePrefix {
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-
-.segmented {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-
-  button {
-    min-width: 36px;
-    padding: 3px 10px;
-    font: inherit;
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
-    color: var(--text-secondary);
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    cursor: pointer;
-    transition: color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
-
-    &:hover {
-      color: var(--text-primary);
-    }
-
-    &[aria-pressed='true'] {
-      background: var(--floating-surface, var(--bg-primary));
-      border-color: var(--border-hover);
-      color: var(--text-primary);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--primary-color);
-      outline-offset: 1px;
-    }
-  }
+  opacity: 0.1;
 }
 
 /* ---------- Chart ---------- */
 
 .chart {
   position: relative;
-  margin-top: 4px;
+  margin: 10px 0 4px;
   min-width: 0;
   border-radius: 8px;
 
@@ -413,6 +454,7 @@
 
 .gridline {
   stroke: var(--border-color);
+  stroke-dasharray: 2 4;
 }
 
 .baseline {
@@ -427,6 +469,23 @@
 
 .yTick {
   text-anchor: end;
+}
+
+.xTickSub {
+  fill: var(--text-quaternary, var(--text-tertiary));
+}
+
+/* "+0.89×" over a reset jump; the halo keeps it legible over the fill. */
+.jumpLabel {
+  font-variant-numeric: tabular-nums;
+  font-size: 10.5px;
+  font-weight: 500;
+  text-anchor: middle;
+  fill: var(--text-secondary);
+  paint-order: stroke;
+  stroke: var(--fc-surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
 }
 
 .line {
@@ -491,13 +550,13 @@
 /* Likely range around the projection: a flat wash of the row color. */
 .rangeBand {
   fill: currentColor;
-  opacity: 0.13;
+  opacity: 0.08;
 }
 
 /* Quiet hours: a wash of the text color reads on both themes. */
 .nightBand {
   fill: var(--text-primary);
-  opacity: 0.045;
+  opacity: 0.035;
 }
 
 /* Matches the dashed legend key in --text-secondary. */
@@ -558,74 +617,16 @@
 .unavailable {
   display: grid;
   place-items: center;
-  height: 248px;
-  margin-top: 4px;
+  height: 250px;
+  margin: 10px 0 4px;
   padding: 24px;
   font-size: 12.5px;
   text-align: center;
   color: var(--text-tertiary);
 }
 
-/* One provider per row: named above its plot, or a lone row with its facts below. */
-.row + .row {
-  margin-top: 10px;
-}
-
-.rowHeader,
-.rowFooter {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 2px 10px;
-  font-size: 12.5px;
-}
-
-.rowHeader {
-  margin-top: 10px;
-}
-
-.rowFooter {
-  margin-top: 6px;
-}
-
-.rowName {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 550;
-  color: var(--text-primary);
-}
-
-.rowFacts {
-  color: var(--text-secondary);
-}
-
-/* ---------- Footer ---------- */
-
-.footer {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-  margin-top: 6px;
-  font-size: 12.5px;
-  color: var(--text-secondary);
-}
-
-.footerFacts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 20px;
-}
-
-.note {
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-
 .settings {
-  margin-left: auto;
+  align-self: flex-end;
   font-size: 12px;
   color: var(--text-tertiary);
 
@@ -681,10 +682,6 @@
 
 .hourSelect {
   width: 116px;
-}
-
-.settingsLabel {
-  margin-right: 2px;
 }
 
 .settingsHint {
