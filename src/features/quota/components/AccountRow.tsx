@@ -30,6 +30,7 @@ import { countdownParts, formatResetInstant } from '@/utils/quota/relativeTime';
 import { DAY_MS } from '@/utils/time/durations';
 import type { AccountWindow, AccountWindows } from '../accountCards';
 import { AccountSettingsPopover } from './AccountSettingsPopover';
+import { useAccountStatusLock } from './accountStatusLock';
 import styles from './Accounts.module.scss';
 
 /* ---------- Cells ---------- */
@@ -243,15 +244,15 @@ function StatusToggle({
 }) {
   const { t } = useTranslation();
   const showNotification = useNotificationStore((state) => state.showNotification);
-  const [pending, setPending] = useState(false);
+  const lock = useAccountStatusLock();
+  const key = getQuotaCacheKey(file);
+  const pending = lock.isPending(key);
   const enabled = file.disabled !== true;
 
   const toggle = async (next: boolean) => {
-    if (pending) return;
+    if (!lock.begin(key)) return;
     const revision = apiClient.getConnectionRevision();
-    const key = getQuotaCacheKey(file);
     const { name } = file;
-    setPending(true);
     onFileChange(key, { disabled: !next });
     try {
       const res = await authFilesApi.setStatus(
@@ -274,7 +275,7 @@ function StatusToggle({
       const message = err instanceof Error ? err.message : '';
       showNotification(`${t('notification.update_failed')}: ${message}`, 'error');
     } finally {
-      setPending(false);
+      lock.end(key);
     }
   };
 

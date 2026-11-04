@@ -21,6 +21,7 @@ import type { QuotaFileEntry } from '../logic';
 import { readShortWindow, type CardReading, type ProviderPool } from '../quotaForecastModel';
 import { QUOTA_ADAPTERS, type QuotaCardState } from '../providers';
 import { isQuotaTabId } from '../uiState';
+import { AccountStatusLockContext, useAccountStatusLockState } from './accountStatusLock';
 import { DisabledAccountRow, QuotaAccountRow, SpendAccountRow } from './QuotaAccountRow';
 import styles from './Accounts.module.scss';
 
@@ -95,6 +96,7 @@ export function AccountsList(props: AccountsListProps) {
   const { t } = useTranslation();
   const now = useNow();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const statusLock = useAccountStatusLockState();
 
   const sortOptions = useMemo(
     () =>
@@ -121,7 +123,7 @@ export function AccountsList(props: AccountsListProps) {
   const spendOnlyRows =
     spend.status === 'unavailable' || currentPage !== totalPages ? [] : spendOnly;
   // A reload (refresh all, a settings save) keeps the rows; skeletons only before the first list.
-  const firstLoad = loading && entries.length === 0;
+  const firstLoad = loading && files.length === 0;
   // Disabled credentials come last, on the last page.
   const disabledRows = currentPage === totalPages ? disabledFiles : [];
   const isEmpty =
@@ -219,60 +221,62 @@ export function AccountsList(props: AccountsListProps) {
           }
         />
       ) : (
-        <div className={styles.list}>
-          <div className={styles.head} aria-hidden="true">
-            <span />
-            <span>{t('usage_accounts.col_account')}</span>
-            <span>{t('usage_accounts.col_plan')}</span>
-            <span>{t('usage_accounts.col_five_hour')}</span>
-            <span>{t('usage_accounts.col_weekly')}</span>
-            <span>{t('usage_accounts.col_reset')}</span>
-            <span>{t('usage_accounts.col_spend')}</span>
-            <span>{t('usage_accounts.col_users')}</span>
-            <span />
+        <AccountStatusLockContext.Provider value={statusLock}>
+          <div className={styles.list}>
+            <div className={styles.head} aria-hidden="true">
+              <span />
+              <span>{t('usage_accounts.col_account')}</span>
+              <span>{t('usage_accounts.col_plan')}</span>
+              <span>{t('usage_accounts.col_five_hour')}</span>
+              <span>{t('usage_accounts.col_weekly')}</span>
+              <span>{t('usage_accounts.col_reset')}</span>
+              <span>{t('usage_accounts.col_spend')}</span>
+              <span>{t('usage_accounts.col_users')}</span>
+              <span />
+            </div>
+            <ul className={styles.rows} aria-label={t('usage_accounts.list_label')}>
+              {pageItems.map((entry) => (
+                <QuotaAccountRow
+                  key={`${entry.type}:${getQuotaCacheKey(entry.file)}`}
+                  entry={entry}
+                  quota={getQuota(entry)}
+                  windows={windowsFor(entry)}
+                  summary={spendFor(entry)}
+                  spend={spend}
+                  resolvedTheme={resolvedTheme}
+                  canRefresh={canUseActions && !entry.file.disabled}
+                  resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
+                  onRefresh={() => onRefreshQuota(entry)}
+                  onReset={() => onResetQuota(entry)}
+                  onLenderReleaseChange={onLenderReleaseChange}
+                  onFileChange={onFileChange}
+                  onSettingsSaved={onReload}
+                />
+              ))}
+              {spendOnlyRows.map((summary) => (
+                <SpendAccountRow
+                  key={`spend:${summary.subscription.id}`}
+                  summary={summary}
+                  file={fileFor(summary)}
+                  spend={spend}
+                  resolvedTheme={resolvedTheme}
+                  onFileChange={onFileChange}
+                  onSettingsSaved={onReload}
+                />
+              ))}
+              {disabledRows.map((file) => (
+                <DisabledAccountRow
+                  key={`disabled:${getQuotaCacheKey(file)}`}
+                  file={file}
+                  spend={spend}
+                  resolvedTheme={resolvedTheme}
+                  onFileChange={onFileChange}
+                  onSettingsSaved={onReload}
+                />
+              ))}
+            </ul>
           </div>
-          <ul className={styles.rows} aria-label={t('usage_accounts.list_label')}>
-            {pageItems.map((entry) => (
-              <QuotaAccountRow
-                key={`${entry.type}:${getQuotaCacheKey(entry.file)}`}
-                entry={entry}
-                quota={getQuota(entry)}
-                windows={windowsFor(entry)}
-                summary={spendFor(entry)}
-                spend={spend}
-                resolvedTheme={resolvedTheme}
-                canRefresh={canUseActions && !entry.file.disabled}
-                resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
-                onRefresh={() => onRefreshQuota(entry)}
-                onReset={() => onResetQuota(entry)}
-                onLenderReleaseChange={onLenderReleaseChange}
-                onFileChange={onFileChange}
-                onSettingsSaved={onReload}
-              />
-            ))}
-            {spendOnlyRows.map((summary) => (
-              <SpendAccountRow
-                key={`spend:${summary.subscription.id}`}
-                summary={summary}
-                file={fileFor(summary)}
-                spend={spend}
-                resolvedTheme={resolvedTheme}
-                onFileChange={onFileChange}
-                onSettingsSaved={onReload}
-              />
-            ))}
-            {disabledRows.map((file) => (
-              <DisabledAccountRow
-                key={`disabled:${getQuotaCacheKey(file)}`}
-                file={file}
-                spend={spend}
-                resolvedTheme={resolvedTheme}
-                onFileChange={onFileChange}
-                onSettingsSaved={onReload}
-              />
-            ))}
-          </ul>
-        </div>
+        </AccountStatusLockContext.Provider>
       )}
 
       {!loading && filteredCount > QUOTA_PAGE_SIZE && (
