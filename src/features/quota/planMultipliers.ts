@@ -7,7 +7,8 @@
  * weekly), other credentials use their price-based plan_multiplier in both
  * windows. Older gateways without weights fall back to plan_multiplier here.
  * The lender reserve r of that window is kept for the account's owner, so
- * c = 100 − r percent is ours (legacy usage_cap_percent: c = cap): our effective
+ * c = 100 − r percent is ours (legacy usage_cap_percent: c = cap), unless the
+ * lender is our own credential group, which spends the reserve: then c = 100. Our effective
  * multiplier is E = m × c/100. With u% of a window used, what is left to us is
  * R = m × max(0, c − u)/100.
  */
@@ -43,6 +44,7 @@ type PlanShareSource = Pick<
   | 'planWeightWeekly'
   | 'reserveFiveHourPercent'
   | 'reserveWeeklyPercent'
+  | 'lenderGroup'
 >;
 
 /** A credential's multiplier and our share of it in one window; the API layer has validated all fields. */
@@ -53,7 +55,11 @@ export function planShareOf(file: PlanShareSource, window: PlanWindow): PlanShar
   const provider = String(file.type ?? file.provider ?? '').toLowerCase();
   const knownPlan = provider === 'claude' && CLAUDE_WEIGHED_PLANS.has(file.plan ?? '');
   const multiplier = weight ?? file.planMultiplier ?? 1;
-  const capPercent = reserve !== undefined ? 100 - reserve : (file.usageCapPercent ?? 100);
+  const capPercent = file.lenderGroup
+    ? 100
+    : reserve !== undefined
+      ? 100 - reserve
+      : (file.usageCapPercent ?? 100);
   return {
     multiplier,
     multiplierSet: knownPlan || file.planMultiplier !== undefined,

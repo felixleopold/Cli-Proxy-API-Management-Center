@@ -97,6 +97,20 @@ describe('plan share', () => {
     expect(planShareOf(old, 'weekly')).toMatchObject({ multiplier: 5, multiplierSet: true });
   });
 
+  test('a reserve held for our own credential group is ours: the whole window counts', () => {
+    const { files } = normalizeAuthFilesResponse({
+      files: [
+        { name: 'ours.json', lender: 'commercial', lender_group: true, reserve_weekly_percent: 80 },
+        { name: 'lent.json', lender: 'Hanna', reserve_weekly_percent: 25 },
+      ],
+    });
+    const byName = (name: string) => files.find((file) => file.name === name)!;
+    const [ours, lent] = [byName('ours.json'), byName('lent.json')];
+    expect(planShareOf(ours, 'weekly')).toMatchObject({ capPercent: 100, effective: 1 });
+    expect(remainingMultiplier(planShareOf(ours, 'weekly'), 3)).toBe(0.97);
+    expect(planShareOf(lent, 'weekly')).toMatchObject({ capPercent: 75, effective: 0.75 });
+  });
+
   test('what is left to us stops at the cap: R = m × max(0, c − u)/100', () => {
     const share = planShareOf({ planMultiplier: 2, usageCapPercent: 75 }, 'weekly');
     expect(remainingMultiplier(share, 25)).toBe(1);

@@ -350,6 +350,7 @@ const normalizeAuthFileEntry = (
     ...(reserveWeeklyPercent !== undefined ? { reserveWeeklyPercent } : {}),
     ...(plan ? { plan } : {}),
     ...(lender ? { lender } : {}),
+    ...(lender && entry['lender_group'] === true ? { lenderGroup: true as const } : {}),
     ...(Number.isFinite(lenderOverrideUntil)
       ? { lenderReserveOverrideUntilMs: lenderOverrideUntil }
       : {}),
