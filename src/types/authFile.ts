@@ -104,6 +104,11 @@ export interface AuthFileItem {
   reserveWeeklyPercent?: number;
   /** Who lends this account to the pool. */
   lender?: string;
+  /**
+   * The lender is a credential group holding this account: requests routed in it
+   * spend the reserve, so the whole window is ours.
+   */
+  lenderGroup?: true;
   /** End of the lender's temporary reserve release (ms); absent when none is active. */
   lenderReserveOverrideUntilMs?: number;
   /** The share of each window the release still keeps for the lender, 0..100. */
