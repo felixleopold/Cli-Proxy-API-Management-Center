@@ -1670,9 +1670,14 @@
     "capacity_enabled": "{{name}} 활성화",
     "capacity_disabled": "{{name}} 비활성화",
     "capacity_removed": "{{name}} 삭제",
-    "capacity_changed": "{{name}} → {{value}}",
     "legend_capacity": "용량",
-    "capacity_added": "{{name}} 추가"
+    "capacity_added": "{{name}} 추가",
+    "past": "과거",
+    "past_label": "표시 기록",
+    "past_all": "전체",
+    "past_hint": "차트가 보여 주는 과거 범위입니다. 첫 할당량 샘플 이전에는 용량 단계만 표시되며, 전체는 가장 이른 용량 기록이나 샘플부터 시작합니다.",
+    "capacity_changes": "변경 {{count}}건",
+    "legend_capacity_change": "용량 변경"
   },
   "quota_management": {
     "search_label": "계정 검색",

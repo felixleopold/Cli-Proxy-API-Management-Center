@@ -47,6 +47,8 @@ import {
   cardReading,
   gatewayResetCredits,
   hasForecastCredentials,
+  historyLookbackDays,
+  type ForecastPastDays,
 } from './quotaForecastModel';
 import { nextRecoveryMs } from './resetSchedule';
 import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from './providers';
@@ -238,14 +240,20 @@ export function UsageQuotaPage() {
     writeQuotaUiState({ sortMode: next as QuotaSortMode });
   }, []);
 
+  // The forecast's past range decides how much history (and capacity timeline) loads.
+  const [past, setPast] = useState<ForecastPastDays>(() => readQuotaUiState()?.forecastPast ?? 7);
+  const choosePast = useCallback((next: ForecastPastDays) => {
+    setPast(next);
+    writeQuotaUiState({ forecastPast: next });
+  }, []);
   // Shared by the forecast and the subscription cards (windows for credentials without live signals).
-  const history = useQuotaHistory(hasForecastCredentials(files), files);
+  const history = useQuotaHistory(hasForecastCredentials(files), files, historyLookbackDays(past));
 
   /* ---------- Pools ----------
    * Shared by the forecast and the account rows: live signals, else the latest history
    * reading, else the loaded card. */
 
-  const historySamples = history.status === 'ok' ? history.samples : null;
+  const historySamples = history.status === 'ok' ? history.forecastSamples : null;
   const cardReadings = useMemo(
     () =>
       new Map(
@@ -418,6 +426,8 @@ export function UsageQuotaPage() {
               files={files}
               history={history}
               tab={tab}
+              past={past}
+              onPastChange={choosePast}
               cardReadings={cardReadings}
               resetCreditsFor={resetCreditsFor}
             />

@@ -21,6 +21,8 @@ import {
   capacityChanges,
   withCapacityTimeline,
   withTimelineProviders,
+  historyLookbackDays,
+  historyStartMs,
   gatewayResetCredits,
   poolResetCredits,
   poolResetEvents,
@@ -1280,6 +1282,20 @@ describe('capacity timeline', () => {
     ]);
   });
 
+  test('before any reading of an active credential the line is unknown, not zero', () => {
+    // b is active from day −4 but never read; a joins at day −2 with a sample at day −1.
+    const entries = [
+      entry({ authId: 'b', atMs: NOW - 4 * DAY_MS }),
+      entry({ atMs: NOW - 2 * DAY_MS }),
+    ];
+    const samples = [sample({ atMs: NOW - DAY_MS, usedPercent: 20 })];
+    const drawn = withCapacityTimeline(pool(credential({ usedPercent: 20 })), entries, samples);
+    const history = poolHistory(drawn, samples, NOW - 5 * DAY_MS, NOW);
+    expect(valueAt(history, NOW - 4.5 * DAY_MS)).toBe(0);
+    expect(valueAt(history, NOW - 3 * DAY_MS)).toBeNull();
+    expect(valueAt(history, NOW - 0.5 * DAY_MS)).toBeCloseTo(0.8);
+  });
+
   test('an idle credential without samples still counts towards capacity', () => {
     const entries = [entry({}), entry({ authId: 'idle', weightWeekly: 10 })];
     const samples = [sample({ atMs: NOW - 2 * DAY_MS, usedPercent: 20 })];
@@ -1313,6 +1329,22 @@ describe('capacity timeline', () => {
     const current = pool(credential({ usedPercent: 30 }));
     expect(withCapacityTimeline(current, [], [])).toBe(current);
     expect(poolCapacity(current, [], NOW - DAY_MS, NOW)).toBeNull();
+  });
+
+  test('the past range starts its days back; All where capacity is first known', () => {
+    const samples = [sample({ atMs: NOW - 10 * DAY_MS })];
+    const entries = [entry({ atMs: NOW - 22 * DAY_MS })];
+    expect(historyStartMs(30, NOW, samples, entries)).toBe(NOW - 30 * DAY_MS);
+    expect(historyStartMs(0, NOW, samples, entries)).toBe(NOW - 22 * DAY_MS);
+    // Capacity is known from the earliest entry, even with older samples.
+    expect(historyStartMs(0, NOW, [sample({ atMs: NOW - 40 * DAY_MS })], entries)).toBe(
+      NOW - 22 * DAY_MS
+    );
+    expect(historyStartMs(0, NOW, samples, null)).toBe(NOW - 10 * DAY_MS);
+    // Never less than a week, even with nothing older.
+    expect(historyStartMs(0, NOW, [], null)).toBe(NOW - 7 * DAY_MS);
+    // Loads a week more than it draws, so each credential has a sample before the start.
+    expect(historyLookbackDays(30)).toBe(37);
   });
 
   test('entries are normalized, sorted by time, and malformed ones dropped', () => {

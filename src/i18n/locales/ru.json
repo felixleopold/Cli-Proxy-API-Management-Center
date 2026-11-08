@@ -1675,9 +1675,14 @@
     "capacity_enabled": "{{name}} включён",
     "capacity_disabled": "{{name}} отключён",
     "capacity_removed": "{{name}} удалён",
-    "capacity_changed": "{{name}} → {{value}}",
     "legend_capacity": "Ёмкость",
-    "capacity_added": "{{name}} добавлен"
+    "capacity_added": "{{name}} добавлен",
+    "past": "Прошлое",
+    "past_label": "Показанная история",
+    "past_all": "Всё",
+    "past_hint": "Насколько далеко назад идёт график. До первого замера квоты видны только ступени ёмкости; «Всё» начинается с самой ранней записи ёмкости или замера.",
+    "capacity_changes": "изменений: {{count}}",
+    "legend_capacity_change": "Изменение ёмкости"
   },
   "quota_management": {
     "search_label": "Поиск аккаунтов",

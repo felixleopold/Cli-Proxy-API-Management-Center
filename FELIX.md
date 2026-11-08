@@ -124,10 +124,16 @@ Current base: upstream `v1.25.6`.
   last credential was retired keeps its card (`withTimelineProviders`); each sample reads at the
   plan weight and share in effect when it was taken, so past samples never take today's weight.
   The capacity is a dashed step line (`poolCapacity`) and the y axis reaches its highest step;
-  each step gets a neutral pill on a thin rule ("Ultra retired −10×", "Team seat → 5× +4×", a
-  first entry inside the range "X added +5×",
-  `capacityChanges`), which replaces the reset pill at that instant, and the gateway's reason
-  appears in the tooltip. Projections and headline totals stay on today's active credentials.
+  each step (`capacityChanges`, a first entry inside the range being an addition) is a hollow
+  dot on that line, faint below 5% of the axis; larger ones also get a delta chip ("−10×") in
+  the lane of the "Now" label, and chips that would touch merge into "2 changes"
+  (`components/capacityMarks.ts`). Hovering lists every change near the pointer: who, what
+  ("Ultra retired", "10× → 0×"), the gateway's reason and when. A change replaces the reset pill
+  at that instant. *Past* (7d / 30d / All, beside *Next*) sets how far back the chart goes and
+  how much quota and capacity history loads (`historyLookbackDays`); All starts at the earliest
+  capacity entry (`historyStartMs`), so before the first quota sample only the capacity steps
+  show, and views over three weeks label only resets of ≥ 8% of the pool. Projections and
+  headline totals stay on today's active credentials.
   Without the endpoint (404, or 409 when history is off) everything stays as before. *Retire*
   (⚙ popover, file credentials only, confirmed) sends `PATCH /credentials/status {disabled: true,
   retired: true}`; a retired row shows "Retired · Nov 8" and its ⚙ offers *Reactivate*
