@@ -1,7 +1,5 @@
 import { useEffect, useId, useMemo, useState, type KeyboardEvent, type PointerEvent } from 'react';
-import { TALL_FACTOR } from '@/features/quota/tallCharts';
 import { useTranslation } from 'react-i18next';
-import { axisMax } from '@/features/dashboard/utils';
 import {
   addUnits,
   axisTicks,
@@ -12,9 +10,8 @@ import {
   type TimeSpan,
 } from '../usageModel';
 import { slotClassName } from './slotClass';
+import { spendAxis } from './spendAxis';
 import styles from './UsageSpendChart.module.scss';
-
-const TICK_COUNT = 4;
 
 export interface ChartSeries {
   key: string;
@@ -73,9 +70,7 @@ export function UsageSpendChart({
   }, [activeIndex]);
 
   const peak = Math.max(0, ...stacked.map((bucket) => bucket.total));
-  const tickCount = tall ? TICK_COUNT * TALL_FACTOR : TICK_COUNT;
-  const scaleMax = axisMax(peak, tickCount);
-  const yTicks = Array.from({ length: tickCount + 1 }, (_, index) => index / tickCount);
+  const { scaleMax, ticks: yTicks } = spendAxis(peak, tall);
   const xTicks = useMemo(() => axisTicks(span, unit), [span, unit]);
   // Keyboard focus starts on the bucket containing now.
   const lastPastIndex = stacked.reduce(

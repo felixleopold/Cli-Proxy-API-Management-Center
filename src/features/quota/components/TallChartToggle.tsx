@@ -6,14 +6,14 @@ import styles from './TallChartToggle.module.scss';
 
 export function TallChartToggle({ tall, onToggle }: { tall: boolean; onToggle: () => void }) {
   const { t } = useTranslation();
-  const label = t(tall ? 'quota_forecast.chart_shorter' : 'quota_forecast.chart_taller');
+  // A stable name with aria-pressed reads "Taller chart, pressed"; the tooltip says what a click does.
   return (
     <button
       type="button"
       className={styles.toggle}
       aria-pressed={tall}
-      aria-label={label}
-      title={label}
+      aria-label={t('quota_forecast.chart_taller')}
+      title={t(tall ? 'quota_forecast.chart_shorter' : 'quota_forecast.chart_taller')}
       onClick={onToggle}
     >
       {tall ? <IconFoldVertical size={14} /> : <IconUnfoldVertical size={14} />}
