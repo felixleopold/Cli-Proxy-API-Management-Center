@@ -466,6 +466,12 @@
   border-top: 2px dashed var(--series);
 }
 
+.keyCeiling {
+  width: 14px;
+  height: 0;
+  border-top: 1px dashed color-mix(in srgb, var(--series) 60%, transparent);
+}
+
 .keyRange {
   width: 14px;
   height: 10px;
@@ -573,6 +579,29 @@
   font-weight: 600;
   text-anchor: middle;
   fill: var(--use);
+}
+
+/* The pool's capacity over time: a quiet dashed ceiling that steps where it changed. */
+.capacityLine {
+  fill: none;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  stroke-opacity: 0.6;
+  shape-rendering: crispEdges;
+}
+
+/* A capacity change: a thin rule under its pill, from the top of the plot to the baseline. */
+.capacityMarker {
+  stroke: var(--text-tertiary);
+  stroke-width: 1;
+  stroke-opacity: 0.7;
+  shape-rendering: crispEdges;
+}
+
+/* Names read better in the body font; the delta keeps the pill's tabular figures. */
+.capacityLabel {
+  font-family: inherit;
+  font-weight: 500;
 }
 
 .line {

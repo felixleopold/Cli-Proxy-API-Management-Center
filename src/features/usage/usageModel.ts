@@ -634,15 +634,18 @@ export function subscriptionSlots(subscriptions: readonly Subscription[]): Map<s
  * imported) before the ledger tracked credentials. Neither marker belongs to a
  * subscription window.
  */
-export type CredentialKind = 'subscription' | 'pre_tracking' | 'own_account' | 'removed';
+export type CredentialKind =
+  'subscription' | 'pre_tracking' | 'own_account' | 'retired' | 'removed';
 
 export function credentialKind(
   authId: string,
-  known: { has(id: string): boolean }
+  known: { has(id: string): boolean },
+  retired: { has(id: string): boolean } = new Set()
 ): CredentialKind {
   if (!authId) return 'pre_tracking';
   if (authId === OWN_ACCOUNT_AUTH_ID) return 'own_account';
-  return known.has(authId) ? 'subscription' : 'removed';
+  if (known.has(authId)) return 'subscription';
+  return retired.has(authId) ? 'retired' : 'removed';
 }
 
 /** Series key of a slotted entity: itself, OTHER_KEY past the named slots. */

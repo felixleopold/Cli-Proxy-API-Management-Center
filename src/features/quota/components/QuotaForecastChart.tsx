@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import {
   DAY_MS,
   HOUR_MS,
+  capacityVaries,
   creditsInView,
   creditsNear,
   nightBands,
@@ -353,6 +354,21 @@ export interface ForecastRow {
   credits: number[];
   /** Resets of the pool's accounts, recorded and projected, to colour and explain the jumps. */
   resets: PoolResetEvent[];
+  /**
+   * The pool's capacity over the history as a step function (capacity timeline);
+   * null without one, when `capacity` holds throughout.
+   */
+  capacityHistory: SeriesPoint[] | null;
+  /** Capacity changes in the history, labelled on the chart. */
+  capacityMarks: CapacityMark[];
+}
+
+/** A capacity change: "Ultra retired" with "−10×", and the gateway's reason in the tooltip. */
+export interface CapacityMark {
+  atMs: number;
+  label: string;
+  delta: string;
+  detail: string | null;
 }
 
 export interface RemainingChartProps {
@@ -417,6 +433,40 @@ const bandPath = (upper: { x: number; y: number }[], lower: { x: number; y: numb
 const seriesAt = (row: ForecastRow, t: number, nowMs: number) =>
   valueAt(t > nowMs ? row.projection : row.history, t);
 
+/** The pool's capacity at t: the timeline's in the history, the current one ahead. */
+const capacityAt = (row: ForecastRow, t: number, nowMs: number) =>
+  (t <= nowMs && row.capacityHistory ? valueAt(row.capacityHistory, t) : null) ?? row.capacity;
+
+/** Two instants this close are the same change (the gateway samples on a tick). */
+const SAME_CHANGE_MS = 60 * 1000;
+
+interface CapacityLabel {
+  /** Marker line. */
+  x: number;
+  /** Pill centre. */
+  cx: number;
+  text: string;
+}
+
+/**
+ * Capacity change pills along the top of the plot, centred on their marker line
+ * where they fit; one that would overlap an earlier one is left to the tooltip.
+ */
+const placeCapacityLabels = (row: ForecastRow, frame: Frame): CapacityLabel[] => {
+  const right = frame.width - MARGIN.right;
+  const placed: { from: number; to: number }[] = [];
+  return row.capacityMarks.flatMap((mark) => {
+    const x = frame.x(mark.atMs);
+    if (x < MARGIN.left || x > right) return [];
+    const text = `${mark.label} ${mark.delta}`;
+    const half = pillWidth(text) / 2;
+    const cx = Math.min(right - half, Math.max(MARGIN.left + half, x));
+    if (placed.some((spot) => cx + half + 4 > spot.from && cx - half - 4 < spot.to)) return [];
+    placed.push({ from: cx - half, to: cx + half });
+    return [{ x, cx, text }];
+  });
+};
+
 interface JumpLabel {
   x: number;
   /** Centre line of the pill. */
@@ -431,13 +481,23 @@ const placeJumpLabels = (
   row: ForecastRow,
   frame: Frame,
   nowX: number,
-  formatJump: (delta: number) => string
+  formatJump: (delta: number) => string,
+  capacityLabels: CapacityLabel[]
 ): JumpLabel[] => {
   const minDelta = row.capacity * JUMP_LABEL_MIN_SHARE;
-  const jumps = [...seriesJumps(row.history, minDelta), ...seriesJumps(row.projection, minDelta)];
+  // A capacity change explains its own step; it gets its marker, not a second pill.
+  const jumps = [
+    ...seriesJumps(row.history, minDelta),
+    ...seriesJumps(row.projection, minDelta),
+  ].filter(
+    (jump) => !row.capacityMarks.some((mark) => Math.abs(mark.atMs - jump.t) <= SAME_CHANGE_MS)
+  );
   const right = frame.width - MARGIN.right;
-  // The "Now" label already sits above the plot.
-  const taken: { x: number; above: boolean }[] = [{ x: nowX, above: true }];
+  // The "Now" label already sits above the plot, capacity pills along its top.
+  const taken: { x: number; above: boolean }[] = [
+    { x: nowX, above: true },
+    ...capacityLabels.map((label) => ({ x: label.cx, above: true })),
+  ];
   const clear = (x: number, above: boolean) =>
     taken.every((spot) => spot.above !== above || Math.abs(spot.x - x) >= JUMP_LABEL_GAP_PX);
   return jumps.flatMap((jump) => {
@@ -486,7 +546,12 @@ export function RemainingChart({
   const [ref, width] = useElementWidth();
   const gradientId = useId();
   const formats = useTimeFormats();
-  const frame = makeFrame(width, fromMs, toMs, row.capacity);
+  const showCapacity = capacityVaries(row.capacityHistory, row.capacity);
+  // The y axis reaches the largest capacity in view, so a retired plan's history still fits.
+  const yMax = showCapacity
+    ? Math.max(row.capacity, ...(row.capacityHistory ?? []).map((point) => point.v))
+    : row.capacity;
+  const frame = makeFrame(width, fromMs, toMs, yMax);
   const plotWidth = frame.plotWidth;
   const xTicks = useMemo(
     () => timeTicks(fromMs, toMs, Math.max(3, Math.floor(plotWidth / 64))),
@@ -497,8 +562,12 @@ export function RemainingChart({
     [night, fromMs, nowMs, toMs]
   );
   const resetStops = useMemo(
-    () => row.resets.map((event) => event.atMs).sort((left, right) => left - right),
-    [row.resets]
+    () =>
+      [
+        ...row.resets.map((event) => event.atMs),
+        ...row.capacityMarks.map((mark) => mark.atMs),
+      ].sort((left, right) => left - right),
+    [row.resets, row.capacityMarks]
   );
   const { hoverMs, setHoverMs, focusProps } = useScrub(fromMs, toMs, nowMs, resetStops);
 
@@ -528,7 +597,7 @@ export function RemainingChart({
         key: row.key,
         color: row.color,
         dashed: projected,
-        value: formatPoint(value, row.capacity),
+        value: formatPoint(value, capacityAt(row, t, nowMs)),
         label:
           low !== null && high !== null && formatValue(low) !== formatValue(high)
             ? `${name} · ${formatValue(low)}–${formatValue(high)}`
@@ -545,6 +614,15 @@ export function RemainingChart({
           ...formatResetAccount(account, event.projected),
         }));
       })(),
+      ...row.capacityMarks
+        .filter((mark) => Math.abs(mark.atMs - t) <= resetTolerance)
+        .map((mark, index) => ({
+          key: `capacity-${index}`,
+          color: 'var(--text-secondary)',
+          tick: true,
+          value: mark.delta,
+          label: mark.detail ? `${mark.label} · ${mark.detail}` : mark.label,
+        })),
       ...creditsNear(row.credits, t, creditTolerance, fromMs, toMs).map((expiresAtMs, index) => ({
         key: `credit-${index}`,
         color: 'var(--amber-color)',
@@ -557,14 +635,40 @@ export function RemainingChart({
 
   const toPixels = (points: SeriesPoint[]) =>
     points.map((point) => ({ x: frame.x(point.t), y: frame.y(point.v) }));
-  const history = toPixels(row.history);
+  // Gaps (NaN points) split the history into separately drawn segments.
+  const historySegments = row.history
+    .reduce<SeriesPoint[][]>(
+      (segments, point) => {
+        if (Number.isNaN(point.v)) segments.push([]);
+        else segments[segments.length - 1].push(point);
+        return segments;
+      },
+      [[]]
+    )
+    .filter((segment) => segment.length > 0)
+    .map(toPixels);
   const projection = toPixels(row.projection);
   const range = row.range ? bandPath(toPixels(row.range.high), toPixels(row.range.low)) : '';
   const current = row.projection[0];
   const hoverValue = hoverMs === null ? null : seriesAt(row, hoverMs, nowMs);
   const hoverRows = hoverMs === null ? [] : tooltipRows(hoverMs);
   const nowX = frame.x(nowMs);
-  const jumpLabels = placeJumpLabels(row, frame, nowX, formatJump);
+  const capacityLabels = placeCapacityLabels(row, frame);
+  const jumpLabels = placeJumpLabels(row, frame, nowX, formatJump, capacityLabels);
+  // The capacity ceiling: the timeline's steps, then flat at today's capacity.
+  const ceiling =
+    showCapacity && row.capacityHistory
+      ? linePath(
+          toPixels([
+            ...row.capacityHistory,
+            {
+              t: Math.max(nowMs, row.capacityHistory[row.capacityHistory.length - 1].t),
+              v: row.capacity,
+            },
+            { t: toMs, v: row.capacity },
+          ])
+        )
+      : '';
 
   return (
     <div ref={ref} className={styles.chart} {...focusProps} aria-label={ariaLabel} role="group">
@@ -588,7 +692,7 @@ export function RemainingChart({
 
         <Axes
           frame={frame}
-          yTicks={[0, row.capacity / 2, row.capacity]}
+          yTicks={[0, yMax / 2, yMax]}
           formatValue={formatValue}
           xTicks={xTicks}
           formatTick={formats.tick}
@@ -627,11 +731,37 @@ export function RemainingChart({
           />
         ))}
 
-        <path d={areaPath(history, frame.baseY)} fill={`url(#${gradientId})`} />
+        {capacityLabels.map((label) => (
+          <line
+            key={`capacity-${label.x}`}
+            className={styles.capacityMarker}
+            x1={label.x}
+            x2={label.x}
+            y1={frame.top + JUMP_PILL_HEIGHT + 2}
+            y2={frame.baseY}
+          />
+        ))}
+        {ceiling && <path className={styles.capacityLine} d={ceiling} stroke="currentColor" />}
+
+        {historySegments.map((segment) => (
+          <path
+            key={`area-${segment[0].x}`}
+            d={areaPath(segment, frame.baseY)}
+            fill={`url(#${gradientId})`}
+          />
+        ))}
         <path d={areaPath(projection, frame.baseY)} fill={`url(#${gradientId}-p)`} />
         {range && <path className={styles.rangeBand} d={range} />}
-        {history.length > 1 && (
-          <path className={styles.line} d={linePath(history)} stroke="currentColor" />
+        {historySegments.map(
+          (segment) =>
+            segment.length > 1 && (
+              <path
+                key={`line-${segment[0].x}`}
+                className={styles.line}
+                d={linePath(segment)}
+                stroke="currentColor"
+              />
+            )
         )}
         {projection.length > 1 && (
           <path
@@ -662,6 +792,34 @@ export function RemainingChart({
                 rx={JUMP_PILL_HEIGHT / 2}
               />
               <text className={styles.jumpLabel} x={label.x} y={label.y} dy="0.35em">
+                {label.text}
+              </text>
+            </g>
+          );
+        })}
+
+        {capacityLabels.map((label) => {
+          const width = pillWidth(label.text);
+          return (
+            <g
+              key={`capacity-pill-${label.x}`}
+              className={styles.jump}
+              style={{ '--use': 'var(--text-secondary)' } as CSSProperties}
+            >
+              <rect
+                className={styles.jumpPill}
+                x={label.cx - width / 2}
+                y={frame.top + 1}
+                width={width}
+                height={JUMP_PILL_HEIGHT}
+                rx={JUMP_PILL_HEIGHT / 2}
+              />
+              <text
+                className={`${styles.jumpLabel} ${styles.capacityLabel}`}
+                x={label.cx}
+                y={frame.top + 1 + JUMP_PILL_HEIGHT / 2}
+                dy="0.35em"
+              >
                 {label.text}
               </text>
             </g>
@@ -713,7 +871,10 @@ export function RemainingChart({
             t: tick,
             cells: (() => {
               const value = seriesAt(row, tick, nowMs);
-              return [formats.full(tick), value === null ? '–' : formatPoint(value, row.capacity)];
+              return [
+                formats.full(tick),
+                value === null ? '–' : formatPoint(value, capacityAt(row, tick, nowMs)),
+              ];
             })(),
           })),
           // Each reset with its accounts and how much they had used.
@@ -731,6 +892,13 @@ export function RemainingChart({
                   .join(', '),
               ],
             })),
+          ...row.capacityMarks.map((mark) => ({
+            t: mark.atMs,
+            cells: [
+              formats.full(mark.atMs),
+              [`${mark.label} ${mark.delta}`, mark.detail].filter(Boolean).join(' · '),
+            ],
+          })),
         ]
           .sort((left, right) => left.t - right.t)
           .map((entry) => entry.cells)}

@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import { quotaHistoryApi, usageLedgerApi, type QuotaHistorySample } from '@/services/api';
+import {
+  capacityHistoryApi,
+  quotaHistoryApi,
+  usageLedgerApi,
+  type CapacityEntry,
+  type QuotaHistorySample,
+} from '@/services/api';
 import type { UsageLedgerBucket } from '@/types';
 import { DAY_MS } from '../quotaForecastModel';
 
@@ -11,13 +17,21 @@ const HISTORY_LOOKBACK_MS = 14 * DAY_MS;
 
 export type QuotaHistoryState =
   | { status: 'loading' }
-  /** `ledger` is null when the usage ledger is off (409) or failed: the forecast does without it. */
-  | { status: 'ok'; samples: QuotaHistorySample[]; ledger: UsageLedgerBucket[] | null }
+  /**
+   * `ledger` is null when the usage ledger is off (409) or failed: the forecast does without it.
+   * `capacity` is null when the gateway has no capacity timeline: capacity is then today's.
+   */
+  | {
+      status: 'ok';
+      samples: QuotaHistorySample[];
+      ledger: UsageLedgerBucket[] | null;
+      capacity: CapacityEntry[] | null;
+    }
   | { status: 'disabled' }
   | { status: 'error' };
 
 /**
- * Loads quota history, and the usage ledger over the same span, whenever
+ * Loads quota history, and the usage ledger and capacity timeline over the same span, whenever
  * `reloadKey` changes (the credential list reloads).
  * A response for an older key never overwrites a newer one; while reloading,
  * the previous result stays on screen.
@@ -36,9 +50,13 @@ export function useQuotaHistory(enabled: boolean, reloadKey: unknown): QuotaHist
         (ledger) => ledger.buckets,
         () => null
       ),
+      capacityHistoryApi.list(fromMs, nowMs).then(
+        (timeline) => (timeline.status === 'ok' ? timeline.entries : null),
+        () => null
+      ),
     ]).then(
-      ([result, ledger]) => {
-        if (current) setState(result.status === 'ok' ? { ...result, ledger } : result);
+      ([result, ledger, capacity]) => {
+        if (current) setState(result.status === 'ok' ? { ...result, ledger, capacity } : result);
       },
       () => {
         if (current) setState({ status: 'error' });

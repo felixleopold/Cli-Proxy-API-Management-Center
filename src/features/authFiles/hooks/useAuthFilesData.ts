@@ -709,7 +709,9 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
           revision !== apiClient.getConnectionRevision()
             ? prev
             : prev.map((f) =>
-                getAuthFileRefreshKey(f) === key ? { ...f, disabled: res.disabled } : f
+                getAuthFileRefreshKey(f) === key
+                  ? { ...f, disabled: res.disabled, retiredAtMs: res.retiredAtMs }
+                  : f
               )
         );
         showNotification(

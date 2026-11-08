@@ -18,5 +18,6 @@ export * from './plugins';
 export * from './transformers';
 export * from './vertex';
 export * from './quotaHistory';
+export * from './capacityHistory';
 export * from './clientKeys';
 export * from './usagePool';

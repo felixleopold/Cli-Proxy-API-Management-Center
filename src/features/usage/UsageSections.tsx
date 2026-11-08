@@ -125,6 +125,14 @@ export function UsageSections({
         .map((file) => withHistoryWindow(parseSubscription(file), samples ?? [])),
     [files, samples]
   );
+  // Retired credentials keep their spend under their own name and colour.
+  const retired = useMemo(
+    () =>
+      files
+        .filter((file) => file.disabled && file.retiredAtMs !== undefined)
+        .map(parseSubscription),
+    [files]
+  );
 
   const request = useMemo<Selection>(
     () =>
@@ -179,10 +187,21 @@ export function UsageSections({
   );
 
   const userColors = useMemo(() => userSlots(labels), [labels]);
-  const subscriptionColors = useMemo(() => subscriptionSlots(subscriptions), [subscriptions]);
+  // A retired credential with spend in the loaded ledger keeps the colour it had while active.
+  const subscriptionColors = useMemo(() => {
+    const spent = new Set(ledger?.buckets.map((bucket) => bucket.authId));
+    return subscriptionSlots([
+      ...subscriptions,
+      ...retired.filter((subscription) => spent.has(subscription.id)),
+    ]);
+  }, [ledger, retired, subscriptions]);
   const subscriptionById = useMemo(
     () => new Map(subscriptions.map((subscription) => [subscription.id, subscription])),
     [subscriptions]
+  );
+  const retiredById = useMemo(
+    () => new Map(retired.map((subscription) => [subscription.id, subscription])),
+    [retired]
   );
 
   const buckets = useMemo(() => ledger?.buckets ?? [], [ledger]);
@@ -229,18 +248,20 @@ export function UsageSections({
   const subscriptionLabel = useCallback(
     (id: string) => {
       const subscription = subscriptionById.get(id);
-      switch (credentialKind(id, subscriptionById)) {
+      switch (credentialKind(id, subscriptionById, retiredById)) {
         case 'pre_tracking':
           return t('usage.auth_pre_tracking');
         case 'own_account':
           return t('usage.auth_own_account');
+        case 'retired':
+          return t('usage.retired_credential', { name: retiredById.get(id)!.name });
         case 'removed':
           return t('usage.removed_credential');
         default:
           return `${providerLabel(subscription!.provider, t('usage.unknown_provider'))} · ${subscription!.name}`;
       }
     },
-    [subscriptionById, t]
+    [retiredById, subscriptionById, t]
   );
 
   // ---------- Chart ----------

@@ -297,7 +297,61 @@ function RoutingDot({ file }: { file: AuthFileItem }) {
 
 /* ---------- Enabled toggle ---------- */
 
-/** PATCH /credentials/status with an optimistic flip, as Auth Files does. */
+/** What enabling, disabling or retiring a credential does, for its notification. */
+type StatusChange = 'enable' | 'disable' | 'retire';
+
+const STATUS_SUCCESS: Record<StatusChange, string> = {
+  enable: 'auth_files.status_enabled_success',
+  disable: 'auth_files.status_disabled_success',
+  retire: 'usage_accounts.retire_success',
+};
+
+/**
+ * PATCH /credentials/status with an optimistic flip, as Auth Files does.
+ * Enabling a retired credential reactivates it: the gateway clears retired_at.
+ */
+function useStatusChange(
+  file: AuthFileItem,
+  onFileChange: (key: string, patch: Partial<AuthFileItem>) => void
+) {
+  const { t } = useTranslation();
+  const showNotification = useNotificationStore((state) => state.showNotification);
+  const lock = useAccountStatusLock();
+  const key = getQuotaCacheKey(file);
+
+  const change = async (next: StatusChange) => {
+    if (!lock.begin(key)) return;
+    const revision = apiClient.getConnectionRevision();
+    const { name } = file;
+    const previous = { disabled: file.disabled, retiredAtMs: file.retiredAtMs };
+    onFileChange(
+      key,
+      next === 'enable' ? { disabled: false, retiredAtMs: undefined } : { disabled: true }
+    );
+    try {
+      const res = await authFilesApi.setStatus(
+        name,
+        next !== 'enable',
+        String(file.authIndex ?? '').trim() || undefined,
+        next === 'retire'
+      );
+      if (revision !== apiClient.getConnectionRevision()) return;
+      onFileChange(key, { disabled: res.disabled, retiredAtMs: res.retiredAtMs });
+      notifyAuthFilesChanged();
+      showNotification(t(STATUS_SUCCESS[next], { name }), 'success');
+    } catch (err: unknown) {
+      if (revision !== apiClient.getConnectionRevision()) return;
+      onFileChange(key, previous);
+      const message = err instanceof Error ? err.message : '';
+      showNotification(`${t('notification.update_failed')}: ${message}`, 'error');
+    } finally {
+      lock.end(key);
+    }
+  };
+
+  return { pending: lock.isPending(key), change };
+}
+
 function StatusToggle({
   file,
   onFileChange,
@@ -306,41 +360,9 @@ function StatusToggle({
   onFileChange: (key: string, patch: Partial<AuthFileItem>) => void;
 }) {
   const { t } = useTranslation();
-  const showNotification = useNotificationStore((state) => state.showNotification);
-  const lock = useAccountStatusLock();
-  const key = getQuotaCacheKey(file);
-  const pending = lock.isPending(key);
+  const { pending, change } = useStatusChange(file, onFileChange);
   const enabled = file.disabled !== true;
-
-  const toggle = async (next: boolean) => {
-    if (!lock.begin(key)) return;
-    const revision = apiClient.getConnectionRevision();
-    const { name } = file;
-    onFileChange(key, { disabled: !next });
-    try {
-      const res = await authFilesApi.setStatus(
-        name,
-        !next,
-        String(file.authIndex ?? '').trim() || undefined
-      );
-      if (revision !== apiClient.getConnectionRevision()) return;
-      onFileChange(key, { disabled: res.disabled });
-      notifyAuthFilesChanged();
-      showNotification(
-        next
-          ? t('auth_files.status_enabled_success', { name })
-          : t('auth_files.status_disabled_success', { name }),
-        'success'
-      );
-    } catch (err: unknown) {
-      if (revision !== apiClient.getConnectionRevision()) return;
-      onFileChange(key, { disabled: !enabled });
-      const message = err instanceof Error ? err.message : '';
-      showNotification(`${t('notification.update_failed')}: ${message}`, 'error');
-    } finally {
-      lock.end(key);
-    }
-  };
+  const toggle = (next: boolean) => change(next ? 'enable' : 'disable');
 
   return (
     <span className={styles.toggle}>
@@ -416,6 +438,7 @@ export function AccountRow(props: AccountRowProps) {
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const detailsId = `${nameId}-details`;
   const disabled = file?.disabled === true;
+  const retiredAtMs = file?.disabled ? file.retiredAtMs : undefined;
 
   return (
     <li
@@ -452,6 +475,7 @@ export function AccountRow(props: AccountRowProps) {
                 role="img"
               />
             )}
+            {retiredAtMs !== undefined && <RetiredBadge atMs={retiredAtMs} />}
             <IconChevronRight size={12} aria-hidden="true" className={styles.chevron} />
           </button>
         </span>
@@ -497,11 +521,12 @@ export function AccountRow(props: AccountRowProps) {
                   <IconSettings size={14} aria-hidden="true" />
                 </button>
                 {settingsOpen && (
-                  <AccountSettingsPopover
+                  <RowSettings
                     file={file}
                     provider={provider}
                     onClose={closeSettings}
                     onSaved={onSettingsSaved}
+                    onFileChange={onFileChange}
                   />
                 )}
               </span>
@@ -515,6 +540,44 @@ export function AccountRow(props: AccountRowProps) {
         </div>
       )}
     </li>
+  );
+}
+
+/** "Retired · Nov 8": the credential is out of the pool, its history and settings kept. */
+export function RetiredBadge({ atMs }: { atMs: number }) {
+  const { t, i18n } = useTranslation();
+  const date = new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language, {
+    month: 'short',
+    day: 'numeric',
+  }).format(atMs);
+  return (
+    <span className={styles.retiredBadge} title={t('usage_accounts.retired_title', { date })}>
+      {t('usage_accounts.retired_badge', { date })}
+    </span>
+  );
+}
+
+/** The ⚙ popover with the row's status change, so Retire and Reactivate share the toggle's lock. */
+function RowSettings({
+  file,
+  onFileChange,
+  ...props
+}: {
+  file: AuthFileItem;
+  provider: string;
+  onClose: () => void;
+  onSaved: () => void;
+  onFileChange: (key: string, patch: Partial<AuthFileItem>) => void;
+}) {
+  const { pending, change } = useStatusChange(file, onFileChange);
+  return (
+    <AccountSettingsPopover
+      file={file}
+      {...props}
+      statusPending={pending}
+      onRetire={() => void change('retire')}
+      onReactivate={() => void change('enable')}
+    />
   );
 }
 

@@ -39,6 +39,7 @@ const DERIVED_INFO_KEYS = [
   'planWeightWeekly',
   'reserveFiveHourPercent',
   'reserveWeeklyPercent',
+  'retiredAtMs',
 ];
 
 export type AuthFileDetailsSheetProps = {
