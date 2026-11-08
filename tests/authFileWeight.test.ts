@@ -27,6 +27,7 @@ const makeEditor = (json: Record<string, unknown>, weight: string): PrefixProxyE
   planMultiplierError: null,
   plan: '',
   lender: '',
+  privateUser: '',
   reserveFiveHour: '',
   reserveFiveHourError: null,
   reserveWeekly: '',

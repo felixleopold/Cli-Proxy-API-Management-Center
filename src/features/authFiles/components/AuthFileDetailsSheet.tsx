@@ -316,6 +316,14 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
                     onChange={onChange}
                   />
                   <Input
+                    label={t('auth_files.private_user_label')}
+                    value={editor.privateUser}
+                    placeholder={t('auth_files.private_user_placeholder')}
+                    hint={t('auth_files.private_user_hint')}
+                    disabled={disableControls || editor.saving || !editor.json}
+                    onChange={(e) => onChange('privateUser', e.target.value)}
+                  />
+                  <Input
                     label={t('auth_files.note_label')}
                     value={editor.note}
                     placeholder={t('auth_files.note_placeholder')}

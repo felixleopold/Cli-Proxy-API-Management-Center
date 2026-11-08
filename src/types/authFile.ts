@@ -115,6 +115,11 @@ export interface AuthFileItem {
   lenderReserveOverrideKeepPercent?: number;
   /** Display name set on the gateway; rows fall back to the email. */
   nickname?: string;
+  /**
+   * The ledger user a private credential is reserved for: it serves only their
+   * requests, records no usage, and Usage & quota leaves it out entirely.
+   */
+  privateUser?: string;
   /** Pace override: `flash` routes here first, `shield` only when nothing else is eligible. */
   paceMode?: AuthFilePaceMode;
   /** End of the pace override (ms). */

@@ -457,7 +457,12 @@
     "reserve_weekly_label": "每週預留（reserve_weekly_percent）",
     "reserve_hint": "為出借人保留：視窗用量達到 100 − 目前預留 時，閘道停止向此帳號路由；目前預留在重置前逐漸減少到下限。此處設定的預留在對應視窗優先於用量上限；留空則回退到上限（預留 = 100 − 上限），否則無預留。",
     "reserve_invalid": "預留必須是 0 到 100 之間的數字。",
-    "plan_multiplier_hint_claude": "此帳號的價格相當於多少個 $20 基礎方案（Max $200 = 10）。僅在上方未設定 Claude 方案時用作池權重；方案的分視窗權重會取代它。"
+    "plan_multiplier_hint_claude": "此帳號的價格相當於多少個 $20 基礎方案（Max $200 = 10）。僅在上方未設定 Claude 方案時用作池權重；方案的分視窗權重會取代它。",
+    "private_badge": "私有 · {{user}}",
+    "private_badge_title": "私有：僅服務 {{user}} 的請求，不記錄用量，且不顯示在「用量與額度」中。",
+    "private_user_label": "私有給",
+    "private_user_placeholder": "共享（無人）",
+    "private_user_hint": "用量帳本中的使用者，例如 Felix。只有該使用者的請求會使用此憑證；它不記錄用量，也不顯示在「用量與額度」中。留空則共享。"
   },
   "antigravity_subscription": {
     "plan_unknown": "未知",

@@ -97,6 +97,23 @@
   color: var(--text-tertiary);
 }
 
+/* "Private · Felix": quiet, beside the name, like the virtual label. */
+.privateLabel {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border: 1px solid var(--border-color);
+  border-radius: $radius-full;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+
+  & + .runtimeLabel {
+    margin-left: 0;
+  }
+}
+
 /* 窄卡片保留基本阅读宽度；空间不足时换行，不截断邮箱或项目 ID。 */
 .account {
   flex: 1 1 12ch;

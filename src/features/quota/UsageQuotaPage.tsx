@@ -57,6 +57,7 @@ import { useDevinQuotaAutoLoad } from './providers/devin/useDevinQuotaAutoLoad';
 import { useQuotaActions } from './hooks/useQuotaActions';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
 import { useQuotaHistory } from './hooks/useQuotaHistory';
+import { splitPrivateCredentials, withoutPrivateHistory } from './privateCredentials';
 import { isQuotaTabId, readQuotaUiState, writeQuotaUiState } from './uiState';
 import styles from './UsageQuotaPage.module.scss';
 
@@ -72,6 +73,7 @@ export function UsageQuotaPage() {
   const resolvedTheme: ResolvedTheme = useThemeStore((state) => state.resolvedTheme);
 
   const [files, setFiles] = useState<AuthFileItem[]>([]);
+  const [privateIds, setPrivateIds] = useState<ReadonlySet<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   // 'all', a quota provider, or another provider with usage (only quota tabs persist).
@@ -107,7 +109,10 @@ export function UsageQuotaPage() {
     try {
       const data = await authFilesApi.list();
       if (!isCurrent()) return;
-      setFiles(data?.files || []);
+      // Private credentials stay off this page entirely; Auth Files still lists them.
+      const { shared, privateIds: hidden } = splitPrivateCredentials(data?.files || []);
+      setFiles(shared);
+      setPrivateIds(hidden);
       setFilesGeneration(sessionGeneration);
     } catch (err: unknown) {
       if (!isCurrent()) return;
@@ -247,7 +252,15 @@ export function UsageQuotaPage() {
     writeQuotaUiState({ forecastPast: next });
   }, []);
   // Shared by the forecast and the subscription cards (windows for credentials without live signals).
-  const history = useQuotaHistory(hasForecastCredentials(files), files, historyLookbackDays(past));
+  const loadedHistory = useQuotaHistory(
+    hasForecastCredentials(files),
+    files,
+    historyLookbackDays(past)
+  );
+  const history = useMemo(
+    () => withoutPrivateHistory(loadedHistory, privateIds),
+    [loadedHistory, privateIds]
+  );
 
   /* ---------- Pools ----------
    * Shared by the forecast and the account rows: live signals, else the latest history

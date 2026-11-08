@@ -140,6 +140,14 @@ Current base: upstream `v1.25.6`.
   (`{disabled: false}`, as does the toggle). In *Spend history*, a retired credential with spend
   in the loaded ledger reads "Retired: <name>" and is sorted in with the active ones, so it keeps
   its colour. Tests: `tests/quotaForecast.test.ts` (capacity timeline), `tests/usageModel.test.ts`.
+- **Private credentials** (gateway `private_user`, f-squared/CLIProxyAPI#40). A credential
+  reserved for one usage-ledger user serves only their requests and records no usage. Auth
+  Files shows a quiet "Private · Felix" badge on its card, and the credential sheet's *Private
+  for* field sets or clears it (`PATCH /credentials/fields {private_user}`, empty clears).
+  Usage & quota leaves private credentials out entirely: the page drops them from its credential
+  list and their samples and capacity timeline entries from the history it shares
+  (`src/features/quota/privateCredentials.ts`), so counts, tabs, pools, the forecast, accounts,
+  spend, reserves and capacity never include them. Tests: `tests/privateCredentials.test.ts`.
 - **Usage reserves** (gateway `usage-reserves`, f-squared/CLIProxyAPI#29). Three surfaces:
   *Credential sheet* (`src/features/authFiles/components/AuthFileReserveFields.tsx`), on Claude, Codex,
   Muse (`meta`) and Devin credentials (`AUTH_FILE_USAGE_CAP_PROVIDERS`): Claude plan (`plan`: pro,

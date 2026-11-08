@@ -457,7 +457,12 @@
     "reserve_weekly_label": "每周预留（reserve_weekly_percent）",
     "reserve_hint": "为出借人保留：窗口用量达到 100 − 当前预留 时，网关停止向此账号路由；当前预留在重置前逐渐减少到下限。此处设置的预留在对应窗口优先于用量上限；留空则回退到上限（预留 = 100 − 上限），否则无预留。",
     "reserve_invalid": "预留必须是 0 到 100 之间的数字。",
-    "plan_multiplier_hint_claude": "此账号的价格相当于多少个 $20 基础套餐（Max $200 = 10）。仅在上方未设置 Claude 套餐时用作池权重；套餐的分窗口权重会取代它。"
+    "plan_multiplier_hint_claude": "此账号的价格相当于多少个 $20 基础套餐（Max $200 = 10）。仅在上方未设置 Claude 套餐时用作池权重；套餐的分窗口权重会取代它。",
+    "private_badge": "私有 · {{user}}",
+    "private_badge_title": "私有：仅服务 {{user}} 的请求，不记录用量，且不显示在“用量与额度”中。",
+    "private_user_label": "私有给",
+    "private_user_placeholder": "共享（无人）",
+    "private_user_hint": "用量账本中的用户，例如 Felix。只有该用户的请求会使用此凭证；它不记录用量，也不显示在“用量与额度”中。留空则共享。"
   },
   "antigravity_subscription": {
     "plan_unknown": "未知",
