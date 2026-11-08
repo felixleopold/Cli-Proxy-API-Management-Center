@@ -29,6 +29,7 @@ import type { AccountSpendContext } from './components/AccountSpend';
 import { UsageClientsEditor } from './components/UsageClientsEditor';
 import { UsageSpendChart, type ChartMarker, type ChartSeries } from './components/UsageSpendChart';
 import { UsageUsersTable } from './components/UsageUsersTable';
+import { withoutPrivate } from '@/features/quota/privateCredentials';
 import { useUsageDirectory, useUsageLedger } from './hooks/useUsageData';
 import {
   MAX_WINDOWS_BACK,
@@ -82,6 +83,8 @@ export interface UsageSectionsProps {
   filesReady: boolean;
   /** Quota history, for credentials without a live reading. */
   history: QuotaHistoryState;
+  /** Private credentials' auth ids: their spend, even from before, stays off the page. */
+  privateIds: ReadonlySet<string>;
   /** The page's provider filter: 'all' or a provider id. */
   provider: string;
   onProviderChange: (provider: string) => void;
@@ -99,6 +102,7 @@ export function UsageSections({
   files,
   filesReady,
   history,
+  privateIds,
   provider,
   onProviderChange,
   onRefresh,
@@ -187,14 +191,19 @@ export function UsageSections({
   );
 
   const userColors = useMemo(() => userSlots(labels), [labels]);
+  // Spend of private credentials never shows, including from before they were made private.
+  const buckets = useMemo(
+    () => withoutPrivate(ledger?.buckets ?? [], privateIds),
+    [ledger, privateIds]
+  );
   // A retired credential with spend in the loaded ledger keeps the colour it had while active.
   const subscriptionColors = useMemo(() => {
-    const spent = new Set(ledger?.buckets.map((bucket) => bucket.authId));
+    const spent = new Set(buckets.map((bucket) => bucket.authId));
     return subscriptionSlots([
       ...subscriptions,
       ...retired.filter((subscription) => spent.has(subscription.id)),
     ]);
-  }, [ledger, retired, subscriptions]);
+  }, [buckets, retired, subscriptions]);
   const subscriptionById = useMemo(
     () => new Map(subscriptions.map((subscription) => [subscription.id, subscription])),
     [subscriptions]
@@ -204,7 +213,6 @@ export function UsageSections({
     [retired]
   );
 
-  const buckets = useMemo(() => ledger?.buckets ?? [], [ledger]);
   const providerFilter = picked ? null : provider === 'all' ? null : provider;
   const tabProvider = provider === 'all' ? null : provider;
 

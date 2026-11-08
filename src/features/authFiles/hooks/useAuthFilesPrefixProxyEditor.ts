@@ -364,6 +364,12 @@ export const buildAuthFileFieldsPatch = (
     patch.weight = nextWeight;
   }
 
+  // Any credential can be private, whatever its provider supports.
+  const nextPrivateUser = editor.privateUser.trim();
+  if (nextPrivateUser !== normalizeTextField(original.private_user)) {
+    patch.private_user = nextPrivateUser || null;
+  }
+
   if (supportsAuthFileUsageCap(editor.providerKey)) {
     const originalUsageCap = readAuthFileUsageCapPercent(original);
     // An untouched value may be a gateway-valid fraction the whole-number input would reject.
@@ -397,11 +403,6 @@ export const buildAuthFileFieldsPatch = (
     const nextLender = editor.lender.trim();
     if (nextLender !== normalizeTextField(original.lender)) {
       patch.lender = nextLender || null;
-    }
-
-    const nextPrivateUser = editor.privateUser.trim();
-    if (nextPrivateUser !== normalizeTextField(original.private_user)) {
-      patch.private_user = nextPrivateUser || null;
     }
 
     for (const [field, key] of [

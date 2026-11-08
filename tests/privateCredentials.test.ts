@@ -1,8 +1,14 @@
 import { describe, expect, test } from 'bun:test';
 import {
   splitPrivateCredentials,
+  withoutPrivate,
   withoutPrivateHistory,
 } from '../src/features/quota/privateCredentials';
+import {
+  buildAuthFileFieldsPatch,
+  type PrefixProxyEditorState,
+} from '../src/features/authFiles/hooks/useAuthFilesPrefixProxyEditor';
+import type { UsageLedgerBucket } from '../src/types';
 import { normalizeAuthFilesResponse } from '../src/services/api/authFiles';
 import type { QuotaHistoryState } from '../src/features/quota/hooks/useQuotaHistory';
 import type { CapacityEntry } from '../src/services/api/capacityHistory';
@@ -19,6 +25,9 @@ const sample = (authId: string): QuotaHistorySample => ({
 });
 
 const entry = (authId: string) => ({ atMs: 1, authId }) as CapacityEntry;
+
+const bucket = (authId: string) =>
+  ({ hourMs: 1, provider: 'claude', authId, costUsd: 5 }) as UsageLedgerBucket;
 
 describe('private credentials on Usage & quota', () => {
   test('the listing carries private_user, and the page keeps only shared credentials', () => {
@@ -39,16 +48,60 @@ describe('private credentials on Usage & quota', () => {
       status: 'ok',
       samples: [sample('claude-shared'), sample('claude-mine')],
       forecastSamples: [sample('claude-mine')],
-      ledger: null,
+      ledger: [bucket('claude-mine'), bucket('claude-shared')],
       capacity: [entry('claude-mine'), entry('claude-shared')],
     };
     const filtered = withoutPrivateHistory(history, new Set(['claude-mine']));
     expect(filtered).toMatchObject({
       samples: [{ authId: 'claude-shared' }],
       forecastSamples: [],
+      ledger: [{ authId: 'claude-shared' }],
       capacity: [{ authId: 'claude-shared' }],
     });
     // Without private credentials the history is passed through as is.
     expect(withoutPrivateHistory(history, new Set())).toBe(history);
+  });
+
+  test('spend from before a credential was made private stays out of the spend history', () => {
+    const buckets = [bucket('claude-mine'), bucket('claude-shared'), bucket('')];
+    expect(withoutPrivate(buckets, new Set(['claude-mine'])).map((b) => b.authId)).toEqual([
+      'claude-shared',
+      '',
+    ]);
+  });
+});
+
+describe('private user field on the credential sheet', () => {
+  // Kimi has no usage-cap fields: the private user must still be patched.
+  const editor = (json: Record<string, unknown>, privateUser: string) =>
+    ({
+      json,
+      providerKey: 'kimi',
+      prefix: '',
+      proxyUrl: '',
+      priority: '',
+      weight: '',
+      usageCapPercent: '',
+      planMultiplier: '',
+      plan: '',
+      lender: '',
+      privateUser,
+      reserveFiveHour: '',
+      reserveWeekly: '',
+    }) as PrefixProxyEditorState;
+  const patch = (json: Record<string, unknown>, privateUser: string) =>
+    buildAuthFileFieldsPatch(editor(json, privateUser), (key) => key);
+
+  test('sets it on a provider without usage-cap support', () => {
+    expect(patch({}, ' Felix ')).toEqual({ private_user: 'Felix' });
+  });
+
+  test('clears it with null', () => {
+    expect(patch({ private_user: 'Felix' }, '')).toEqual({ private_user: null });
+  });
+
+  test('leaves an unchanged value out of the patch', () => {
+    expect(patch({ private_user: 'Felix' }, 'Felix')).toEqual({});
+    expect(patch({}, '')).toEqual({});
   });
 });

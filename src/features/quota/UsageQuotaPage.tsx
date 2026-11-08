@@ -420,6 +420,7 @@ export function UsageQuotaPage() {
         files={files}
         filesReady={!loading || files.length > 0}
         history={history}
+        privateIds={privateIds}
         provider={tab}
         onProviderChange={handleTabChange}
         onRefresh={loadFiles}

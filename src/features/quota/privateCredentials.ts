@@ -1,9 +1,10 @@
 /**
  * Private credentials (gateway `private_user`) serve one person only and record
- * no usage. Usage & quota leaves them out entirely: the page drops them from its
- * credential list, so counts, tabs, pools, the forecast, accounts, spend and
- * reserves never see them, and from the history it shares, so the capacity
- * timeline cannot bring one back as a past credential.
+ * no usage. Usage & quota and the Dashboard leave them out entirely: the pages
+ * drop them from their credential lists, so counts, tabs, pools, the forecast,
+ * accounts, spend and reserves never see them; and from the history and ledger,
+ * so neither the capacity timeline nor spend from before a credential was made
+ * private brings one back.
  */
 
 import type { AuthFileItem } from '@/types';
@@ -23,18 +24,23 @@ export function splitPrivateCredentials(files: readonly AuthFileItem[]): {
   return { shared, privateIds };
 }
 
-/** History without the private credentials' samples and capacity timeline entries. */
+/** Records without those of private credentials (ledger buckets, samples, timeline entries). */
+export const withoutPrivate = <T extends { authId: string }>(
+  items: T[],
+  privateIds: ReadonlySet<string>
+): T[] => (privateIds.size === 0 ? items : items.filter((item) => !privateIds.has(item.authId)));
+
+/** History without the private credentials' samples, capacity timeline entries and spend. */
 export function withoutPrivateHistory(
   history: QuotaHistoryState,
   privateIds: ReadonlySet<string>
 ): QuotaHistoryState {
   if (history.status !== 'ok' || privateIds.size === 0) return history;
-  const shared = <T extends { authId: string }>(items: T[]) =>
-    items.filter((item) => !privateIds.has(item.authId));
   return {
     ...history,
-    samples: shared(history.samples),
-    forecastSamples: shared(history.forecastSamples),
-    capacity: history.capacity && shared(history.capacity),
+    samples: withoutPrivate(history.samples, privateIds),
+    forecastSamples: withoutPrivate(history.forecastSamples, privateIds),
+    ledger: history.ledger && withoutPrivate(history.ledger, privateIds),
+    capacity: history.capacity && withoutPrivate(history.capacity, privateIds),
   };
 }

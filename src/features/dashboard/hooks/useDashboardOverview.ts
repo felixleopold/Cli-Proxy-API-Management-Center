@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { splitPrivateCredentials } from '@/features/quota/privateCredentials';
 import { authFilesApi } from '@/services/api';
 import { useAuthStore, useConfigStore, useModelsStore } from '@/stores';
 import { useApiKeysForModels } from '@/hooks/useApiKeysForModels';
@@ -133,7 +134,8 @@ export function useDashboardOverview() {
     if (!connected) return;
     try {
       const response = await authFilesApi.list();
-      setAuthFiles(response.files);
+      // Private credentials are only listed on Auth Files.
+      setAuthFiles(splitPrivateCredentials(response.files).shared);
     } catch {
       setAuthFiles(null);
     }
