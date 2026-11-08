@@ -459,7 +459,12 @@
     "reserve_weekly_label": "Weekly reserve (reserve_weekly_percent)",
     "reserve_hint": "Kept for the lender: the gateway stops routing here once a window's usage reaches 100 − the reserve held now, which tapers toward the floor before the reset. A reserve set here takes precedence over the usage cap for its window; empty falls back to the cap (reserve = 100 − cap), else no reserve.",
     "reserve_invalid": "Reserve must be a number from 0 to 100.",
-    "plan_multiplier_hint_claude": "This account's price in base $20 plans (Max $200 = 10). Only used as the pool weight when no Claude plan is set above; a plan's per-window weights replace it."
+    "plan_multiplier_hint_claude": "This account's price in base $20 plans (Max $200 = 10). Only used as the pool weight when no Claude plan is set above; a plan's per-window weights replace it.",
+    "private_badge": "Private · {{user}}",
+    "private_badge_title": "Private: serves only {{user}}'s requests, records no usage, and is left out of Usage & quota.",
+    "private_user_label": "Private for",
+    "private_user_placeholder": "Shared (no one)",
+    "private_user_hint": "A usage-ledger user, e.g. Felix. Only their requests use this credential; it records no usage and is left out of Usage & quota. Leave empty to share it."
   },
   "antigravity_subscription": {
     "plan_unknown": "Unknown",

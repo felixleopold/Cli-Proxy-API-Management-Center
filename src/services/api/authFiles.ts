@@ -49,6 +49,8 @@ export type AuthFileFieldsPatch = {
   plan?: string | null;
   nickname?: string | null;
   lender?: string | null;
+  /** The ledger user a private credential is reserved for; null clears it. */
+  private_user?: string | null;
   reserve_five_hour_percent?: number | null;
   reserve_weekly_percent?: number | null;
   disable_cooling?: boolean;
@@ -326,6 +328,7 @@ const normalizeAuthFileEntry = (
   const lenderOverrideUntil = Date.parse(readTextField(entry, 'lender_reserve_override_until'));
   const lenderOverrideKeep = reserve('lender_reserve_override_keep_percent');
   const nickname = readTextField(entry, 'nickname');
+  const privateUser = readTextField(entry, 'private_user');
   const paceMode = readTextField(entry, 'pace_mode');
   const paceUntil = Date.parse(readTextField(entry, 'pace_until'));
   const routingStatus = normalizeRoutingStatus(entry['routing_status']);
@@ -359,6 +362,7 @@ const normalizeAuthFileEntry = (
       ? { lenderReserveOverrideKeepPercent: lenderOverrideKeep }
       : {}),
     ...(nickname ? { nickname } : {}),
+    ...(privateUser ? { privateUser } : {}),
     ...((paceMode === 'flash' || paceMode === 'shield') && Number.isFinite(paceUntil)
       ? { paceMode, paceUntilMs: paceUntil }
       : {}),

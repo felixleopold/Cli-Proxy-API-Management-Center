@@ -65,6 +65,7 @@ export type PrefixProxyEditorField =
   | 'planMultiplier'
   | 'plan'
   | 'lender'
+  | 'privateUser'
   | 'reserveFiveHour'
   | 'reserveWeekly'
   | 'disableCooling'
@@ -100,6 +101,8 @@ export type PrefixProxyEditorState = {
   /** Claude plan name ('' when unset); other providers keep theirs untouched. */
   plan: string;
   lender: string;
+  /** The ledger user a private credential is reserved for ('' when shared). */
+  privateUser: string;
   reserveFiveHour: string;
   reserveFiveHourError: string | null;
   reserveWeekly: string;
@@ -361,6 +364,12 @@ export const buildAuthFileFieldsPatch = (
     patch.weight = nextWeight;
   }
 
+  // Any credential can be private, whatever its provider supports.
+  const nextPrivateUser = editor.privateUser.trim();
+  if (nextPrivateUser !== normalizeTextField(original.private_user)) {
+    patch.private_user = nextPrivateUser || null;
+  }
+
   if (supportsAuthFileUsageCap(editor.providerKey)) {
     const originalUsageCap = readAuthFileUsageCapPercent(original);
     // An untouched value may be a gateway-valid fraction the whole-number input would reject.
@@ -522,6 +531,7 @@ const buildPrefixProxyUpdatedText = (
   for (const key of [
     'plan',
     'lender',
+    'private_user',
     AUTH_FILE_RESERVE_KEYS.fiveHour,
     AUTH_FILE_RESERVE_KEYS.weekly,
   ] as const) {
@@ -639,6 +649,7 @@ export function useAuthFilesPrefixProxyEditor(
       planMultiplierError: null,
       plan: '',
       lender: '',
+      privateUser: '',
       reserveFiveHour: '',
       reserveFiveHourError: null,
       reserveWeekly: '',
@@ -739,6 +750,7 @@ export function useAuthFilesPrefixProxyEditor(
           planMultiplierError: null,
           plan: readAuthFilePlan(json),
           lender: normalizeTextField(json.lender),
+          privateUser: normalizeTextField(json.private_user),
           reserveFiveHour: reserveFiveHour !== null ? String(reserveFiveHour) : '',
           reserveFiveHourError: null,
           reserveWeekly: reserveWeekly !== null ? String(reserveWeekly) : '',
@@ -823,6 +835,7 @@ export function useAuthFilesPrefixProxyEditor(
       }
       if (field === 'plan') return { ...prev, plan: String(value) };
       if (field === 'lender') return { ...prev, lender: String(value) };
+      if (field === 'privateUser') return { ...prev, privateUser: String(value) };
       if (field === 'reserveFiveHour' || field === 'reserveWeekly') {
         const text = String(value);
         return {

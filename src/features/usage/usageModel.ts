@@ -627,6 +627,20 @@ export function subscriptionSlots(subscriptions: readonly Subscription[]): Map<s
   ]);
 }
 
+/**
+ * Models without a price among these buckets, sorted, for the spend history's
+ * note. Labelled like the gateway's own list: "gpt-6-sol (ultrafast)" when the
+ * missing price is for a speed tier.
+ */
+export const unpricedModels = (buckets: readonly UsageLedgerBucket[]): string[] =>
+  Array.from(
+    new Set(
+      buckets
+        .filter((bucket) => !bucket.priced)
+        .map((bucket) => (bucket.speed ? `${bucket.model} (${bucket.speed})` : bucket.model))
+    )
+  ).sort();
+
 // ---------- Serving credentials ----------
 
 /**

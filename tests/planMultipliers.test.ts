@@ -322,6 +322,7 @@ describe('plan multiplier field', () => {
       planMultiplier,
       plan: '',
       lender: '',
+      privateUser: '',
       reserveFiveHour: '',
       reserveWeekly: '',
     }) as PrefixProxyEditorState;

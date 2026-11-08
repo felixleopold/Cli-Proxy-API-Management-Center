@@ -262,6 +262,7 @@ describe('auth-file structured credential policy contracts', () => {
       planMultiplier: '',
       plan: '',
       lender: '',
+      privateUser: '',
       reserveFiveHour: '',
       reserveWeekly: '',
       policy: changed({}, 'requestRetry', { mode: 'custom', value: '2' }),

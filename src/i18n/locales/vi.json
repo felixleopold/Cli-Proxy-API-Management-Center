@@ -459,7 +459,12 @@
     "reserve_weekly_label": "Dự trữ hằng tuần (reserve_weekly_percent)",
     "reserve_hint": "Giữ lại cho người cho mượn: gateway ngừng định tuyến đến đây khi mức dùng của cửa sổ đạt 100 − dự trữ hiện tại, vốn giảm dần xuống mức sàn trước khi đặt lại. Dự trữ đặt ở đây ưu tiên hơn giới hạn sử dụng cho cửa sổ đó; để trống thì dùng giới hạn (dự trữ = 100 − giới hạn), nếu không thì không có dự trữ.",
     "reserve_invalid": "Dự trữ phải là số từ 0 đến 100.",
-    "plan_multiplier_hint_claude": "Giá của tài khoản này tính theo gói cơ bản $20 (Max $200 = 10). Chỉ dùng làm trọng số trong nhóm khi chưa đặt gói Claude ở trên; trọng số theo cửa sổ của gói sẽ thay thế nó."
+    "plan_multiplier_hint_claude": "Giá của tài khoản này tính theo gói cơ bản $20 (Max $200 = 10). Chỉ dùng làm trọng số trong nhóm khi chưa đặt gói Claude ở trên; trọng số theo cửa sổ của gói sẽ thay thế nó.",
+    "private_badge": "Riêng · {{user}}",
+    "private_badge_title": "Riêng: chỉ phục vụ yêu cầu của {{user}}, không ghi mức dùng và không hiện trong Mức dùng & hạn mức.",
+    "private_user_label": "Riêng cho",
+    "private_user_placeholder": "Dùng chung (không ai)",
+    "private_user_hint": "Người dùng trong sổ mức dùng, ví dụ Felix. Chỉ yêu cầu của họ dùng thông tin xác thực này; nó không ghi mức dùng và không hiện trong Mức dùng & hạn mức. Để trống để dùng chung."
   },
   "antigravity_subscription": {
     "plan_unknown": "Không rõ",

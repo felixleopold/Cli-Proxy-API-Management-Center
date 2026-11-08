@@ -160,6 +160,14 @@ export function AuthFileCard(props: AuthFileCardProps) {
             {identity.primary}
           </span>
         </h3>
+        {file.privateUser && (
+          <span
+            className={styles.privateLabel}
+            title={t('auth_files.private_badge_title', { user: file.privateUser })}
+          >
+            {t('auth_files.private_badge', { user: file.privateUser })}
+          </span>
+        )}
         {isRuntimeOnly && (
           <span className={styles.runtimeLabel}>{t('auth_files.type_virtual')}</span>
         )}
