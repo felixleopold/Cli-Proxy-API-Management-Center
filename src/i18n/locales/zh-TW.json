@@ -1694,7 +1694,8 @@
     "capacity_disabled": "{{name}} 已停用",
     "capacity_removed": "{{name}} 已刪除",
     "capacity_changed": "{{name}} → {{value}}",
-    "legend_capacity": "容量"
+    "legend_capacity": "容量",
+    "capacity_added": "{{name}} 已新增"
   },
   "quota_management": {
     "search_label": "搜尋帳號",

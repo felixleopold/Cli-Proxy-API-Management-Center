@@ -1671,7 +1671,8 @@
     "capacity_disabled": "{{name}} 비활성화",
     "capacity_removed": "{{name}} 삭제",
     "capacity_changed": "{{name}} → {{value}}",
-    "legend_capacity": "용량"
+    "legend_capacity": "용량",
+    "capacity_added": "{{name}} 추가"
   },
   "quota_management": {
     "search_label": "계정 검색",

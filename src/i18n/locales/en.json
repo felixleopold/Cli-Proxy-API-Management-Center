@@ -1671,7 +1671,8 @@
     "capacity_disabled": "{{name}} disabled",
     "capacity_removed": "{{name}} removed",
     "capacity_changed": "{{name}} → {{value}}",
-    "legend_capacity": "Capacity"
+    "legend_capacity": "Capacity",
+    "capacity_added": "{{name}} added"
   },
   "quota_management": {
     "search_label": "Search accounts",

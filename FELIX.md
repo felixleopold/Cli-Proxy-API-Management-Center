@@ -119,10 +119,13 @@ Current base: upstream `v1.25.6`.
   f-squared/CLIProxyAPI `feat/capacity-timeline`). The forecast loads the timeline over the same 14
   days as quota history (`src/services/api/capacityHistory.ts`, `hooks/useQuotaHistory.ts`). Each
   pool's history is drawn from `withCapacityTimeline`: every credential counts only while the
-  timeline has it active, including now-disabled or retired ones, and each sample reads at the
+  timeline has it active (from its entry's time; inactive reads as zero, not a gap), including
+  now-disabled or retired ones and ones without samples (capacity only), and a provider whose
+  last credential was retired keeps its card (`withTimelineProviders`); each sample reads at the
   plan weight and share in effect when it was taken, so past samples never take today's weight.
   The capacity is a dashed step line (`poolCapacity`) and the y axis reaches its highest step;
-  each step gets a neutral pill on a thin rule ("Ultra retired −10×", "Team seat → 5× +4×",
+  each step gets a neutral pill on a thin rule ("Ultra retired −10×", "Team seat → 5× +4×", a
+  first entry inside the range "X added +5×",
   `capacityChanges`), which replaces the reset pill at that instant, and the gateway's reason
   appears in the tooltip. Projections and headline totals stay on today's active credentials.
   Without the endpoint (404, or 409 when history is off) everything stays as before. *Retire*

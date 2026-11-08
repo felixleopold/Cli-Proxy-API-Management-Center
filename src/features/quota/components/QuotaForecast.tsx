@@ -48,6 +48,7 @@ import {
   steadyActivity,
   summarizePool,
   withCapacityTimeline,
+  withTimelineProviders,
   type CapacityChange,
   type CardReading,
   type DrainSpanDays,
@@ -167,9 +168,15 @@ export function QuotaForecast({
   const personPools = useUsagePool(person ? poolProviders(files, tab) : [], person);
   const showNotification = useNotificationStore((store) => store.showNotification);
 
+  // Providers the timeline had active within the drawn history keep their card.
+  const charted = useMemo(
+    () =>
+      timeline ? withTimelineProviders(pools, timeline, nowMs - MAX_HISTORY_DAYS * DAY_MS) : pools,
+    [pools, timeline, nowMs]
+  );
   const visible = useMemo(
-    () => (tab === 'all' ? pools : pools.filter((pool) => pool.provider === tab)),
-    [pools, tab]
+    () => (tab === 'all' ? charted : charted.filter((pool) => pool.provider === tab)),
+    [charted, tab]
   );
 
   const numbers = useMemo(() => {

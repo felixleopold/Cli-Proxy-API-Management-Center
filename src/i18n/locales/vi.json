@@ -1628,7 +1628,8 @@
     "capacity_disabled": "{{name}} đã tắt",
     "capacity_removed": "{{name}} đã xóa",
     "capacity_changed": "{{name}} → {{value}}",
-    "legend_capacity": "Dung lượng"
+    "legend_capacity": "Dung lượng",
+    "capacity_added": "Đã thêm {{name}}"
   },
   "quota_management": {
     "title": "Quản lý Quota",

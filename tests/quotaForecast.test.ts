@@ -20,6 +20,7 @@ import {
   poolHistory,
   capacityChanges,
   withCapacityTimeline,
+  withTimelineProviders,
   gatewayResetCredits,
   poolResetCredits,
   poolResetEvents,
@@ -1230,6 +1231,64 @@ describe('capacity timeline', () => {
     expect(valueAt(capacity, NOW - 0.5 * DAY_MS)).toBe(5);
     expect(capacityChanges(drawn, entries, NOW - 3 * DAY_MS, NOW)).toMatchObject([
       { kind: 'changed', effective: 5, delta: 4, reason: 'plan pro → max' },
+    ]);
+  });
+
+  test('a lone credential retired and reactivated reads zero in between, not a bridge', () => {
+    const entries = [
+      entry({}),
+      entry({ atMs: NOW - 2 * DAY_MS, active: false, retired: true, reason: 'retired' }),
+      entry({ atMs: NOW - DAY_MS, reason: 'unretired' }),
+    ];
+    const samples = [sample({ atMs: NOW - 3 * DAY_MS, usedPercent: 20 })];
+    const drawn = withCapacityTimeline(pool(credential({ usedPercent: 20 })), entries, samples);
+    const history = poolHistory(drawn, samples, NOW - 3 * DAY_MS, NOW);
+    expect(valueAt(history, NOW - 2.5 * DAY_MS)).toBeCloseTo(0.8);
+    expect(valueAt(history, NOW - 1.5 * DAY_MS)).toBe(0);
+    expect(valueAt(history, NOW - 0.5 * DAY_MS)).toBeCloseTo(0.8);
+  });
+
+  test("retiring a provider's last credential keeps its chart and marker", () => {
+    const entries = [
+      entry({ provider: 'codex' }),
+      entry({ provider: 'codex', atMs: NOW - DAY_MS, active: false, retired: true }),
+    ];
+    const pools = withTimelineProviders([], entries, NOW - 3 * DAY_MS);
+    expect(pools).toEqual([{ provider: 'codex', credentials: [], capacity: 0 }]);
+    const drawn = withCapacityTimeline(pools[0], entries, []);
+    expect(capacityChanges(drawn, entries, NOW - 3 * DAY_MS, NOW)).toMatchObject([
+      { kind: 'retired', delta: -1 },
+    ]);
+    // Retired before the range: nothing left to draw.
+    expect(withTimelineProviders([], entries, NOW - 0.5 * DAY_MS)).toEqual([]);
+  });
+
+  test('an idle credential without samples still counts towards capacity', () => {
+    const entries = [entry({}), entry({ authId: 'idle', weightWeekly: 10 })];
+    const samples = [sample({ atMs: NOW - 2 * DAY_MS, usedPercent: 20 })];
+    const drawn = withCapacityTimeline(pool(credential({ usedPercent: 20 })), entries, samples);
+    const capacity = poolCapacity(drawn, samples, NOW - 3 * DAY_MS, NOW) ?? [];
+    expect(valueAt(capacity, NOW - DAY_MS)).toBe(11);
+    // Its remaining quota is unknown, so the line holds only what was read.
+    expect(valueAt(poolHistory(drawn, samples, NOW - 3 * DAY_MS, NOW), NOW - DAY_MS)).toBeCloseTo(
+      0.8
+    );
+  });
+
+  test('an active period starts at its entry, not at an earlier sample', () => {
+    const entries = [entry({ atMs: NOW - DAY_MS })];
+    const samples = [sample({ atMs: NOW - 2 * DAY_MS, usedPercent: 20 })];
+    const drawn = withCapacityTimeline(pool(credential({ usedPercent: 20 })), entries, samples);
+    const capacity = poolCapacity(drawn, samples, NOW - 3 * DAY_MS, NOW) ?? [];
+    expect(valueAt(capacity, NOW - 1.5 * DAY_MS)).toBe(0);
+    expect(valueAt(capacity, NOW - 0.5 * DAY_MS)).toBe(1);
+  });
+
+  test('a first entry inside the range is an addition; one before it is the baseline', () => {
+    const entries = [entry({}), entry({ authId: 'b', atMs: NOW - DAY_MS, weightWeekly: 5 })];
+    const drawn = withCapacityTimeline(pool(credential()), entries, []);
+    expect(capacityChanges(drawn, entries, NOW - 3 * DAY_MS, NOW)).toMatchObject([
+      { authId: 'b', kind: 'added', delta: 5, effective: 5 },
     ]);
   });
 

@@ -1676,7 +1676,8 @@
     "capacity_disabled": "{{name}} отключён",
     "capacity_removed": "{{name}} удалён",
     "capacity_changed": "{{name}} → {{value}}",
-    "legend_capacity": "Ёмкость"
+    "legend_capacity": "Ёмкость",
+    "capacity_added": "{{name}} добавлен"
   },
   "quota_management": {
     "search_label": "Поиск аккаунтов",

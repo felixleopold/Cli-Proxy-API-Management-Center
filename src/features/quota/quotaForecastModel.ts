@@ -67,6 +67,11 @@ export interface PoolCredential {
    * its share then. Absent means always, with `share`.
    */
   periods?: CapacityPeriod[];
+  /**
+   * Known only from the capacity timeline, with no quota reading: it counts towards
+   * capacity, but its remaining quota is unknown.
+   */
+  unread?: true;
 }
 
 /** A span [fromMs, toMs) in which a credential was active, with its share then. */
@@ -320,9 +325,12 @@ const cardCredential = (
   };
 };
 
-/** Whether any enabled credential could join a pool, live or from history. */
+/**
+ * Whether any credential could join a pool, live or from history. Disabled and
+ * retired ones count too: the capacity timeline still draws their past.
+ */
 export const hasForecastCredentials = (files: AuthFileItem[]): boolean =>
-  files.some((file) => !file.disabled && isForecastProvider(providerOf(file)));
+  files.some((file) => isForecastProvider(providerOf(file)));
 
 /**
  * One pool per provider that has at least one enabled credential reporting a
@@ -916,7 +924,7 @@ export function poolResetEvents(
   );
   const clock = activityClock(activity.profile, nowMs, endMs);
   const future = credentialStates(pool, nowMs, activity, scenario).flatMap((state, index) => {
-    if (!shareAt(pool.credentials[index], nowMs)) return [];
+    if (pool.credentials[index].unread || !shareAt(pool.credentials[index], nowMs)) return [];
     const resets: CredentialReset[] = [];
     let previous: number | null = null;
     for (let atMs = state.resetAtMs; atMs <= endMs; atMs += state.periodMs) {
@@ -1034,7 +1042,9 @@ const poolSnapshots = (
       usedPercent: credential.usedPercent,
       resetAtMs: credential.resetAtMs,
     };
-    return [...samplesFor(credential, samples), seed].sort((left, right) => left.atMs - right.atMs);
+    return [...samplesFor(credential, samples), ...(credential.unread ? [] : [seed])].sort(
+      (left, right) => left.atMs - right.atMs
+    );
   });
 
 /**
@@ -1062,9 +1072,8 @@ const capacityAt = (
 ): number =>
   perCredential.reduce((sum, snapshots, index) => {
     const credential = pool.credentials[index];
-    const known =
-      credential.periods !== undefined ||
-      (side === 'right' ? snapshots[0].atMs <= t : snapshots[0].atMs < t);
+    const first = snapshots[0]?.atMs ?? Infinity;
+    const known = credential.periods !== undefined || (side === 'right' ? first <= t : first < t);
     const share = known ? shareAt(credential, t, side) : null;
     return share ? sum + share.effective : sum;
   }, 0);
@@ -1110,7 +1119,12 @@ export function poolHistory(
       const credential = pool.credentials[index];
       const used = usedAt(t, side);
       const active = shareAt(credential, t, side);
-      if (used === null || !active) return;
+      // Inactive per the timeline is a known zero, not a gap; no reading stays unknown.
+      if (!active) {
+        if (credential.periods) sum = sum ?? 0;
+        return;
+      }
+      if (used === null) return;
       const share = shareAt(credential, used.atMs) ?? active;
       sum = (sum ?? 0) + remainingMultiplier(share, used.usedPercent);
     });
@@ -1144,11 +1158,12 @@ const timelineOf = (provider: ForecastProvider, entries: readonly CapacityEntry[
 
 /**
  * The pool as its history should be drawn: every credential gets its active
- * periods from the capacity timeline, and credentials no longer in the pool
- * (disabled or retired) that were active and have samples join for the time they
- * were active. Before its first entry a credential stands as first recorded, from
- * its first sample on. `capacity` stays the pool's current one. Without timeline
- * entries for the provider the pool comes back unchanged.
+ * periods from the capacity timeline, each from its entry's time (the endpoint
+ * returns each credential's entry before the range, so its state there is known),
+ * and credentials no longer in the pool (disabled or retired) that were active
+ * join for the time they were active; without samples they count towards capacity
+ * only. Credentials without entries count as today. `capacity` stays the pool's
+ * current one. Without timeline entries for the provider the pool comes back unchanged.
  */
 export function withCapacityTimeline(
   pool: ProviderPool,
@@ -1162,16 +1177,11 @@ export function withCapacityTimeline(
     const own = byAuth.get(credential.authId);
     if (!own) return credential;
     const window = planWindowOf(credential.window);
-    const firstSeen = Math.min(
-      own[0].atMs,
-      samplesFor(credential, samples)[0]?.atMs ?? Infinity,
-      credential.observedAtMs ?? Infinity
-    );
     const periods = own.flatMap((entry, index) =>
       entry.active
         ? [
             {
-              fromMs: index === 0 ? firstSeen : entry.atMs,
+              fromMs: entry.atMs,
               toMs: own[index + 1]?.atMs ?? Infinity,
               share: entryShare(entry, window),
             },
@@ -1186,13 +1196,41 @@ export function withCapacityTimeline(
     const active = own.filter((entry) => entry.active);
     const lastActive = active[active.length - 1];
     if (current.has(authId) || !lastActive) return [];
-    const credential = sampleCredential(authId, samples, (window) =>
-      entryShare(lastActive, window)
-    );
-    return credential ? [withPeriods(credential)] : [];
+    const shareOf = (window: PlanWindow) => entryShare(lastActive, window);
+    const credential: PoolCredential = sampleCredential(authId, samples, shareOf) ?? {
+      authId,
+      window: 'weekly',
+      periodMs: 7 * DAY_MS,
+      usedPercent: 0,
+      resetAtMs: 0,
+      observedAtMs: null,
+      share: shareOf('weekly'),
+      unread: true,
+    };
+    return [withPeriods(credential)];
   });
 
   return { ...pool, credentials: [...pool.credentials.map(withPeriods), ...past] };
+}
+
+/**
+ * The pools plus an empty one for each provider the timeline had active since
+ * fromMs but that has no live credential now (e.g. its last one was retired), so
+ * its history and capacity changes are still drawn.
+ */
+export function withTimelineProviders(
+  pools: ProviderPool[],
+  entries: readonly CapacityEntry[],
+  fromMs: number
+): ProviderPool[] {
+  return FORECAST_PROVIDERS.flatMap((provider) => {
+    const live = pools.find((pool) => pool.provider === provider);
+    if (live) return [live];
+    const activeSince = Array.from(timelineOf(provider, entries).values()).some((own) =>
+      own.some((entry, index) => entry.active && (own[index + 1]?.atMs ?? Infinity) > fromMs)
+    );
+    return activeSince ? [{ provider, credentials: [], capacity: 0 }] : [];
+  });
 }
 
 /**
@@ -1210,7 +1248,7 @@ export function poolCapacity(
   const times = [
     fromMs,
     nowMs,
-    ...perCredential.map((snapshots) => snapshots[0].atMs),
+    ...perCredential.flatMap((snapshots) => (snapshots[0] ? [snapshots[0].atMs] : [])),
     ...periodEdges(pool, fromMs, nowMs),
   ].filter((t) => t >= fromMs && t <= nowMs);
   return buildSeries(times, (t, side) => capacityAt(pool, perCredential, t, side));
@@ -1221,7 +1259,8 @@ export const capacityVaries = (series: SeriesPoint[] | null, capacity: number): 
   series !== null && series.some((point) => Math.abs(point.v - capacity) > 1e-9);
 
 /** What a capacity change did to its credential. */
-export type CapacityChangeKind = 'retired' | 'reactivated' | 'enabled' | 'disabled' | 'changed';
+export type CapacityChangeKind =
+  'added' | 'retired' | 'reactivated' | 'enabled' | 'disabled' | 'changed';
 
 /** One step of the pool's capacity: a credential retired, reactivated or resized. */
 export interface CapacityChange {
@@ -1242,6 +1281,8 @@ export interface CapacityChange {
  * Capacity changes in (fromMs, nowMs] of a pool from withCapacityTimeline, in its
  * credentials' pooled windows. Changes that leave the window's effective multiplier
  * as it was (e.g. a 5-hour reserve on a weekly pool) are no step and are left out.
+ * A credential's first entry inside the range is an addition from zero; one before
+ * it is the state the range starts from.
  */
 export function capacityChanges(
   pool: ProviderPool,
@@ -1258,12 +1299,13 @@ export function capacityChanges(
         entry.active ? entryShare(entry, window).effective : 0;
       return own.flatMap((entry, index): CapacityChange[] => {
         const previous = own[index - 1];
-        if (!previous || entry.atMs <= fromMs || entry.atMs > nowMs) return [];
+        if (entry.atMs <= fromMs || entry.atMs > nowMs) return [];
         const effective = effectiveOf(entry);
-        const delta = effective - effectiveOf(previous);
+        const delta = effective - (previous ? effectiveOf(previous) : 0);
         if (Math.abs(delta) < 1e-9) return [];
-        const kind: CapacityChangeKind =
-          previous.active && !entry.active
+        const kind: CapacityChangeKind = !previous
+          ? 'added'
+          : previous.active && !entry.active
             ? entry.retired
               ? 'retired'
               : 'disabled'
