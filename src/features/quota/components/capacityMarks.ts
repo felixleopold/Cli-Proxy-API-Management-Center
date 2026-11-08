@@ -26,8 +26,9 @@ const CHIP_GAP_PX = 6;
 
 /**
  * Chips for the changes of at least `minSize` inside [left, right], left to
- * right. A chip that would overlap its neighbour merges with it, centred on its
- * changes and labelled by `countText`, until none overlap.
+ * right. A chip that would cover `keepClear` (the "Now" label) moves to its left
+ * first; then a chip that would overlap its neighbour, where it ends up, merges
+ * with it, centred on its changes and labelled by `countText`, until none overlap.
  */
 export function capacityChips(
   marks: readonly ChipInput[],
@@ -36,20 +37,29 @@ export function capacityChips(
   right: number,
   minSize: number,
   widthOf: (text: string) => number,
-  countText: (count: number) => string
+  countText: (count: number) => string,
+  keepClear?: { from: number; to: number }
 ): CapacityChip[] {
   const groups = marks
     .filter((mark) => mark.size >= minSize)
     .map((mark) => ({ xs: [x(mark.atMs)], delta: mark.delta }))
     .filter(({ xs }) => xs[0] >= left && xs[0] <= right)
     .sort((a, b) => a.xs[0] - b.xs[0]);
-  const chip = (group: { xs: number[]; delta: string }): CapacityChip => ({
-    x: group.xs.reduce((sum, value) => sum + value, 0) / group.xs.length,
-    text: group.xs.length === 1 ? group.delta : countText(group.xs.length),
-    count: group.xs.length,
-  });
+  const chip = (group: { xs: number[]; delta: string }): CapacityChip => {
+    const text = group.xs.length === 1 ? group.delta : countText(group.xs.length);
+    const half = widthOf(text) / 2;
+    const centre = group.xs.reduce((sum, value) => sum + value, 0) / group.xs.length;
+    const covers =
+      keepClear !== undefined && centre + half > keepClear.from && centre - half < keepClear.to;
+    return {
+      x: covers ? Math.max(left + half, keepClear.from - half) : centre,
+      text,
+      count: group.xs.length,
+    };
+  };
+  // A chip moved off keepClear can land on (or past) its left neighbour.
   const overlaps = (a: CapacityChip, b: CapacityChip) =>
-    b.x - a.x < (widthOf(a.text) + widthOf(b.text)) / 2 + CHIP_GAP_PX;
+    Math.abs(b.x - a.x) < (widthOf(a.text) + widthOf(b.text)) / 2 + CHIP_GAP_PX;
   for (let index = 1; index < groups.length;) {
     if (overlaps(chip(groups[index - 1]), chip(groups[index]))) {
       groups[index - 1].xs.push(...groups[index].xs);

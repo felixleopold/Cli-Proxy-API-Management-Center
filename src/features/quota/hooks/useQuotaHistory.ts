@@ -9,8 +9,12 @@ import {
 import type { UsageLedgerBucket } from '@/types';
 import { DAY_MS } from '../quotaForecastModel';
 
-/** The ledger only calibrates the forecast's recent activity, so it stays at two weeks. */
-const LEDGER_LOOKBACK_MS = 14 * DAY_MS;
+/**
+ * The forecast's inputs (pools, learned activity, burn, drain) and the ledger stay
+ * on the last two weeks whatever past range the chart draws, so widening the
+ * range never changes the forecast.
+ */
+const FORECAST_LOOKBACK_MS = 14 * DAY_MS;
 
 export type QuotaHistoryState =
   | { status: 'loading' }
@@ -20,7 +24,10 @@ export type QuotaHistoryState =
    */
   | {
       status: 'ok';
+      /** Everything loaded, for drawing the chosen past range. */
       samples: QuotaHistorySample[];
+      /** The last two weeks of `samples`, for everything that forecasts or reads current state. */
+      forecastSamples: QuotaHistorySample[];
       ledger: UsageLedgerBucket[] | null;
       capacity: CapacityEntry[] | null;
     }
@@ -48,7 +55,7 @@ export function useQuotaHistory(
     const fromMs = nowMs - lookbackDays * DAY_MS;
     Promise.all([
       quotaHistoryApi.list(fromMs, nowMs),
-      usageLedgerApi.getLedger(nowMs - LEDGER_LOOKBACK_MS, nowMs).then(
+      usageLedgerApi.getLedger(nowMs - FORECAST_LOOKBACK_MS, nowMs).then(
         (ledger) => ledger.buckets,
         () => null
       ),
@@ -58,7 +65,15 @@ export function useQuotaHistory(
       ),
     ]).then(
       ([result, ledger, capacity]) => {
-        if (current) setState(result.status === 'ok' ? { ...result, ledger, capacity } : result);
+        if (!current) return;
+        if (result.status !== 'ok') {
+          setState(result);
+          return;
+        }
+        const forecastSamples = result.samples.filter(
+          (sample) => sample.atMs >= nowMs - FORECAST_LOOKBACK_MS
+        );
+        setState({ ...result, forecastSamples, ledger, capacity });
       },
       () => {
         if (current) setState({ status: 'error' });

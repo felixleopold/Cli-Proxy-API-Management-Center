@@ -57,4 +57,25 @@ describe('capacity change chips', () => {
     );
     expect(chips).toEqual([]);
   });
+
+  test('a chip moved off the Now label merges with the chip it would land on', () => {
+    // −10× at 540 sits clear of Now (560..600); +4× at 580 is under it and moves left onto it.
+    const chips = capacityChips(
+      [
+        { atMs: 540, size: 10, delta: '−10×' },
+        { atMs: 580, size: 4, delta: '+4×' },
+      ],
+      (t) => t,
+      0,
+      1000,
+      0.5,
+      width,
+      count,
+      { from: 560, to: 600 }
+    );
+    expect(chips).toHaveLength(1);
+    expect(chips[0]).toMatchObject({ text: '2 changes', count: 2 });
+    // And the merged chip still keeps clear of Now.
+    expect(chips[0].x + width(chips[0].text) / 2).toBeLessThanOrEqual(560);
+  });
 });

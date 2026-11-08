@@ -577,22 +577,26 @@ export function RemainingChart({
     }, null);
   const tooltipRows = (t: number): TooltipRow[] => {
     const value = seriesAt(row, t, nowMs);
-    if (value === null) return [];
     const projected = t > nowMs;
     const low = projected && row.range ? valueAt(row.range.low, t) : null;
     const high = projected && row.range ? valueAt(row.range.high, t) : null;
     const name = projected ? projectedLabel : remainingLabel;
+    // Without a remaining value (before the first sample, in a gap) the markers still explain themselves.
     return [
-      {
-        key: row.key,
-        color: row.color,
-        dashed: projected,
-        value: formatPoint(value, capacityAt(row, t, nowMs)),
-        label:
-          low !== null && high !== null && formatValue(low) !== formatValue(high)
-            ? `${name} · ${formatValue(low)}–${formatValue(high)}`
-            : name,
-      },
+      ...(value === null
+        ? []
+        : [
+            {
+              key: row.key,
+              color: row.color,
+              dashed: projected,
+              value: formatPoint(value, capacityAt(row, t, nowMs)),
+              label:
+                low !== null && high !== null && formatValue(low) !== formatValue(high)
+                  ? `${name} · ${formatValue(low)}–${formatValue(high)}`
+                  : name,
+            },
+          ]),
       ...(() => {
         const event = resetNear(t);
         if (!event) return [];
@@ -654,7 +658,7 @@ export function RemainingChart({
       ? []
       : [{ x, y: frame.y(value), major: mark.size >= chipMin }];
   });
-  // Delta chips share the lane of the "Now" label; one that would cover it moves to its left.
+  // Delta chips share the lane of the "Now" label, which they keep clear of.
   const nowHalf = laneTextWidth(nowLabel) / 2 + 10;
   const chips = capacityChips(
     row.capacityMarks,
@@ -663,12 +667,9 @@ export function RemainingChart({
     frame.width - MARGIN.right,
     chipMin,
     laneTextWidth,
-    formatChangeCount
-  ).map((chip) => {
-    const half = laneTextWidth(chip.text) / 2;
-    const covers = chip.x + half > nowX - nowHalf && chip.x - half < nowX + nowHalf;
-    return { ...chip, x: covers ? Math.max(MARGIN.left + half, nowX - nowHalf - half) : chip.x };
-  });
+    formatChangeCount,
+    { from: nowX - nowHalf, to: nowX + nowHalf }
+  );
   // The capacity ceiling: the timeline's steps, then flat at today's capacity.
   const ceiling =
     showCapacity && row.capacityHistory

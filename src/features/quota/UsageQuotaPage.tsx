@@ -253,7 +253,7 @@ export function UsageQuotaPage() {
    * Shared by the forecast and the account rows: live signals, else the latest history
    * reading, else the loaded card. */
 
-  const historySamples = history.status === 'ok' ? history.samples : null;
+  const historySamples = history.status === 'ok' ? history.forecastSamples : null;
   const cardReadings = useMemo(
     () =>
       new Map(

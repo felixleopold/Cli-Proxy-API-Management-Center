@@ -1161,21 +1161,27 @@ export function poolHistory(
 
   const cursors = perCredential.map(snapshotCursor);
   return buildSeries(times, (t, side) => {
-    let sum: number | null = null;
+    let sum = 0;
+    let read = 0;
+    let active = 0;
+    let knownInactive = false;
     cursors.forEach((usedAt, index) => {
       const credential = pool.credentials[index];
       const used = usedAt(t, side);
-      const active = shareAt(credential, t, side);
-      // Inactive per the timeline is a known zero, not a gap; no reading stays unknown.
-      if (!active) {
-        if (credential.periods) sum = sum ?? 0;
+      const activeShare = shareAt(credential, t, side);
+      if (!activeShare) {
+        knownInactive ||= credential.periods !== undefined;
         return;
       }
+      active += 1;
       if (used === null) return;
-      const share = shareAt(credential, used.atMs) ?? active;
-      sum = (sum ?? 0) + remainingMultiplier(share, used.usedPercent);
+      read += 1;
+      const share = shareAt(credential, used.atMs) ?? activeShare;
+      sum += remainingMultiplier(share, used.usedPercent);
     });
-    return sum;
+    // What was read; with nothing read it is unknown, unless the timeline has nothing active (zero).
+    if (read > 0) return sum;
+    return active === 0 && knownInactive ? 0 : null;
   });
 }
 

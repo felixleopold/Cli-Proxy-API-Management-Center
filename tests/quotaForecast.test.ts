@@ -1282,6 +1282,20 @@ describe('capacity timeline', () => {
     ]);
   });
 
+  test('before any reading of an active credential the line is unknown, not zero', () => {
+    // b is active from day −4 but never read; a joins at day −2 with a sample at day −1.
+    const entries = [
+      entry({ authId: 'b', atMs: NOW - 4 * DAY_MS }),
+      entry({ atMs: NOW - 2 * DAY_MS }),
+    ];
+    const samples = [sample({ atMs: NOW - DAY_MS, usedPercent: 20 })];
+    const drawn = withCapacityTimeline(pool(credential({ usedPercent: 20 })), entries, samples);
+    const history = poolHistory(drawn, samples, NOW - 5 * DAY_MS, NOW);
+    expect(valueAt(history, NOW - 4.5 * DAY_MS)).toBe(0);
+    expect(valueAt(history, NOW - 3 * DAY_MS)).toBeNull();
+    expect(valueAt(history, NOW - 0.5 * DAY_MS)).toBeCloseTo(0.8);
+  });
+
   test('an idle credential without samples still counts towards capacity', () => {
     const entries = [entry({}), entry({ authId: 'idle', weightWeekly: 10 })];
     const samples = [sample({ atMs: NOW - 2 * DAY_MS, usedPercent: 20 })];

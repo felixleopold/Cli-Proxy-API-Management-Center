@@ -145,14 +145,16 @@ export function QuotaForecast({
   const tick = useNow(nowProp === undefined);
   const nowMs = nowProp ?? tick;
 
+  // Everything loaded draws the past range; the forecast itself stays on the last two weeks.
   const samples = history.status === 'ok' ? history.samples : null;
+  const recent = history.status === 'ok' ? history.forecastSamples : null;
   const ledger = history.status === 'ok' ? history.ledger : null;
   // The capacity timeline; null on gateways without one, where capacity is today's throughout.
   const timeline = history.status === 'ok' ? history.capacity : null;
   // Credentials without live signals join from their latest history reading, else their loaded card.
   const pools = useMemo(
-    () => buildPools(files, samples ?? [], cardReadings),
-    [files, samples, cardReadings]
+    () => buildPools(files, recent ?? [], cardReadings),
+    [files, recent, cardReadings]
   );
 
   const [prefs, setPrefs] = useState<ForecastPrefs>(readForecastPrefs);
@@ -223,17 +225,17 @@ export function QuotaForecast({
 
   // Learned from every pool, not just the visible ones: one person sleeps once.
   const activity = useMemo(
-    () => learnActivity(pools, samples ?? [], nowMs, sleep, ledger ?? []),
-    [pools, samples, nowMs, sleep, ledger]
+    () => learnActivity(pools, recent ?? [], nowMs, sleep, ledger ?? []),
+    [pools, recent, nowMs, sleep, ledger]
   );
   // "Same as now" needs history to measure the burn; without it the usual pattern stands in.
   const future = prefs.future === 'same' && !samples ? 'usual' : prefs.future;
   const projected = useMemo(
     () =>
-      future === 'same' && samples
-        ? steadyActivity(pools, samples, nowMs, prefs.burnHours, activity)
+      future === 'same' && recent
+        ? steadyActivity(pools, recent, nowMs, prefs.burnHours, activity)
         : activity,
-    [future, samples, pools, nowMs, prefs.burnHours, activity]
+    [future, recent, pools, nowMs, prefs.burnHours, activity]
   );
   const scenario = futureScenario(future);
   const night = useMemo(() => nightHours(activity.sleep), [activity]);
@@ -317,8 +319,8 @@ export function QuotaForecast({
             name: accountNames.get(first.authId) ?? first.authId,
             atMs: first.atMs,
           },
-          burn: samples && !pool.unread ? recentBurn(pool, samples, nowMs, prefs.burnHours) : null,
-          drain: samples ? drainBuckets(pool, samples, edges) : null,
+          burn: recent && !pool.unread ? recentBurn(pool, recent, nowMs, prefs.burnHours) : null,
+          drain: recent ? drainBuckets(pool, recent, edges) : null,
         };
       }),
     [
@@ -328,6 +330,7 @@ export function QuotaForecast({
       nowMs,
       t,
       samples,
+      recent,
       startMs,
       endMs,
       projected,

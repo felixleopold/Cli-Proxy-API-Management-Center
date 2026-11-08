@@ -117,7 +117,7 @@ export function UsageSections({
   const [stackBy, setStackBy] = useState<StackBy>('user');
 
   const directory = useUsageDirectory();
-  const samples = history.status === 'ok' ? history.samples : null;
+  const samples = history.status === 'ok' ? history.forecastSamples : null;
   const subscriptions = useMemo(
     () =>
       files
