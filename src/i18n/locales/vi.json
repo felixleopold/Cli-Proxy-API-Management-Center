@@ -1639,7 +1639,9 @@
     "past_all": "Tất cả",
     "past_hint": "Biểu đồ lùi về bao xa. Trước mẫu hạn mức đầu tiên chỉ hiện các bậc dung lượng; Tất cả bắt đầu từ mục dung lượng hoặc mẫu sớm nhất.",
     "capacity_changes": "{{count}} thay đổi",
-    "legend_capacity_change": "Thay đổi dung lượng"
+    "legend_capacity_change": "Thay đổi dung lượng",
+    "chart_taller": "Biểu đồ cao hơn",
+    "chart_shorter": "Chiều cao thường"
   },
   "quota_management": {
     "title": "Quản lý Quota",

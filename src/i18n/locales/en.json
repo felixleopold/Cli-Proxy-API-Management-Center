@@ -1682,7 +1682,9 @@
     "past_all": "All",
     "past_hint": "How far back the chart goes. Before the first quota sample only the capacity steps show; All starts at the earliest capacity entry or sample.",
     "capacity_changes": "{{count}} changes",
-    "legend_capacity_change": "Capacity change"
+    "legend_capacity_change": "Capacity change",
+    "chart_taller": "Taller chart",
+    "chart_shorter": "Normal height"
   },
   "quota_management": {
     "search_label": "Search accounts",

@@ -1,6 +1,5 @@
 import { useEffect, useId, useMemo, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { axisMax } from '@/features/dashboard/utils';
 import {
   addUnits,
   axisTicks,
@@ -11,9 +10,8 @@ import {
   type TimeSpan,
 } from '../usageModel';
 import { slotClassName } from './slotClass';
+import { spendAxis } from './spendAxis';
 import styles from './UsageSpendChart.module.scss';
-
-const TICK_COUNT = 4;
 
 export interface ChartSeries {
   key: string;
@@ -38,6 +36,8 @@ interface UsageSpendChartProps {
   showFuture: boolean;
   markers: ChartMarker[];
   summary: string;
+  /** About twice as tall, with twice the gridlines. */
+  tall?: boolean;
 }
 
 const position = (ms: number, span: TimeSpan) =>
@@ -52,6 +52,7 @@ export function UsageSpendChart({
   showFuture,
   markers,
   summary,
+  tall = false,
 }: UsageSpendChartProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage;
@@ -69,8 +70,7 @@ export function UsageSpendChart({
   }, [activeIndex]);
 
   const peak = Math.max(0, ...stacked.map((bucket) => bucket.total));
-  const scaleMax = axisMax(peak, TICK_COUNT);
-  const yTicks = Array.from({ length: TICK_COUNT + 1 }, (_, index) => index / TICK_COUNT);
+  const { scaleMax, ticks: yTicks, cents } = spendAxis(peak, tall);
   const xTicks = useMemo(() => axisTicks(span, unit), [span, unit]);
   // Keyboard focus starts on the bucket containing now.
   const lastPastIndex = stacked.reduce(
@@ -142,7 +142,7 @@ export function UsageSpendChart({
   const nowPosition = position(nowMs, span);
 
   return (
-    <figure className={styles.chart}>
+    <figure className={styles.chart} data-tall={tall || undefined}>
       <figcaption className={styles.legend}>
         {series.map((item) => (
           <span key={item.key} className={styles.legendItem}>
@@ -162,7 +162,7 @@ export function UsageSpendChart({
         <div className={styles.yAxis} aria-hidden="true">
           {yTicks.map((ratio) => (
             <span key={ratio} className={styles.yTick} style={{ bottom: `${ratio * 100}%` }}>
-              {formatUsd(scaleMax * ratio, locale, true)}
+              {formatUsd(scaleMax * ratio, locale, !cents)}
             </span>
           ))}
         </div>

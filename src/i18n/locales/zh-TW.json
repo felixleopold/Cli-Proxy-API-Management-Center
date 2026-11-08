@@ -1705,7 +1705,9 @@
     "past_all": "全部",
     "past_hint": "圖表往前顯示的範圍。在第一個額度樣本之前只顯示容量階梯；「全部」從最早的容量紀錄或樣本開始。",
     "capacity_changes": "{{count}} 處變更",
-    "legend_capacity_change": "容量變更"
+    "legend_capacity_change": "容量變更",
+    "chart_taller": "加高圖表",
+    "chart_shorter": "恢復正常高度"
   },
   "quota_management": {
     "search_label": "搜尋帳號",

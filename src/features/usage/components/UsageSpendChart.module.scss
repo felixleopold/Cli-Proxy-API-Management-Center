@@ -11,6 +11,11 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+
+  /* Expanded: twice the height, so thin series and markers separate. */
+  &[data-tall] {
+    --chart-height: 464px;
+  }
 }
 
 .legend {

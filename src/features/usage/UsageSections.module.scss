@@ -321,6 +321,14 @@
   background: var(--bg-primary);
 }
 
+/* The spend chart's controls: stack mode, then taller. */
+.panelActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
 .panelHead {
   display: flex;
   align-items: flex-start;

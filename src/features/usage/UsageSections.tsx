@@ -30,6 +30,8 @@ import { UsageClientsEditor } from './components/UsageClientsEditor';
 import { UsageSpendChart, type ChartMarker, type ChartSeries } from './components/UsageSpendChart';
 import { UsageUsersTable } from './components/UsageUsersTable';
 import { withoutPrivate } from '@/features/quota/privateCredentials';
+import { TallChartToggle } from '@/features/quota/components/TallChartToggle';
+import { readTallCharts, writeTallChart } from '@/features/quota/tallCharts';
 import { useUsageDirectory, useUsageLedger } from './hooks/useUsageData';
 import {
   MAX_WINDOWS_BACK,
@@ -120,6 +122,12 @@ export function UsageSections({
   const [range, setRange] = useState<UsageRange>('7d');
   const [windowPick, setWindowPick] = useState<{ id: string; stepsBack: number } | null>(null);
   const [stackBy, setStackBy] = useState<StackBy>('user');
+  // Taller spend chart, remembered across visits.
+  const [tallSpend, setTallSpend] = useState(() => readTallCharts().has('spend'));
+  const toggleTallSpend = () => {
+    setTallSpend(!tallSpend);
+    writeTallChart('spend', !tallSpend);
+  };
 
   const directory = useUsageDirectory();
   const samples = history.status === 'ok' ? history.forecastSamples : null;
@@ -615,26 +623,30 @@ export function UsageSections({
                     <h3 className={styles.panelTitle}>{t('usage.chart_title')}</h3>
                     <p className={styles.panelHint}>{t(`usage.chart_hint_${selection.unit}`)}</p>
                   </div>
-                  {!picked && (
-                    <div
-                      className={`${styles.segmented} ${styles.segmentedSmall}`}
-                      role="group"
-                      aria-label={t('usage.stack_label')}
-                    >
-                      {STACK_MODES.map((value) => (
-                        <button
-                          key={value}
-                          type="button"
-                          aria-pressed={stackBy === value}
-                          onClick={() => setStackBy(value)}
-                        >
-                          {t(`usage.stack_${value}`)}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <span className={styles.panelActions}>
+                    {!picked && (
+                      <div
+                        className={`${styles.segmented} ${styles.segmentedSmall}`}
+                        role="group"
+                        aria-label={t('usage.stack_label')}
+                      >
+                        {STACK_MODES.map((value) => (
+                          <button
+                            key={value}
+                            type="button"
+                            aria-pressed={stackBy === value}
+                            onClick={() => setStackBy(value)}
+                          >
+                            {t(`usage.stack_${value}`)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <TallChartToggle tall={tallSpend} onToggle={toggleTallSpend} />
+                  </span>
                 </header>
                 <UsageSpendChart
+                  tall={tallSpend}
                   stacked={stacked}
                   series={series}
                   span={selection}
