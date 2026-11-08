@@ -10,6 +10,7 @@ import {
 } from '../src/features/authFiles/hooks/useAuthFilesPrefixProxyEditor';
 import type { UsageLedgerBucket } from '../src/types';
 import { unpricedModels } from '../src/features/usage/usageModel';
+import { normalizeUsageLedger } from '../src/services/api/usageLedger';
 import { normalizeAuthFilesResponse } from '../src/services/api/authFiles';
 import type { QuotaHistoryState } from '../src/features/quota/hooks/useQuotaHistory';
 import type { CapacityEntry } from '../src/services/api/capacityHistory';
@@ -78,6 +79,27 @@ test('a model only a private credential used is not named as unpriced', () => {
   const buckets = [unpriced('claude-mine', 'secret-model'), unpriced('claude-shared', 'grok-4.7')];
   expect(unpricedModels(buckets)).toEqual(['grok-4.7', 'secret-model']);
   expect(unpricedModels(withoutPrivate(buckets, new Set(['claude-mine'])))).toEqual(['grok-4.7']);
+});
+
+test('an unpriced speed tier keeps its label, as the gateway lists it', () => {
+  const { buckets } = normalizeUsageLedger(
+    {
+      from: '2026-11-01T00:00:00Z',
+      to: '2026-11-02T00:00:00Z',
+      buckets: [
+        {
+          hour: '2026-11-01T10:00:00Z',
+          auth_id: 'codex-a',
+          model: 'gpt-6-sol',
+          priced: false,
+          speed: 'ultrafast',
+        },
+        { hour: '2026-11-01T11:00:00Z', auth_id: 'codex-a', model: 'gpt-6-sol', priced: true },
+      ],
+    },
+    Date.parse('2026-11-02T00:00:00Z')
+  );
+  expect(unpricedModels(buckets)).toEqual(['gpt-6-sol (ultrafast)']);
 });
 
 describe('private user field on the credential sheet', () => {

@@ -17,6 +17,8 @@ export interface UsageLedgerBucket {
   reasoningTokens: number;
   costUsd: number;
   priced: boolean;
+  /** Billing tier: "fast" or "ultrafast"; absent for standard. */
+  speed?: string;
 }
 
 export interface UsageClient {

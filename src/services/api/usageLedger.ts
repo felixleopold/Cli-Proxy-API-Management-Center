@@ -36,6 +36,7 @@ const normalizeBucket = (raw: Record<string, unknown>): UsageLedgerBucket | null
     reasoningTokens: num(raw.reasoning_tokens),
     costUsd: num(raw.cost_usd),
     priced: raw.priced !== false,
+    ...(str(raw.speed) ? { speed: str(raw.speed) } : {}),
   };
 };
 
