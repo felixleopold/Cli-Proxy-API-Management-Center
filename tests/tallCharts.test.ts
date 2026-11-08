@@ -6,6 +6,7 @@ import { readTallCharts, writeTallChart } from '../src/features/quota/tallCharts
 import { DrainChart, RemainingChart } from '../src/features/quota/components/QuotaForecastChart';
 import { TallChartToggle } from '../src/features/quota/components/TallChartToggle';
 import { spendAxis } from '../src/features/usage/components/spendAxis';
+import { UsageSpendChart } from '../src/features/usage/components/UsageSpendChart';
 
 const memory = () => {
   const items = new Map<string, string>();
@@ -126,5 +127,33 @@ describe('taller charts render', () => {
       expect(tall.scaleMax).toBe(normal.scaleMax);
       expect(tall.ticks).toHaveLength(normal.ticks.length * 2 - 1);
     }
+  });
+
+  test('expanded low-spend labels show the cents their step needs', () => {
+    const labels = (tall: boolean) => {
+      const markup = renderToStaticMarkup(
+        createElement(UsageSpendChart, {
+          tall,
+          stacked: [{ startMs: 0, endMs: 10, values: new Map([['felix', 1]]), total: 1 }],
+          series: [{ key: 'felix', slot: 0, label: 'Felix' }],
+          span: { startMs: 0, endMs: 10 },
+          unit: 'hour',
+          nowMs: 10,
+          showFuture: false,
+          markers: [],
+          summary: 'spend',
+        })
+      );
+      return [...markup.matchAll(/>(-?[^<>]*\d[^<>]*)<\/span>/g)]
+        .map((match) => match[1])
+        .filter((text) => text.includes('$') || text.includes('US'));
+    };
+    const tall = labels(true);
+    // A $1 peak: $0 to $4 in eight $0.50 steps, every label different.
+    expect(tall).toHaveLength(9);
+    expect(new Set(tall).size).toBe(9);
+    expect(tall.some((label) => label.includes('0.50'))).toBe(true);
+    // At normal height the steps are whole dollars and stay compact.
+    expect(labels(false).every((label) => !label.includes('.'))).toBe(true);
   });
 });

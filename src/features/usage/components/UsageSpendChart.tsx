@@ -70,7 +70,7 @@ export function UsageSpendChart({
   }, [activeIndex]);
 
   const peak = Math.max(0, ...stacked.map((bucket) => bucket.total));
-  const { scaleMax, ticks: yTicks } = spendAxis(peak, tall);
+  const { scaleMax, ticks: yTicks, cents } = spendAxis(peak, tall);
   const xTicks = useMemo(() => axisTicks(span, unit), [span, unit]);
   // Keyboard focus starts on the bucket containing now.
   const lastPastIndex = stacked.reduce(
@@ -162,7 +162,7 @@ export function UsageSpendChart({
         <div className={styles.yAxis} aria-hidden="true">
           {yTicks.map((ratio) => (
             <span key={ratio} className={styles.yTick} style={{ bottom: `${ratio * 100}%` }}>
-              {formatUsd(scaleMax * ratio, locale, true)}
+              {formatUsd(scaleMax * ratio, locale, !cents)}
             </span>
           ))}
         </div>
