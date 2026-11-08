@@ -70,6 +70,24 @@ describe('private usage', () => {
     ]);
   });
 
+  test('a sample after its reset counts as refilled, and samples after now are ignored', () => {
+    const late = normalizeQuotaHistorySamples({
+      samples: [
+        // Taken at 06:00 but still naming the 05:00 reset: that usage has expired.
+        { ...payload.samples[1], at: iso(T0 + 6 * HOUR) },
+        // Newer than the clock the page renders with.
+        { ...payload.samples[1], at: iso(nowMs + 15_000), reset_at: iso(T0 + 10 * HOUR) },
+      ],
+    });
+    const [session] = privateAccountViews(credentials, late, T0, nowMs, nowMs + HOUR)[0].windows;
+    expect(session.remaining).toBe(100);
+    expect(session.lastSampleMs).toBe(T0 + 6 * HOUR);
+    expect(session.history).toEqual([
+      { t: T0 + 6 * HOUR, v: 100 },
+      { t: nowMs, v: 100 },
+    ]);
+  });
+
   test('the page is routed but linked from nowhere', () => {
     const files = readdirSync('src', { recursive: true, encoding: 'utf8' }).filter((file) =>
       /\.(ts|tsx|json)$/.test(file)

@@ -63,11 +63,13 @@ const clipFrom = (series: SeriesPoint[], fromMs: number): SeriesPoint[] => {
 export function privateWindowView(
   authId: string,
   window: QuotaHistoryWindow,
-  samples: readonly QuotaHistorySample[],
+  allSamples: readonly QuotaHistorySample[],
   fromMs: number,
   nowMs: number,
   toMs: number
 ): PrivateWindowView {
+  // A sample newer than the minute clock would make the history double back.
+  const samples = allSamples.filter((sample) => sample.atMs <= nowMs);
   const last = samples[samples.length - 1];
   if (!last) {
     return {
@@ -83,24 +85,27 @@ export function privateWindowView(
 
   const history: SeriesPoint[] = [];
   const resets: PoolResetEvent[] = [];
+  // A sample taken after its window reset reports usage that has already expired.
+  const usedOf = (sample: QuotaHistorySample) => (sample.resetAtMs <= sample.atMs ? 0 : sample.usedPercent);
   // Holds `used` until `untilMs`, refilling at the first reset in between.
   const hold = (sample: QuotaHistorySample, untilMs: number) => {
     const periodMs = sample.windowMinutes * 60_000;
     const resetMs = nextResetAfter(sample.resetAtMs, sample.atMs, periodMs);
-    const remaining = 100 - sample.usedPercent;
+    const used = usedOf(sample);
+    const remaining = 100 - used;
     if (resetMs > untilMs) {
       history.push({ t: untilMs, v: remaining });
       return remaining;
     }
     history.push({ t: resetMs, v: remaining }, { t: resetMs, v: 100 });
-    if (sample.usedPercent > 0) resets.push(resetEvent(authId, resetMs, sample.usedPercent, false));
+    if (used > 0) resets.push(resetEvent(authId, resetMs, used, false));
     if (untilMs > resetMs) history.push({ t: untilMs, v: 100 });
     return 100;
   };
 
   samples.forEach((sample, index) => {
     if (index > 0) hold(samples[index - 1], sample.atMs);
-    history.push({ t: sample.atMs, v: 100 - sample.usedPercent });
+    history.push({ t: sample.atMs, v: 100 - usedOf(sample) });
   });
   const remaining = hold(last, nowMs);
 
