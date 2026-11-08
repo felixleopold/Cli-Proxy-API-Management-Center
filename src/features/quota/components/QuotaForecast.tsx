@@ -281,10 +281,11 @@ export function QuotaForecast({
           color: SERIES_COLOR[pool.provider],
           capacity: pool.capacity,
           history: samples ? poolHistory(drawn, samples, startMs, nowMs) : [],
-          projection: projectPool(pool, nowMs, endMs, projected, scenario),
+          // Without any reading there is nothing to project from.
+          projection: pool.unread ? [] : projectPool(pool, nowMs, endMs, projected, scenario),
           // The likely range is the usual pattern's spread; the other choices are one pace each.
           range:
-            future === 'usual'
+            future === 'usual' && !pool.unread
               ? {
                   low: projectPool(pool, nowMs, endMs, activity, 'busy'),
                   high: projectPool(pool, nowMs, endMs, activity, 'quiet'),
@@ -307,7 +308,7 @@ export function QuotaForecast({
             name: accountNames.get(first.authId) ?? first.authId,
             atMs: first.atMs,
           },
-          burn: samples ? recentBurn(pool, samples, nowMs, prefs.burnHours) : null,
+          burn: samples && !pool.unread ? recentBurn(pool, samples, nowMs, prefs.burnHours) : null,
           drain: samples ? drainBuckets(pool, samples, edges) : null,
         };
       }),
@@ -704,9 +705,11 @@ export function QuotaForecast({
         );
         const forPerson = personWindow(pool);
         const hero = forPerson && personHero(forPerson);
-        const remaining = hero ? hero.value : numbers.multiplier(summary.remaining);
+        // An unread pool knows its capacity but not what is left of it.
+        const unknown = pool.unread === true;
+        const remaining = hero ? hero.value : unknown ? '–' : numbers.multiplier(summary.remaining);
         const of = t('quota_forecast.of', { capacity: numbers.multiplier(summary.capacity) });
-        const nextReset = summary.nextReset && (
+        const nextReset = !unknown && summary.nextReset && (
           <>
             <span className={styles.gain}>{formatJump(summary.nextReset.restore)}</span>{' '}
             {numbers.when(summary.nextReset.atMs)}
@@ -781,13 +784,15 @@ export function QuotaForecast({
                   label={t('quota_forecast.stat_runs_out')}
                   hint={t('quota_forecast.stat_runs_out_hint', { count: horizon })}
                 >
-                  {emptyText(empty)}
+                  {unknown ? '–' : emptyText(empty)}
                 </Stat>
                 <Stat
                   label={t('quota_forecast.stat_first_dry')}
                   hint={t('quota_forecast.stat_first_dry_hint')}
                 >
-                  {first ? (
+                  {unknown ? (
+                    '–'
+                  ) : first ? (
                     <>
                       <span className={styles.account} title={first.name}>
                         {first.name}

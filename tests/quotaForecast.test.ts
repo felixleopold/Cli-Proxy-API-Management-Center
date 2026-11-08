@@ -1263,6 +1263,23 @@ describe('capacity timeline', () => {
     expect(withTimelineProviders([], entries, NOW - 0.5 * DAY_MS)).toEqual([]);
   });
 
+  test('a known zero followed by an unknown stretch is a gap, not a ramp', () => {
+    const entries = [entry({ atMs: NOW - 2 * DAY_MS })];
+    const samples = [sample({ atMs: NOW - DAY_MS, usedPercent: 20 })];
+    const drawn = withCapacityTimeline(pool(credential({ usedPercent: 20 })), entries, samples);
+    const history = poolHistory(drawn, samples, NOW - 3 * DAY_MS, NOW);
+    expect(valueAt(history, NOW - 2.5 * DAY_MS)).toBe(0);
+    expect(valueAt(history, NOW - 1.5 * DAY_MS)).toBeNull();
+    expect(valueAt(history, NOW - 0.5 * DAY_MS)).toBeCloseTo(0.8);
+  });
+
+  test('an active credential without readings keeps its capacity, its remaining unknown', () => {
+    const entries = [entry({ weightWeekly: 5 })];
+    expect(withTimelineProviders([], entries, NOW - 7 * DAY_MS)).toEqual([
+      { provider: 'claude', credentials: [], capacity: 5, unread: true },
+    ]);
+  });
+
   test('an idle credential without samples still counts towards capacity', () => {
     const entries = [entry({}), entry({ authId: 'idle', weightWeekly: 10 })];
     const samples = [sample({ atMs: NOW - 2 * DAY_MS, usedPercent: 20 })];

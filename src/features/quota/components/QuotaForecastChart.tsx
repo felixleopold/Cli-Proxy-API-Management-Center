@@ -635,7 +635,18 @@ export function RemainingChart({
 
   const toPixels = (points: SeriesPoint[]) =>
     points.map((point) => ({ x: frame.x(point.t), y: frame.y(point.v) }));
-  const history = toPixels(row.history);
+  // Gaps (NaN points) split the history into separately drawn segments.
+  const historySegments = row.history
+    .reduce<SeriesPoint[][]>(
+      (segments, point) => {
+        if (Number.isNaN(point.v)) segments.push([]);
+        else segments[segments.length - 1].push(point);
+        return segments;
+      },
+      [[]]
+    )
+    .filter((segment) => segment.length > 0)
+    .map(toPixels);
   const projection = toPixels(row.projection);
   const range = row.range ? bandPath(toPixels(row.range.high), toPixels(row.range.low)) : '';
   const current = row.projection[0];
@@ -732,11 +743,25 @@ export function RemainingChart({
         ))}
         {ceiling && <path className={styles.capacityLine} d={ceiling} stroke="currentColor" />}
 
-        <path d={areaPath(history, frame.baseY)} fill={`url(#${gradientId})`} />
+        {historySegments.map((segment) => (
+          <path
+            key={`area-${segment[0].x}`}
+            d={areaPath(segment, frame.baseY)}
+            fill={`url(#${gradientId})`}
+          />
+        ))}
         <path d={areaPath(projection, frame.baseY)} fill={`url(#${gradientId}-p)`} />
         {range && <path className={styles.rangeBand} d={range} />}
-        {history.length > 1 && (
-          <path className={styles.line} d={linePath(history)} stroke="currentColor" />
+        {historySegments.map(
+          (segment) =>
+            segment.length > 1 && (
+              <path
+                key={`line-${segment[0].x}`}
+                className={styles.line}
+                d={linePath(segment)}
+                stroke="currentColor"
+              />
+            )
         )}
         {projection.length > 1 && (
           <path

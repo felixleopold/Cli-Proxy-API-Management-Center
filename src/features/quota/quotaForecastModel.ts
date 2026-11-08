@@ -86,10 +86,16 @@ export interface ProviderPool {
   credentials: PoolCredential[];
   /** Σ effective multiplier of the credentials. */
   capacity: number;
+  /**
+   * No credential reports quota: `capacity` is the capacity timeline's active
+   * capacity, and what is left of it is unknown.
+   */
+  unread?: true;
 }
 
 export interface SeriesPoint {
   t: number;
+  /** NaN starts a gap: unknown from t until the next point. */
   v: number;
 }
 
@@ -654,6 +660,8 @@ const projectionBreakpoints = (
 /**
  * Samples a pooled value at each breakpoint. A jump becomes two points at the
  * same instant (before, after) so straight segments between points are exact.
+ * Where a known value turns unknown, a NaN point starts a gap, so the line is
+ * never drawn across a stretch nothing was known about.
  */
 const buildSeries = (
   times: number[],
@@ -665,10 +673,19 @@ const buildSeries = (
     .forEach((t) => {
       const before = valueAt(t, 'left');
       const after = valueAt(t, 'right');
-      if (before !== null && after !== null && before !== after && series.length > 0) {
+      const last = series[series.length - 1];
+      if (after === null) {
+        if (last && !Number.isNaN(last.v)) {
+          // The segment ends where the gap starts.
+          if (before !== null) series.push({ t, v: before });
+          series.push({ t, v: Number.NaN });
+        }
+        return;
+      }
+      if (before !== null && before !== after && last && !Number.isNaN(last.v)) {
         series.push({ t, v: before });
       }
-      if (after !== null) series.push({ t, v: after });
+      series.push({ t, v: after });
     });
   return series;
 };
@@ -1215,8 +1232,10 @@ export function withCapacityTimeline(
 
 /**
  * The pools plus an empty one for each provider the timeline had active since
- * fromMs but that has no live credential now (e.g. its last one was retired), so
- * its history and capacity changes are still drawn.
+ * fromMs but that has no readable credential now (e.g. its last one was retired),
+ * so its history and capacity changes are still drawn. Credentials the timeline
+ * has active now keep their capacity (in their weekly window); the pool is then
+ * unread, its remaining unknown.
  */
 export function withTimelineProviders(
   pools: ProviderPool[],
@@ -1229,7 +1248,16 @@ export function withTimelineProviders(
     const activeSince = Array.from(timelineOf(provider, entries).values()).some((own) =>
       own.some((entry, index) => entry.active && (own[index + 1]?.atMs ?? Infinity) > fromMs)
     );
-    return activeSince ? [{ provider, credentials: [], capacity: 0 }] : [];
+    if (!activeSince) return [];
+    const capacity = Array.from(timelineOf(provider, entries).values()).reduce((sum, own) => {
+      const latest = own[own.length - 1];
+      return latest.active ? sum + entryShare(latest, 'weekly').effective : sum;
+    }, 0);
+    return [
+      capacity > 0
+        ? { provider, credentials: [], capacity, unread: true as const }
+        : { provider, credentials: [], capacity },
+    ];
   });
 }
 
@@ -2085,12 +2113,13 @@ export const runsOutAt = (series: SeriesPoint[]): number | null =>
   series.find((point, index) => index > 0 && point.v <= 1e-9 && series[index - 1].v > 1e-9)?.t ??
   null;
 
-/** Linear interpolation; at a jump the later value wins. Null outside the series. */
+/** Linear interpolation; at a jump the later value wins. Null outside the series and in its gaps. */
 export function valueAt(series: SeriesPoint[], t: number): number | null {
   if (series.length === 0 || t < series[0].t || t > series[series.length - 1].t) return null;
   for (let index = series.length - 1; index >= 0; index -= 1) {
     const point = series[index];
     if (point.t > t) continue;
+    if (Number.isNaN(point.v)) return null;
     const next = series[index + 1];
     if (!next || next.t === point.t) return point.v;
     return point.v + ((next.v - point.v) * (t - point.t)) / (next.t - point.t);
