@@ -627,6 +627,12 @@ export function subscriptionSlots(subscriptions: readonly Subscription[]): Map<s
   ]);
 }
 
+/** Models without a price among these buckets, sorted, for the spend history's note. */
+export const unpricedModels = (buckets: readonly UsageLedgerBucket[]): string[] =>
+  Array.from(
+    new Set(buckets.filter((bucket) => !bucket.priced && bucket.model).map((b) => b.model))
+  ).sort();
+
 // ---------- Serving credentials ----------
 
 /**

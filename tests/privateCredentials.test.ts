@@ -9,6 +9,7 @@ import {
   type PrefixProxyEditorState,
 } from '../src/features/authFiles/hooks/useAuthFilesPrefixProxyEditor';
 import type { UsageLedgerBucket } from '../src/types';
+import { unpricedModels } from '../src/features/usage/usageModel';
 import { normalizeAuthFilesResponse } from '../src/services/api/authFiles';
 import type { QuotaHistoryState } from '../src/features/quota/hooks/useQuotaHistory';
 import type { CapacityEntry } from '../src/services/api/capacityHistory';
@@ -69,6 +70,14 @@ describe('private credentials on Usage & quota', () => {
       '',
     ]);
   });
+});
+
+test('a model only a private credential used is not named as unpriced', () => {
+  const unpriced = (authId: string, model: string) =>
+    ({ ...bucket(authId), model, priced: false }) as UsageLedgerBucket;
+  const buckets = [unpriced('claude-mine', 'secret-model'), unpriced('claude-shared', 'grok-4.7')];
+  expect(unpricedModels(buckets)).toEqual(['grok-4.7', 'secret-model']);
+  expect(unpricedModels(withoutPrivate(buckets, new Set(['claude-mine'])))).toEqual(['grok-4.7']);
 });
 
 describe('private user field on the credential sheet', () => {

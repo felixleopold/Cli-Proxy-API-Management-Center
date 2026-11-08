@@ -49,6 +49,7 @@ import {
   seriesKey,
   stackByTime,
   subscriptionSlots,
+  unpricedModels,
   sumCost,
   summarizeSubscription,
   userSlots,
@@ -196,6 +197,8 @@ export function UsageSections({
     () => withoutPrivate(ledger?.buckets ?? [], privateIds),
     [ledger, privateIds]
   );
+  // From the shared buckets, so a model only a private credential used is not named.
+  const unpriced = useMemo(() => unpricedModels(buckets), [buckets]);
   // A retired credential with spend in the loaded ledger keeps the colour it had while active.
   const subscriptionColors = useMemo(() => {
     const spent = new Set(buckets.map((bucket) => bucket.authId));
@@ -674,9 +677,9 @@ export function UsageSections({
                   userLabel={userLabel}
                   clients={clientByFingerprint}
                 />
-                {ledger && ledger.unpricedModels.length > 0 && (
+                {unpriced.length > 0 && (
                   <p className={styles.note}>
-                    {t('usage.unpriced_note', { models: ledger.unpricedModels.join(', ') })}
+                    {t('usage.unpriced_note', { models: unpriced.join(', ') })}
                   </p>
                 )}
               </section>
