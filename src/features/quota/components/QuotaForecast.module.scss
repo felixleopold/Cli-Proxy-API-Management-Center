@@ -165,6 +165,13 @@
   min-height: 28px;
 }
 
+/* The card's chart controls: taller, then collapse. */
+.cardActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .identity {
   display: inline-flex;
   align-items: center;

@@ -25,11 +25,13 @@ import {
   type SeriesPoint,
 } from '../quotaForecastModel';
 import { capacityChips } from './capacityMarks';
+import { TALL_FACTOR } from '../tallCharts';
 import styles from './QuotaForecast.module.scss';
 
 const PLOT_HEIGHT = 180;
+/** An expanded chart's plot, so dense steps, chips and resets separate. */
+const TALL_PLOT_HEIGHT = PLOT_HEIGHT * TALL_FACTOR;
 const MARGIN = { top: 30, right: 8, bottom: 40, left: 48 };
-const HEIGHT = PLOT_HEIGHT + MARGIN.top + MARGIN.bottom;
 const FALLBACK_WIDTH = 760;
 const TIME_STEPS = [3 * HOUR_MS, 6 * HOUR_MS, 12 * HOUR_MS, DAY_MS, 2 * DAY_MS, 7 * DAY_MS];
 
@@ -141,19 +143,30 @@ interface Frame {
   /** Plot area top and bottom (the zero line) in pixels. */
   top: number;
   baseY: number;
+  plotHeight: number;
+  /** Whole SVG height: the plot and its margins. */
+  height: number;
   x: (t: number) => number;
   y: (v: number) => number;
   invertX: (px: number) => number;
 }
 
-const makeFrame = (width: number, fromMs: number, toMs: number, yMax: number): Frame => {
+const makeFrame = (
+  width: number,
+  fromMs: number,
+  toMs: number,
+  yMax: number,
+  tall = false
+): Frame => {
   const top = MARGIN.top;
-  const plotHeight = PLOT_HEIGHT;
+  const plotHeight = tall ? TALL_PLOT_HEIGHT : PLOT_HEIGHT;
   const plotWidth = width - MARGIN.left - MARGIN.right;
   const span = Math.max(1, toMs - fromMs);
   return {
     width,
     plotWidth,
+    plotHeight,
+    height: top + plotHeight + MARGIN.bottom,
     top,
     baseY: top + plotHeight,
     x: (t) => MARGIN.left + ((t - fromMs) / span) * plotWidth,
@@ -381,6 +394,8 @@ export interface CapacityMark {
 
 export interface RemainingChartProps {
   row: ForecastRow;
+  /** About twice as tall, with ticks to match. */
+  tall?: boolean;
   /** Sleep hours of the day, shaded over the projection. */
   night: boolean[];
   fromMs: number;
@@ -532,6 +547,7 @@ export function RemainingChart({
   resetLabel,
   formatResetAccount,
   formatChangeCount,
+  tall = false,
 }: RemainingChartProps) {
   const [ref, width] = useElementWidth();
   const gradientId = useId();
@@ -541,7 +557,7 @@ export function RemainingChart({
   const yMax = showCapacity
     ? Math.max(row.capacity, ...(row.capacityHistory ?? []).map((point) => point.v))
     : row.capacity;
-  const frame = makeFrame(width, fromMs, toMs, yMax);
+  const frame = makeFrame(width, fromMs, toMs, yMax, tall);
   const plotWidth = frame.plotWidth;
   const xTicks = useMemo(
     () => timeTicks(fromMs, toMs, Math.max(3, Math.floor(plotWidth / 64))),
@@ -689,7 +705,7 @@ export function RemainingChart({
     <div ref={ref} className={styles.chart} {...focusProps} aria-label={ariaLabel} role="group">
       <svg
         width={width}
-        height={HEIGHT}
+        height={frame.height}
         className={styles.svg}
         aria-hidden="true"
         style={{ color: row.color }}
@@ -707,7 +723,11 @@ export function RemainingChart({
 
         <Axes
           frame={frame}
-          yTicks={[0, yMax / 2, yMax]}
+          // Quarters when tall, so the extra room reads at a glance.
+          yTicks={Array.from(
+            { length: tall ? 5 : 3 },
+            (_, index) => (yMax * index) / (tall ? 4 : 2)
+          )}
           formatValue={formatValue}
           xTicks={xTicks}
           formatTick={formats.tick}
@@ -720,7 +740,7 @@ export function RemainingChart({
             x={frame.x(band.startMs)}
             y={frame.top}
             width={frame.x(band.endMs) - frame.x(band.startMs)}
-            height={PLOT_HEIGHT}
+            height={frame.plotHeight}
           />
         ))}
 
@@ -846,7 +866,7 @@ export function RemainingChart({
           x={MARGIN.left}
           y={frame.top}
           width={plotWidth}
-          height={PLOT_HEIGHT}
+          height={frame.plotHeight}
           onPointerMove={onPointerMove}
           onPointerLeave={() => setHoverMs(null)}
         />
@@ -915,6 +935,8 @@ export interface DrainSeries {
 }
 
 export interface DrainChartProps {
+  /** About twice as tall, with ticks to match. */
+  tall?: boolean;
   series: DrainSeries[];
   /** Bucket boundaries; daily buckets follow calendar days, so widths can differ by DST. */
   edges: number[];
@@ -945,6 +967,7 @@ export function DrainChart({
   formatValue,
   ariaLabel,
   soFarLabel,
+  tall = false,
 }: DrainChartProps) {
   const [ref, width] = useElementWidth();
   const formats = useTimeFormats();
@@ -953,8 +976,8 @@ export function DrainChart({
   const toMs = edges[count] ?? fromMs;
   const dataMax = Math.max(0, pace ?? 0, ...series.flatMap((entry) => entry.values));
   const yMax = niceCeiling(dataMax || 1);
-  const frame = makeFrame(width, fromMs, toMs, yMax);
-  const yTicks = useMemo(() => valueTicks(yMax), [yMax]);
+  const frame = makeFrame(width, fromMs, toMs, yMax, tall);
+  const yTicks = useMemo(() => valueTicks(yMax, tall ? 8 : 4), [yMax, tall]);
   const daily = count > 0 && edges[1] - edges[0] > HOUR_MS;
   // Daily columns are categories: label each under its column, not on boundaries.
   const xTicks = useMemo(
@@ -1002,7 +1025,7 @@ export function DrainChart({
       aria-label={ariaLabel}
       role="group"
     >
-      <svg width={width} height={HEIGHT} className={styles.svg} aria-hidden="true">
+      <svg width={width} height={frame.height} className={styles.svg} aria-hidden="true">
         <Axes
           frame={frame}
           yTicks={yTicks}
@@ -1037,7 +1060,7 @@ export function DrainChart({
                 x={bandStart(index)}
                 y={MARGIN.top}
                 width={bandStart(index + 1) - bandStart(index)}
-                height={PLOT_HEIGHT}
+                height={frame.plotHeight}
                 onPointerEnter={() => setHoverIndex(index)}
                 onPointerLeave={() => setHoverIndex(null)}
               />

@@ -81,6 +81,8 @@ import {
   type CapacityMark,
   type ForecastRow,
 } from './QuotaForecastChart';
+import { readTallCharts, writeTallChart, type TallChartKind } from '../tallCharts';
+import { TallChartToggle } from './TallChartToggle';
 import styles from './QuotaForecast.module.scss';
 
 const SERIES_COLOR: Record<ForecastProvider, string> = {
@@ -169,6 +171,17 @@ export function QuotaForecast({
     };
   });
   const [view, setView] = useState<ForecastView>('remaining');
+  // Taller charts: each card toggles its own; the last choice per kind is remembered.
+  const [tallStored] = useState(readTallCharts);
+  const [tallCards, setTallCards] = useState<Record<string, boolean>>({});
+  const tallKind: TallChartKind = view === 'remaining' ? 'forecast' : 'drain';
+  const isTall = (provider: ForecastProvider) =>
+    tallCards[`${provider}:${tallKind}`] ?? tallStored.has(tallKind);
+  const toggleTall = (provider: ForecastProvider) => {
+    const next = !isTall(provider);
+    setTallCards((current) => ({ ...current, [`${provider}:${tallKind}`]: next }));
+    writeTallChart(tallKind, next);
+  };
   const [drainDays, setDrainDays] = useState<DrainSpanDays>(7);
   const users = useLedgerUsers();
   const [person, setPerson] = useState('');
@@ -789,18 +802,21 @@ export function QuotaForecast({
           <article key={provider} className={styles.card} style={style}>
             <header className={styles.cardHead}>
               {identity}
-              {collapsible && (
-                <button
-                  type="button"
-                  className={styles.collapse}
-                  aria-expanded
-                  aria-label={t('quota_forecast.collapse', { provider: name })}
-                  title={t('quota_forecast.collapse', { provider: name })}
-                  onClick={() => toggleCollapsed(provider)}
-                >
-                  <IconChevronDown size={16} aria-hidden="true" />
-                </button>
-              )}
+              <span className={styles.cardActions}>
+                <TallChartToggle tall={isTall(provider)} onToggle={() => toggleTall(provider)} />
+                {collapsible && (
+                  <button
+                    type="button"
+                    className={styles.collapse}
+                    aria-expanded
+                    aria-label={t('quota_forecast.collapse', { provider: name })}
+                    title={t('quota_forecast.collapse', { provider: name })}
+                    onClick={() => toggleCollapsed(provider)}
+                  >
+                    <IconChevronDown size={16} aria-hidden="true" />
+                  </button>
+                )}
+              </span>
             </header>
 
             <div className={styles.cardSummary}>
@@ -862,6 +878,7 @@ export function QuotaForecast({
             {view === 'remaining' ? (
               <RemainingChart
                 row={row}
+                tall={isTall(provider)}
                 night={night}
                 fromMs={startMs}
                 toMs={endMs}
@@ -880,6 +897,7 @@ export function QuotaForecast({
               />
             ) : drain ? (
               <DrainChart
+                tall={isTall(provider)}
                 series={[{ key: provider, label: name, color: row.color, values: drain }]}
                 edges={edges}
                 partialIndex={edges.length - 2}

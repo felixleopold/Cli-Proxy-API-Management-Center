@@ -148,6 +148,13 @@ Current base: upstream `v1.25.6`.
   list and their samples and capacity timeline entries from the history it shares
   (`src/features/quota/privateCredentials.ts`), so counts, tabs, pools, the forecast, accounts,
   spend, reserves and capacity never include them. Tests: `tests/privateCredentials.test.ts`.
+- **Taller charts** (`src/features/quota/tallCharts.ts`, `components/TallChartToggle.tsx`). The
+  forecast cards (Remaining and Drain rate) and the Spend history chart each have a quiet
+  fold/unfold icon that draws the chart twice as tall, with twice the y ticks, so dense steps,
+  chips and resets separate. Each card toggles on its own; the last choice per kind (forecast,
+  drain, spend) is remembered in localStorage (`usageQuota.tallCharts`, ignored when storage
+  is unavailable). The Quota windows timeline has one bar per lane and no height to gain, so it
+  has none. Tests: `tests/tallCharts.test.ts`.
 - **Usage reserves** (gateway `usage-reserves`, f-squared/CLIProxyAPI#29). Three surfaces:
   *Credential sheet* (`src/features/authFiles/components/AuthFileReserveFields.tsx`), on Claude, Codex,
   Muse (`meta`) and Devin credentials (`AUTH_FILE_USAGE_CAP_PROVIDERS`): Claude plan (`plan`: pro,

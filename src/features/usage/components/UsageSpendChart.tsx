@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { TALL_FACTOR } from '@/features/quota/tallCharts';
 import { useTranslation } from 'react-i18next';
 import { axisMax } from '@/features/dashboard/utils';
 import {
@@ -38,6 +39,8 @@ interface UsageSpendChartProps {
   showFuture: boolean;
   markers: ChartMarker[];
   summary: string;
+  /** About twice as tall, with twice the gridlines. */
+  tall?: boolean;
 }
 
 const position = (ms: number, span: TimeSpan) =>
@@ -52,6 +55,7 @@ export function UsageSpendChart({
   showFuture,
   markers,
   summary,
+  tall = false,
 }: UsageSpendChartProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage;
@@ -69,8 +73,9 @@ export function UsageSpendChart({
   }, [activeIndex]);
 
   const peak = Math.max(0, ...stacked.map((bucket) => bucket.total));
-  const scaleMax = axisMax(peak, TICK_COUNT);
-  const yTicks = Array.from({ length: TICK_COUNT + 1 }, (_, index) => index / TICK_COUNT);
+  const tickCount = tall ? TICK_COUNT * TALL_FACTOR : TICK_COUNT;
+  const scaleMax = axisMax(peak, tickCount);
+  const yTicks = Array.from({ length: tickCount + 1 }, (_, index) => index / tickCount);
   const xTicks = useMemo(() => axisTicks(span, unit), [span, unit]);
   // Keyboard focus starts on the bucket containing now.
   const lastPastIndex = stacked.reduce(
@@ -142,7 +147,7 @@ export function UsageSpendChart({
   const nowPosition = position(nowMs, span);
 
   return (
-    <figure className={styles.chart}>
+    <figure className={styles.chart} data-tall={tall || undefined}>
       <figcaption className={styles.legend}>
         {series.map((item) => (
           <span key={item.key} className={styles.legendItem}>

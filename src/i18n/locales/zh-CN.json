@@ -1679,7 +1679,9 @@
     "past_all": "全部",
     "past_hint": "图表向前显示的范围。在第一个额度样本之前只显示容量阶梯；“全部”从最早的容量记录或样本开始。",
     "capacity_changes": "{{count}} 处变更",
-    "legend_capacity_change": "容量变更"
+    "legend_capacity_change": "容量变更",
+    "chart_taller": "加高图表",
+    "chart_shorter": "恢复正常高度"
   },
   "quota_management": {
     "search_label": "搜索账号",
