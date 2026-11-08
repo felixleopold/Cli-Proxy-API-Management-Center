@@ -24,6 +24,7 @@ import {
   type ResetUse,
   type SeriesPoint,
 } from '../quotaForecastModel';
+import { placeCapacityLabels, type CapacityLabel } from './capacityLabels';
 import styles from './QuotaForecast.module.scss';
 
 const PLOT_HEIGHT = 180;
@@ -407,6 +408,8 @@ const JUMP_LABEL_GAP_PX = 58;
 /** Hovering this close to a reset names its accounts in the tooltip. */
 const RESET_HOVER_PX = 10;
 const JUMP_PILL_HEIGHT = 18;
+/** Vertical gap between stacked capacity pills. */
+const CAPACITY_ROW_GAP_PX = 3;
 /** Pill width from the label's length: tabular digits at 11px are about 6.5px wide. */
 const pillWidth = (text: string) => Math.round(text.length * 6.5 + 12);
 
@@ -439,33 +442,6 @@ const capacityAt = (row: ForecastRow, t: number, nowMs: number) =>
 
 /** Two instants this close are the same change (the gateway samples on a tick). */
 const SAME_CHANGE_MS = 60 * 1000;
-
-interface CapacityLabel {
-  /** Marker line. */
-  x: number;
-  /** Pill centre. */
-  cx: number;
-  text: string;
-}
-
-/**
- * Capacity change pills along the top of the plot, centred on their marker line
- * where they fit; one that would overlap an earlier one is left to the tooltip.
- */
-const placeCapacityLabels = (row: ForecastRow, frame: Frame): CapacityLabel[] => {
-  const right = frame.width - MARGIN.right;
-  const placed: { from: number; to: number }[] = [];
-  return row.capacityMarks.flatMap((mark) => {
-    const x = frame.x(mark.atMs);
-    if (x < MARGIN.left || x > right) return [];
-    const text = `${mark.label} ${mark.delta}`;
-    const half = pillWidth(text) / 2;
-    const cx = Math.min(right - half, Math.max(MARGIN.left + half, x));
-    if (placed.some((spot) => cx + half + 4 > spot.from && cx - half - 4 < spot.to)) return [];
-    placed.push({ from: cx - half, to: cx + half });
-    return [{ x, cx, text }];
-  });
-};
 
 interface JumpLabel {
   x: number;
@@ -653,7 +629,16 @@ export function RemainingChart({
   const hoverValue = hoverMs === null ? null : seriesAt(row, hoverMs, nowMs);
   const hoverRows = hoverMs === null ? [] : tooltipRows(hoverMs);
   const nowX = frame.x(nowMs);
-  const capacityLabels = placeCapacityLabels(row, frame);
+  const capacityLabels = placeCapacityLabels(
+    row.capacityMarks,
+    frame.x,
+    MARGIN.left,
+    frame.width - MARGIN.right,
+    pillWidth
+  );
+  /** Top of a capacity pill in its stacking row. */
+  const pillTop = (label: CapacityLabel) =>
+    frame.top + 1 + label.row * (JUMP_PILL_HEIGHT + CAPACITY_ROW_GAP_PX);
   const jumpLabels = placeJumpLabels(row, frame, nowX, formatJump, capacityLabels);
   // The capacity ceiling: the timeline's steps, then flat at today's capacity.
   const ceiling =
@@ -733,11 +718,11 @@ export function RemainingChart({
 
         {capacityLabels.map((label) => (
           <line
-            key={`capacity-${label.x}`}
+            key={`capacity-${label.x}-${label.row}`}
             className={styles.capacityMarker}
             x1={label.x}
             x2={label.x}
-            y1={frame.top + JUMP_PILL_HEIGHT + 2}
+            y1={pillTop(label) + JUMP_PILL_HEIGHT + 1}
             y2={frame.baseY}
           />
         ))}
@@ -802,14 +787,14 @@ export function RemainingChart({
           const width = pillWidth(label.text);
           return (
             <g
-              key={`capacity-pill-${label.x}`}
+              key={`capacity-pill-${label.x}-${label.row}`}
               className={styles.jump}
               style={{ '--use': 'var(--text-secondary)' } as CSSProperties}
             >
               <rect
                 className={styles.jumpPill}
                 x={label.cx - width / 2}
-                y={frame.top + 1}
+                y={pillTop(label)}
                 width={width}
                 height={JUMP_PILL_HEIGHT}
                 rx={JUMP_PILL_HEIGHT / 2}
@@ -817,7 +802,7 @@ export function RemainingChart({
               <text
                 className={`${styles.jumpLabel} ${styles.capacityLabel}`}
                 x={label.cx}
-                y={frame.top + 1 + JUMP_PILL_HEIGHT / 2}
+                y={pillTop(label) + JUMP_PILL_HEIGHT / 2}
                 dy="0.35em"
               >
                 {label.text}
