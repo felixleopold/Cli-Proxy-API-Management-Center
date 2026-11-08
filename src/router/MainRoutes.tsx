@@ -6,6 +6,7 @@ import { AuthFilesOAuthExcludedEditPage } from '@/pages/AuthFilesOAuthExcludedEd
 import { AuthFilesOAuthModelAliasEditPage } from '@/pages/AuthFilesOAuthModelAliasEditPage';
 import { OAuthPage } from '@/pages/OAuthPage';
 import { UsageQuotaPage } from '@/features/quota/UsageQuotaPage';
+import { PrivateUsagePage } from '@/features/quota/PrivateUsagePage';
 import { ClientKeysPage } from '@/features/clientKeys/ClientKeysPage';
 import { PluginResourcePage } from '@/features/plugins/PluginResourcePage';
 import { PluginsPage } from '@/features/plugins/PluginsPage';
@@ -32,6 +33,8 @@ const createMainRoutes = (supportsPlugin: boolean) => [
   { path: '/usage-quota', element: <UsageQuotaPage /> },
   { path: '/quota', element: <Navigate to="/usage-quota" replace /> },
   { path: '/usage', element: <Navigate to="/usage-quota" replace /> },
+  // Hidden: reached only by typing the URL, never linked from the nav or elsewhere.
+  { path: '/private-usage', element: <PrivateUsagePage /> },
   ...(supportsPlugin
     ? [
         { path: '/plugin-pages/:pluginId/:menuIndex', element: <PluginResourcePage /> },

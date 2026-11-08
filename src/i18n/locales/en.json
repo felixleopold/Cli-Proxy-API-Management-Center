@@ -2897,5 +2897,21 @@
     "keep_label": "Keep at least",
     "keep_hint": "Optional: the share of each window still kept for the lender while released. Empty releases the whole reserve.",
     "keep_invalid": "Enter a number above 0 and below 100, or leave it empty to release the whole reserve."
+  },
+  "private_usage": {
+    "title": "Private usage",
+    "refresh": "Refresh",
+    "window_session": "5-hour session",
+    "window_weekly": "Weekly",
+    "left_in": "left · {{window}}",
+    "stat_used": "Used",
+    "stat_last_sample": "Last sample",
+    "until_reset": "Until reset",
+    "no_samples": "No samples yet",
+    "no_accounts": "No private credentials.",
+    "history_off": "Quota history is off on this server, so private usage has nothing to show.",
+    "load_failed": "Private quota history couldn't be loaded.",
+    "private_for": "Private · {{user}}",
+    "disabled": "Disabled"
   }
 }
