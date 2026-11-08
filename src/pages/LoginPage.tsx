@@ -87,6 +87,8 @@ export function LoginPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  // The page the user asked for before being sent to login.
+  const redirectTo = (location.state as RedirectState | null)?.from?.pathname || '/';
   const { showNotification } = useNotificationStore();
   const language = useLanguageStore((state) => state.language);
   const setLanguage = useLanguageStore((state) => state.setLanguage);
@@ -134,8 +136,7 @@ export function LoginPage() {
           setAutoLoginSuccess(true);
           // 延迟跳转，让用户看到成功动画
           setTimeout(() => {
-            const redirect = (location.state as RedirectState | null)?.from?.pathname || '/';
-            navigate(redirect, { replace: true });
+            navigate(redirectTo, { replace: true });
           }, 1500);
         } else {
           setApiBase(storedBase || detectedBase);
@@ -168,7 +169,7 @@ export function LoginPage() {
         rememberPassword,
       });
       showNotification(t('common.connected_status'), 'success');
-      navigate('/', { replace: true });
+      navigate(redirectTo, { replace: true });
     } catch (err: unknown) {
       const message = getLocalizedErrorMessage(err, t);
       setError(message);
@@ -182,6 +183,7 @@ export function LoginPage() {
     login,
     managementKey,
     navigate,
+    redirectTo,
     rememberPassword,
     showNotification,
     t,
@@ -198,8 +200,7 @@ export function LoginPage() {
   );
 
   if (isAuthenticated && !autoLoading && !autoLoginSuccess) {
-    const redirect = (location.state as RedirectState | null)?.from?.pathname || '/';
-    return <Navigate to={redirect} replace />;
+    return <Navigate to={redirectTo} replace />;
   }
 
   // 显示启动动画（自动登录中或自动登录成功）
