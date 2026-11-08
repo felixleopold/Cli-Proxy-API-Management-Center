@@ -1,4 +1,9 @@
-import { FORECAST_HORIZON_DAYS, type ForecastHorizonDays } from './quotaForecastModel';
+import {
+  FORECAST_HORIZON_DAYS,
+  FORECAST_PAST_DAYS,
+  type ForecastHorizonDays,
+  type ForecastPastDays,
+} from './quotaForecastModel';
 import {
   QUOTA_SORT_MODES,
   QUOTA_TAB_ORDER,
@@ -12,6 +17,8 @@ export type QuotaUiState = {
   sortMode?: QuotaSortMode;
   forecastCollapsed?: boolean;
   forecastHorizon?: ForecastHorizonDays;
+  /** History drawn left of now; 0 is all. */
+  forecastPast?: ForecastPastDays;
   /** Local hour the assumed sleep starts and ends. */
   forecastSleepStart?: number;
   forecastSleepEnd?: number;
@@ -31,6 +38,9 @@ export const isQuotaSortMode = (value: unknown): value is QuotaSortMode =>
 const isForecastHorizon = (value: unknown): value is ForecastHorizonDays =>
   (FORECAST_HORIZON_DAYS as readonly unknown[]).includes(value);
 
+const isForecastPast = (value: unknown): value is ForecastPastDays =>
+  (FORECAST_PAST_DAYS as readonly unknown[]).includes(value);
+
 const isHour = (value: unknown): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 23;
 
@@ -49,6 +59,7 @@ export const readQuotaUiState = (): QuotaUiState | null => {
       forecastHorizon: isForecastHorizon(parsed.forecastHorizon)
         ? parsed.forecastHorizon
         : undefined,
+      forecastPast: isForecastPast(parsed.forecastPast) ? parsed.forecastPast : undefined,
       forecastSleepStart: isHour(parsed.forecastSleepStart) ? parsed.forecastSleepStart : undefined,
       forecastSleepEnd: isHour(parsed.forecastSleepEnd) ? parsed.forecastSleepEnd : undefined,
     };

@@ -24,7 +24,7 @@ import {
   type ResetUse,
   type SeriesPoint,
 } from '../quotaForecastModel';
-import { placeCapacityLabels, type CapacityLabel } from './capacityLabels';
+import { capacityChips } from './capacityMarks';
 import styles from './QuotaForecast.module.scss';
 
 const PLOT_HEIGHT = 180;
@@ -124,6 +124,8 @@ function useTimeFormats() {
       tick: (ms: number) => (isMidnight(ms) ? dayTick(ms) : [hour.format(ms)]),
       dayTick,
       full: (ms: number) => full.format(ms),
+      /** "Nov 8, 6:20 PM": when a change happened, inside a tooltip already dated. */
+      short: (ms: number) => `${day.format(ms)}, ${time.format(ms)}`,
       day: (ms: number) => day.format(ms),
       time: (ms: number) => time.format(ms),
     };
@@ -364,11 +366,16 @@ export interface ForecastRow {
   capacityMarks: CapacityMark[];
 }
 
-/** A capacity change: "Ultra retired" with "−10×", and the gateway's reason in the tooltip. */
+/**
+ * A capacity change: a dot on the capacity line, a "−10×" chip when it is large
+ * enough, and in the tooltip "Ultra retired", "10× → 0× · reason" and when.
+ */
 export interface CapacityMark {
   atMs: number;
   label: string;
   delta: string;
+  /** |delta| in plan multipliers. */
+  size: number;
   detail: string | null;
 }
 
@@ -393,6 +400,8 @@ export interface RemainingChartProps {
   /** Name of a reset in the accessible table. */
   resetLabel: string;
   /** Tooltip row of one account in a reset, e.g. value "96% used", label "agent01". */
+  /** A chip standing for several capacity changes, e.g. "2 changes". */
+  formatChangeCount: (count: number) => string;
   formatResetAccount: (
     account: ResetAccount,
     projected: boolean
@@ -403,15 +412,20 @@ export interface RemainingChartProps {
 const CREDIT_HOVER_PX = 6;
 /** Jumps below this share of the pool are not labelled. */
 const JUMP_LABEL_MIN_SHARE = 0.02;
+/** Views longer than this (a 30-day or All past) label only jumps of this share. */
+const LONG_VIEW_MS = 21 * DAY_MS;
+const LONG_VIEW_JUMP_MIN_SHARE = 0.08;
 /** Labels closer than this collide; the second moves below the line, else is dropped. */
 const JUMP_LABEL_GAP_PX = 58;
 /** Hovering this close to a reset names its accounts in the tooltip. */
 const RESET_HOVER_PX = 10;
-const JUMP_PILL_HEIGHT = 18;
-/** Vertical gap between stacked capacity pills. */
-const CAPACITY_ROW_GAP_PX = 3;
+const JUMP_PILL_HEIGHT = 16;
+/** Capacity changes below this share of the axis are a quiet dot without a chip. */
+const CAPACITY_CHIP_MIN_SHARE = 0.05;
+/** Chip and "Now" text: tabular digits at 10-11px are about 6px wide. */
+const laneTextWidth = (text: string) => text.length * 6;
 /** Pill width from the label's length: tabular digits at 11px are about 6.5px wide. */
-const pillWidth = (text: string) => Math.round(text.length * 6.5 + 12);
+const pillWidth = (text: string) => Math.round(text.length * 6 + 10);
 
 const USE_COLOR: Record<ResetUse, string> = {
   full: 'var(--success-color)',
@@ -457,10 +471,12 @@ const placeJumpLabels = (
   row: ForecastRow,
   frame: Frame,
   nowX: number,
-  formatJump: (delta: number) => string,
-  capacityLabels: CapacityLabel[]
+  formatJump: (delta: number) => string
 ): JumpLabel[] => {
-  const minDelta = row.capacity * JUMP_LABEL_MIN_SHARE;
+  // Over a long past the small resets go unlabelled, so the larger ones still read.
+  const span = frame.width > 0 ? frame.invertX(frame.width) - frame.invertX(0) : 0;
+  const minDelta =
+    row.capacity * (span > LONG_VIEW_MS ? LONG_VIEW_JUMP_MIN_SHARE : JUMP_LABEL_MIN_SHARE);
   // A capacity change explains its own step; it gets its marker, not a second pill.
   const jumps = [
     ...seriesJumps(row.history, minDelta),
@@ -469,11 +485,8 @@ const placeJumpLabels = (
     (jump) => !row.capacityMarks.some((mark) => Math.abs(mark.atMs - jump.t) <= SAME_CHANGE_MS)
   );
   const right = frame.width - MARGIN.right;
-  // The "Now" label already sits above the plot, capacity pills along its top.
-  const taken: { x: number; above: boolean }[] = [
-    { x: nowX, above: true },
-    ...capacityLabels.map((label) => ({ x: label.cx, above: true })),
-  ];
+  // The "Now" label already sits above the plot.
+  const taken: { x: number; above: boolean }[] = [{ x: nowX, above: true }];
   const clear = (x: number, above: boolean) =>
     taken.every((spot) => spot.above !== above || Math.abs(spot.x - x) >= JUMP_LABEL_GAP_PX);
   return jumps.flatMap((jump) => {
@@ -518,6 +531,7 @@ export function RemainingChart({
   creditLabel,
   resetLabel,
   formatResetAccount,
+  formatChangeCount,
 }: RemainingChartProps) {
   const [ref, width] = useElementWidth();
   const gradientId = useId();
@@ -590,6 +604,7 @@ export function RemainingChart({
           ...formatResetAccount(account, event.projected),
         }));
       })(),
+      // Every capacity change near the pointer, so changes close together all read.
       ...row.capacityMarks
         .filter((mark) => Math.abs(mark.atMs - t) <= resetTolerance)
         .map((mark, index) => ({
@@ -597,7 +612,7 @@ export function RemainingChart({
           color: 'var(--text-secondary)',
           tick: true,
           value: mark.delta,
-          label: mark.detail ? `${mark.label} · ${mark.detail}` : mark.label,
+          label: [mark.label, mark.detail, formats.short(mark.atMs)].filter(Boolean).join(' · '),
         })),
       ...creditsNear(row.credits, t, creditTolerance, fromMs, toMs).map((expiresAtMs, index) => ({
         key: `credit-${index}`,
@@ -629,17 +644,31 @@ export function RemainingChart({
   const hoverValue = hoverMs === null ? null : seriesAt(row, hoverMs, nowMs);
   const hoverRows = hoverMs === null ? [] : tooltipRows(hoverMs);
   const nowX = frame.x(nowMs);
-  const capacityLabels = placeCapacityLabels(
+  const jumpLabels = placeJumpLabels(row, frame, nowX, formatJump);
+  // Capacity changes: a dot where the capacity line steps, larger for meaningful ones.
+  const chipMin = yMax * CAPACITY_CHIP_MIN_SHARE;
+  const changeDots = row.capacityMarks.flatMap((mark) => {
+    const value = row.capacityHistory ? valueAt(row.capacityHistory, mark.atMs) : null;
+    const x = frame.x(mark.atMs);
+    return value === null || x < MARGIN.left || x > frame.width - MARGIN.right
+      ? []
+      : [{ x, y: frame.y(value), major: mark.size >= chipMin }];
+  });
+  // Delta chips share the lane of the "Now" label; one that would cover it moves to its left.
+  const nowHalf = laneTextWidth(nowLabel) / 2 + 10;
+  const chips = capacityChips(
     row.capacityMarks,
     frame.x,
     MARGIN.left,
     frame.width - MARGIN.right,
-    pillWidth
-  );
-  /** Top of a capacity pill in its stacking row. */
-  const pillTop = (label: CapacityLabel) =>
-    frame.top + 1 + label.row * (JUMP_PILL_HEIGHT + CAPACITY_ROW_GAP_PX);
-  const jumpLabels = placeJumpLabels(row, frame, nowX, formatJump, capacityLabels);
+    chipMin,
+    laneTextWidth,
+    formatChangeCount
+  ).map((chip) => {
+    const half = laneTextWidth(chip.text) / 2;
+    const covers = chip.x + half > nowX - nowHalf && chip.x - half < nowX + nowHalf;
+    return { ...chip, x: covers ? Math.max(MARGIN.left + half, nowX - nowHalf - half) : chip.x };
+  });
   // The capacity ceiling: the timeline's steps, then flat at today's capacity.
   const ceiling =
     showCapacity && row.capacityHistory
@@ -716,17 +745,17 @@ export function RemainingChart({
           />
         ))}
 
-        {capacityLabels.map((label) => (
-          <line
-            key={`capacity-${label.x}-${label.row}`}
-            className={styles.capacityMarker}
-            x1={label.x}
-            x2={label.x}
-            y1={pillTop(label) + JUMP_PILL_HEIGHT + 1}
-            y2={frame.baseY}
-          />
-        ))}
         {ceiling && <path className={styles.capacityLine} d={ceiling} stroke="currentColor" />}
+        {chips.map((chip) => (
+          <text
+            key={`chip-${chip.x}`}
+            className={styles.capacityChip}
+            x={chip.x}
+            y={frame.top - 13}
+          >
+            {chip.text}
+          </text>
+        ))}
 
         {historySegments.map((segment) => (
           <path
@@ -783,33 +812,16 @@ export function RemainingChart({
           );
         })}
 
-        {capacityLabels.map((label) => {
-          const width = pillWidth(label.text);
-          return (
-            <g
-              key={`capacity-pill-${label.x}-${label.row}`}
-              className={styles.jump}
-              style={{ '--use': 'var(--text-secondary)' } as CSSProperties}
-            >
-              <rect
-                className={styles.jumpPill}
-                x={label.cx - width / 2}
-                y={pillTop(label)}
-                width={width}
-                height={JUMP_PILL_HEIGHT}
-                rx={JUMP_PILL_HEIGHT / 2}
-              />
-              <text
-                className={`${styles.jumpLabel} ${styles.capacityLabel}`}
-                x={label.cx}
-                y={pillTop(label) + JUMP_PILL_HEIGHT / 2}
-                dy="0.35em"
-              >
-                {label.text}
-              </text>
-            </g>
-          );
-        })}
+        {changeDots.map((dot) => (
+          <circle
+            key={`change-${dot.x}`}
+            className={styles.capacityDot}
+            data-major={dot.major || undefined}
+            cx={dot.x}
+            cy={dot.y}
+            r={dot.major ? 3 : 2}
+          />
+        ))}
 
         {current && (
           <circle className={styles.dot} cx={frame.x(current.t)} cy={frame.y(current.v)} r={4} />

@@ -1667,9 +1667,14 @@
     "capacity_enabled": "{{name}} 已启用",
     "capacity_disabled": "{{name}} 已停用",
     "capacity_removed": "{{name}} 已删除",
-    "capacity_changed": "{{name}} → {{value}}",
     "legend_capacity": "容量",
-    "capacity_added": "{{name}} 已添加"
+    "capacity_added": "{{name}} 已添加",
+    "past": "过去",
+    "past_label": "显示的历史",
+    "past_all": "全部",
+    "past_hint": "图表向前显示的范围。在第一个额度样本之前只显示容量阶梯；“全部”从最早的容量记录或样本开始。",
+    "capacity_changes": "{{count}} 处变更",
+    "legend_capacity_change": "容量变更"
   },
   "quota_management": {
     "search_label": "搜索账号",

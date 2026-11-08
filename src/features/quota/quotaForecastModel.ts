@@ -35,6 +35,36 @@ export type ForecastProvider = (typeof FORECAST_PROVIDERS)[number];
 export const FORECAST_HORIZON_DAYS = [1, 3, 7, 14] as const;
 export type ForecastHorizonDays = (typeof FORECAST_HORIZON_DAYS)[number];
 
+/** History drawn left of now, in days; 0 is everything the timeline and history hold. */
+export const FORECAST_PAST_DAYS = [7, 30, 0] as const;
+export type ForecastPastDays = (typeof FORECAST_PAST_DAYS)[number];
+/** How far back "All" reaches at most. */
+const PAST_ALL_MAX_DAYS = 365;
+
+/**
+ * Days of history to load for a past range: seven more than drawn, so every
+ * credential has a sample before the drawn range starts (samples are only
+ * recorded on change).
+ */
+export const historyLookbackDays = (past: ForecastPastDays): number =>
+  (past === 0 ? PAST_ALL_MAX_DAYS : past) + 7;
+
+/**
+ * Where the drawn history starts: `past` days back, or for "All" where capacity is
+ * first known (the earliest capacity entry, else the earliest quota sample), at
+ * least a week back and at most a year.
+ */
+export function historyStartMs(
+  past: ForecastPastDays,
+  nowMs: number,
+  samples: readonly QuotaHistorySample[],
+  entries: readonly CapacityEntry[] | null
+): number {
+  if (past !== 0) return nowMs - past * DAY_MS;
+  const earliest = entries?.[0]?.atMs ?? samples[0]?.atMs ?? Infinity;
+  return Math.min(nowMs - 7 * DAY_MS, Math.max(nowMs - PAST_ALL_MAX_DAYS * DAY_MS, earliest));
+}
+
 export const DRAIN_SPAN_DAYS = [1, 3, 7] as const;
 export type DrainSpanDays = (typeof DRAIN_SPAN_DAYS)[number];
 

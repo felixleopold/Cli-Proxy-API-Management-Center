@@ -1670,9 +1670,14 @@
     "capacity_enabled": "{{name}} enabled",
     "capacity_disabled": "{{name}} disabled",
     "capacity_removed": "{{name}} removed",
-    "capacity_changed": "{{name}} → {{value}}",
     "legend_capacity": "Capacity",
-    "capacity_added": "{{name}} added"
+    "capacity_added": "{{name}} added",
+    "past": "Past",
+    "past_label": "History shown",
+    "past_all": "All",
+    "past_hint": "How far back the chart goes. Before the first quota sample only the capacity steps show; All starts at the earliest capacity entry or sample.",
+    "capacity_changes": "{{count}} changes",
+    "legend_capacity_change": "Capacity change"
   },
   "quota_management": {
     "search_label": "Search accounts",

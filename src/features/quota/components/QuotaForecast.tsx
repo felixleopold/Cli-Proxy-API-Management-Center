@@ -28,8 +28,10 @@ import {
   DEFAULT_SLEEP_HOURS,
   DRAIN_SPAN_DAYS,
   FORECAST_HORIZON_DAYS,
+  FORECAST_PAST_DAYS,
   FUTURE_USAGE,
   buildPools,
+  historyStartMs,
   capacityChanges,
   capacityVaries,
   drainBuckets,
@@ -53,6 +55,7 @@ import {
   type CardReading,
   type DrainSpanDays,
   type ForecastHorizonDays,
+  type ForecastPastDays,
   type ForecastProvider,
   type PoolEmpty,
   type ProviderPool,
@@ -96,9 +99,6 @@ const STATUS_REASONS = new Set([
   'removed',
 ]);
 
-/** History drawn left of "now"; longer horizons keep a week so the chart stays readable. */
-const MAX_HISTORY_DAYS = 7;
-
 type ForecastView = 'remaining' | 'drain';
 
 const LEGEND_KEY = {
@@ -109,6 +109,7 @@ const LEGEND_KEY = {
   band: styles.keyBand,
   tick: styles.keyTick,
   ceiling: styles.keyCeiling,
+  change: styles.keyChange,
 };
 
 export interface QuotaForecastProps {
@@ -117,6 +118,9 @@ export interface QuotaForecastProps {
   history: QuotaHistoryState;
   /** The page's provider filter; 'all', or a provider id. */
   tab: string;
+  /** History drawn left of now (the page loads history to match); 0 is all. */
+  past: ForecastPastDays;
+  onPastChange: (past: ForecastPastDays) => void;
   /** Injectable for tests/screenshots; defaults to the real clock. */
   now?: number;
   /** Readings of loaded quota cards by auth id, for credentials without live signals. */
@@ -129,6 +133,8 @@ export function QuotaForecast({
   files,
   history,
   tab,
+  past,
+  onPastChange,
   now: nowProp,
   cardReadings,
   resetCreditsFor,
@@ -168,11 +174,12 @@ export function QuotaForecast({
   const personPools = useUsagePool(person ? poolProviders(files, tab) : [], person);
   const showNotification = useNotificationStore((store) => store.showNotification);
 
+  // The drawn history; before the first quota sample only capacity steps show.
+  const startMs = samples ? historyStartMs(past, nowMs, samples, timeline) : nowMs;
   // Providers the timeline had active within the drawn history keep their card.
   const charted = useMemo(
-    () =>
-      timeline ? withTimelineProviders(pools, timeline, nowMs - MAX_HISTORY_DAYS * DAY_MS) : pools,
-    [pools, timeline, nowMs]
+    () => (timeline ? withTimelineProviders(pools, timeline, startMs) : pools),
+    [pools, timeline, startMs]
   );
   const visible = useMemo(
     () => (tab === 'all' ? charted : charted.filter((pool) => pool.provider === tab)),
@@ -231,8 +238,6 @@ export function QuotaForecast({
   const scenario = futureScenario(future);
   const night = useMemo(() => nightHours(activity.sleep), [activity]);
 
-  const historyDays = Math.min(horizon, MAX_HISTORY_DAYS);
-  const startMs = samples ? nowMs - historyDays * DAY_MS : nowMs;
   const endMs = nowMs + horizon * DAY_MS;
   const edges = useMemo(() => drainEdges(nowMs, drainDays), [nowMs, drainDays]);
 
@@ -255,13 +260,17 @@ export function QuotaForecast({
       const kind = change.kind === 'disabled' && removed ? 'removed' : change.kind;
       return {
         atMs: change.atMs,
-        label: t(`quota_forecast.capacity_${kind}`, {
-          name,
-          value: numbers.multiplier(change.effective),
-        }),
+        // A resize is just the name: the detail's "1× → 5×" says what changed.
+        label: kind === 'changed' ? name : t(`quota_forecast.capacity_${kind}`, { name }),
         delta: `${change.delta > 0 ? '+' : '−'}${numbers.multiplier(Math.abs(change.delta))}`,
-        // The gateway's reason, unless it only repeats the label ("retired").
-        detail: change.reason && !STATUS_REASONS.has(change.reason) ? change.reason : null,
+        size: Math.abs(change.delta),
+        // The account's own step, then the gateway's reason unless it only repeats the label.
+        detail: [
+          `${numbers.multiplier(change.effective - change.delta)} → ${numbers.multiplier(change.effective)}`,
+          change.reason && !STATUS_REASONS.has(change.reason) ? change.reason : null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
       };
     },
     [accountNames, numbers, t]
@@ -365,16 +374,15 @@ export function QuotaForecast({
         ? t('quota_management.forecast_history_error')
         : null;
 
-  const segmented = <T extends number>(
+  const segmentGroup = <T extends number>(
     options: readonly T[],
     value: T,
     onChange: (next: T) => void,
     label: string,
     prefix: string,
-    format: (option: T) => string,
-    hint: string
+    format: (option: T) => string
   ) => (
-    <div className={styles.control}>
+    <>
       <span className={styles.controlLabel} aria-hidden="true">
         {prefix}
       </span>
@@ -390,6 +398,22 @@ export function QuotaForecast({
           </button>
         ))}
       </div>
+    </>
+  );
+  /** One control box; `before` puts another group in the same box (Past beside Next). */
+  const segmented = <T extends number>(
+    options: readonly T[],
+    value: T,
+    onChange: (next: T) => void,
+    label: string,
+    prefix: string,
+    format: (option: T) => string,
+    hint: string,
+    before?: ReactNode
+  ) => (
+    <div className={styles.control}>
+      {before}
+      {segmentGroup(options, value, onChange, label, prefix, format)}
       <span className={styles.controlHint}>
         <InfoHint label={prefix} text={hint} />
       </span>
@@ -666,7 +690,15 @@ export function QuotaForecast({
               t('quota_management.forecast_horizon_label'),
               t('quota_management.forecast_next'),
               daysShort,
-              t('quota_forecast.horizon_hint')
+              `${t('quota_forecast.past_hint')} ${t('quota_forecast.horizon_hint')}`,
+              segmentGroup(
+                FORECAST_PAST_DAYS,
+                past,
+                onPastChange,
+                t('quota_forecast.past_label'),
+                t('quota_forecast.past'),
+                (days) => (days === 0 ? t('quota_forecast.past_all') : daysShort(days))
+              )
             )
           : segmented(
               DRAIN_SPAN_DAYS,
@@ -841,6 +873,7 @@ export function QuotaForecast({
                 creditLabel={t('quota_management.forecast_legend_reset_credit')}
                 resetLabel={t('quota_forecast.reset_row')}
                 formatResetAccount={formatResetAccount}
+                formatChangeCount={(count) => t('quota_forecast.capacity_changes', { count })}
               />
             ) : drain ? (
               <DrainChart
@@ -884,6 +917,11 @@ export function QuotaForecast({
                       legendItem(
                         legendKey('ceiling', row.color),
                         t('quota_forecast.legend_capacity')
+                      ),
+                    row.capacityMarks.length > 0 &&
+                      legendItem(
+                        legendKey('change', row.color),
+                        t('quota_forecast.legend_capacity_change')
                       ),
                     hasNight &&
                       legendItem(

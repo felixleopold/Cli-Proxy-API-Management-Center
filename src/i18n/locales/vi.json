@@ -1627,9 +1627,14 @@
     "capacity_enabled": "{{name}} đã bật",
     "capacity_disabled": "{{name}} đã tắt",
     "capacity_removed": "{{name}} đã xóa",
-    "capacity_changed": "{{name}} → {{value}}",
     "legend_capacity": "Dung lượng",
-    "capacity_added": "Đã thêm {{name}}"
+    "capacity_added": "Đã thêm {{name}}",
+    "past": "Quá khứ",
+    "past_label": "Lịch sử hiển thị",
+    "past_all": "Tất cả",
+    "past_hint": "Biểu đồ lùi về bao xa. Trước mẫu hạn mức đầu tiên chỉ hiện các bậc dung lượng; Tất cả bắt đầu từ mục dung lượng hoặc mẫu sớm nhất.",
+    "capacity_changes": "{{count}} thay đổi",
+    "legend_capacity_change": "Thay đổi dung lượng"
   },
   "quota_management": {
     "title": "Quản lý Quota",
