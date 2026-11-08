@@ -115,6 +115,22 @@ Current base: upstream `v1.25.6`.
   the resetting accounts' share was used before the reset (≥ 90% green, ≥ 60% amber, else red);
   hovering one lists the accounts and their used % (`poolResetEvents`). Tests:
   `tests/quotaForecast.test.ts`.
+- **Capacity timeline and retirement** (gateway `GET /observability/capacity/history`,
+  f-squared/CLIProxyAPI `feat/capacity-timeline`). The forecast loads the timeline over the same 14
+  days as quota history (`src/services/api/capacityHistory.ts`, `hooks/useQuotaHistory.ts`). Each
+  pool's history is drawn from `withCapacityTimeline`: every credential counts only while the
+  timeline has it active, including now-disabled or retired ones, and each sample reads at the
+  plan weight and share in effect when it was taken, so past samples never take today's weight.
+  The capacity is a dashed step line (`poolCapacity`) and the y axis reaches its highest step;
+  each step gets a neutral pill on a thin rule ("Ultra retired −10×", "Team seat → 5× +4×",
+  `capacityChanges`), which replaces the reset pill at that instant, and the gateway's reason
+  appears in the tooltip. Projections and headline totals stay on today's active credentials.
+  Without the endpoint (404, or 409 when history is off) everything stays as before. *Retire*
+  (⚙ popover, file credentials only, confirmed) sends `PATCH /credentials/status {disabled: true,
+  retired: true}`; a retired row shows "Retired · Nov 8" and its ⚙ offers *Reactivate*
+  (`{disabled: false}`, as does the toggle). In *Spend history*, a retired credential with spend
+  in the loaded ledger reads "Retired: <name>" and is sorted in with the active ones, so it keeps
+  its colour. Tests: `tests/quotaForecast.test.ts` (capacity timeline), `tests/usageModel.test.ts`.
 - **Usage reserves** (gateway `usage-reserves`, f-squared/CLIProxyAPI#29). Three surfaces:
   *Credential sheet* (`src/features/authFiles/components/AuthFileReserveFields.tsx`), on Claude, Codex,
   Muse (`meta`) and Devin credentials (`AUTH_FILE_USAGE_CAP_PROVIDERS`): Claude plan (`plan`: pro,

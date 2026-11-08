@@ -12,6 +12,7 @@
  */
 
 import type { AuthFileItem, UsageLedgerBucket } from '@/types';
+import type { CapacityEntry } from '@/services/api/capacityHistory';
 import type { QuotaHistorySample, QuotaHistoryWindow } from '@/services/api/quotaHistory';
 import { isRecord } from '@/utils/helpers';
 import type { QuotaProviderType } from './providers/types';
@@ -59,6 +60,19 @@ export interface PoolCredential {
   usedPercent: number;
   resetAtMs: number;
   observedAtMs: number | null;
+  /** Its share now. */
+  share: PlanShare;
+  /**
+   * From the capacity timeline: the spans it counted towards the pool, each with
+   * its share then. Absent means always, with `share`.
+   */
+  periods?: CapacityPeriod[];
+}
+
+/** A span [fromMs, toMs) in which a credential was active, with its share then. */
+export interface CapacityPeriod {
+  fromMs: number;
+  toMs: number;
   share: PlanShare;
 }
 
@@ -209,12 +223,11 @@ export function readPoolCredential(file: AuthFileItem): PoolCredential | null {
  * A credential's latest history reading, for when it has no live signals (e.g.
  * after a gateway restart). Prefers the weekly window, like the live reader.
  */
-const historyCredential = (
-  file: AuthFileItem,
-  samples: QuotaHistorySample[]
+const sampleCredential = (
+  authId: string,
+  samples: readonly QuotaHistorySample[],
+  shareOf: (window: PlanWindow) => PlanShare
 ): PoolCredential | null => {
-  const authId = typeof file.id === 'string' ? file.id : '';
-  if (!authId) return null;
   const latestFirst = samples
     .filter((sample) => sample.authId === authId)
     .sort((left, right) => right.atMs - left.atMs);
@@ -227,9 +240,17 @@ const historyCredential = (
     usedPercent: chosen.usedPercent,
     resetAtMs: chosen.resetAtMs,
     observedAtMs: chosen.atMs,
-    share: planShareOf(file, planWindowOf(chosen.window)),
+    share: shareOf(planWindowOf(chosen.window)),
   };
 };
+
+const historyCredential = (
+  file: AuthFileItem,
+  samples: QuotaHistorySample[]
+): PoolCredential | null =>
+  typeof file.id === 'string' && file.id
+    ? sampleCredential(file.id, samples, (window) => planShareOf(file, window))
+    : null;
 
 interface CardWindow {
   usedPercent: number;
@@ -833,6 +854,8 @@ interface CredentialReset {
   atMs: number;
   usedPercent: number;
   projected: boolean;
+  /** The credential's share just before the reset; null while it was inactive. */
+  share: PlanShare | null;
 }
 
 /**
@@ -840,7 +863,12 @@ interface CredentialReset {
  * passed by now, with the used percent of the last snapshot before it (what the
  * history line drops from). Snapshots whose reset differs by a jitter are one reset.
  */
-const pastResets = (snapshots: Snapshot[], index: number, nowMs: number): CredentialReset[] => {
+const pastResets = (
+  credential: PoolCredential,
+  snapshots: Snapshot[],
+  index: number,
+  nowMs: number
+): CredentialReset[] => {
   const resets: CredentialReset[] = [];
   let current: Snapshot | null = null;
   const close = () => {
@@ -850,6 +878,7 @@ const pastResets = (snapshots: Snapshot[], index: number, nowMs: number): Creden
         atMs: current.resetAtMs,
         usedPercent: current.usedPercent,
         projected: false,
+        share: shareAt(credential, current.resetAtMs, 'left'),
       });
     }
   };
@@ -869,7 +898,9 @@ const pastResets = (snapshots: Snapshot[], index: number, nowMs: number): Creden
  * Every reset of the pool's accounts between fromMs and endMs: recorded ones
  * from the history snapshots, projected ones from the same states and activity
  * clock as projectPool. Resets of several accounts within a minute are one
- * event. Accounts whose share is fully reserved add nothing and are left out.
+ * event. Accounts whose share is fully reserved add nothing and are left out, as
+ * are resets while an account was inactive (capacity timeline) and, ahead of
+ * now, accounts that are inactive now.
  */
 export function poolResetEvents(
   pool: ProviderPool,
@@ -881,10 +912,11 @@ export function poolResetEvents(
   scenario: PaceScenario = 'expected'
 ): PoolResetEvent[] {
   const past = poolSnapshots(pool, samples, nowMs).flatMap((snapshots, index) =>
-    pastResets(snapshots, index, nowMs)
+    pastResets(pool.credentials[index], snapshots, index, nowMs)
   );
   const clock = activityClock(activity.profile, nowMs, endMs);
   const future = credentialStates(pool, nowMs, activity, scenario).flatMap((state, index) => {
+    if (!shareAt(pool.credentials[index], nowMs)) return [];
     const resets: CredentialReset[] = [];
     let previous: number | null = null;
     for (let atMs = state.resetAtMs; atMs <= endMs; atMs += state.periodMs) {
@@ -898,6 +930,7 @@ export function poolResetEvents(
         atMs,
         usedPercent: Math.min(used, state.share.capPercent),
         projected: true,
+        share: state.share,
       });
       previous = atMs;
     }
@@ -907,10 +940,7 @@ export function poolResetEvents(
   const groups: CredentialReset[][] = [];
   [...past, ...future]
     .filter(
-      (reset) =>
-        reset.atMs >= fromMs &&
-        reset.atMs <= endMs &&
-        pool.credentials[reset.index].share.effective > 0
+      (reset) => reset.atMs >= fromMs && reset.atMs <= endMs && (reset.share?.effective ?? 0) > 0
     )
     .sort((left, right) => left.atMs - right.atMs)
     .forEach((reset) => {
@@ -922,8 +952,10 @@ export function poolResetEvents(
   return groups.map((group) => {
     let used = 0;
     let ours = 0;
-    const accounts = group.map(({ index, usedPercent }) => {
-      const { share, authId } = pool.credentials[index];
+    const accounts = group.map(({ index, usedPercent, share: shareThen }) => {
+      const { authId } = pool.credentials[index];
+      // Kept by the filter above.
+      const share = shareThen as PlanShare;
       used += share.multiplier * Math.min(Math.max(0, usedPercent), share.capPercent);
       ours += share.multiplier * share.capPercent;
       return { authId, usedPercent, capPercent: share.capPercent };
@@ -966,13 +998,14 @@ const samplesFor = (credential: PoolCredential, samples: QuotaHistorySample[]): 
 
 /**
  * Used percent at t from snapshots that hold flat until the next one and drop to
- * zero at their reset. Null before the first snapshot: unknown, not zero.
+ * zero at their reset, with the time of the snapshot it comes from. Null before
+ * the first snapshot: unknown, not zero.
  * Queries must not go backwards in (t, side) order, which buildSeries guarantees,
  * so the cursor only ever moves forward and the whole walk is a single pass.
  */
 const snapshotCursor = (snapshots: Snapshot[]) => {
   let next = 0;
-  return (t: number, side: Side): number | null => {
+  return (t: number, side: Side): { usedPercent: number; atMs: number } | null => {
     while (
       next < snapshots.length &&
       (snapshots[next].atMs < t || (side === 'right' && snapshots[next].atMs === t))
@@ -982,7 +1015,7 @@ const snapshotCursor = (snapshots: Snapshot[]) => {
     const latest = next > 0 ? snapshots[next - 1] : null;
     if (!latest) return null;
     const reset = side === 'right' ? t >= latest.resetAtMs : t > latest.resetAtMs;
-    return reset ? 0 : latest.usedPercent;
+    return { usedPercent: reset ? 0 : latest.usedPercent, atMs: latest.atMs };
   };
 };
 
@@ -1004,18 +1037,54 @@ const poolSnapshots = (
     return [...samplesFor(credential, samples), seed].sort((left, right) => left.atMs - right.atMs);
   });
 
-/** Pooled capacity at t: the effective multiplier of each credential known by then. */
-const knownCapacityAt = (pool: ProviderPool, perCredential: Snapshot[][], t: number): number =>
-  perCredential.reduce(
-    (sum, snapshots, index) =>
-      snapshots[0].atMs <= t ? sum + pool.credentials[index].share.effective : sum,
-    0
-  );
+/**
+ * A credential's share at t, or null while the capacity timeline has it
+ * inactive. At a change, 'left' is the share just before it.
+ */
+const shareAt = (credential: PoolCredential, t: number, side: Side = 'right'): PlanShare | null =>
+  credential.periods
+    ? (credential.periods.find((period) =>
+        side === 'right'
+          ? period.fromMs <= t && t < period.toMs
+          : period.fromMs < t && t <= period.toMs
+      )?.share ?? null)
+    : credential.share;
+
+/**
+ * Pooled capacity at t: the effective multiplier of each credential active then
+ * and known by then (with a timeline, its periods start where it is first seen).
+ */
+const capacityAt = (
+  pool: ProviderPool,
+  perCredential: Snapshot[][],
+  t: number,
+  side: Side = 'right'
+): number =>
+  perCredential.reduce((sum, snapshots, index) => {
+    const credential = pool.credentials[index];
+    const known =
+      credential.periods !== undefined ||
+      (side === 'right' ? snapshots[0].atMs <= t : snapshots[0].atMs < t);
+    const share = known ? shareAt(credential, t, side) : null;
+    return share ? sum + share.effective : sum;
+  }, 0);
+
+/** Every instant in [fromMs, toMs] where a credential's period starts or ends. */
+const periodEdges = (pool: ProviderPool, fromMs: number, toMs: number): number[] =>
+  pool.credentials
+    .flatMap((credential) =>
+      (credential.periods ?? []).flatMap((period) => [period.fromMs, period.toMs])
+    )
+    .filter((t) => t >= fromMs && t <= toMs);
 
 /**
  * Pooled remaining multiplier over [fromMs, nowMs]. A credential joins the sum at
  * its first snapshot, so adding a subscription shows as a step up instead of
  * hiding the pool's earlier history. The line starts once any value is known.
+ * With a capacity timeline each credential counts only while it was active, and
+ * each sample reads at the plan weight and share in effect when it was taken: the
+ * line follows what the provider reports across a plan change (rescaled, reset or
+ * unchanged), a retirement steps it down, and no sample takes today's weight.
  */
 export function poolHistory(
   pool: ProviderPool,
@@ -1031,19 +1100,192 @@ export function poolHistory(
     ...perCredential.flatMap((snapshots) =>
       snapshots.flatMap((snapshot) => [snapshot.atMs, snapshot.resetAtMs])
     ),
+    ...periodEdges(pool, fromMs, nowMs),
   ].filter((t) => t >= fromMs && t <= nowMs);
 
   const cursors = perCredential.map(snapshotCursor);
   return buildSeries(times, (t, side) => {
     let sum: number | null = null;
     cursors.forEach((usedAt, index) => {
+      const credential = pool.credentials[index];
       const used = usedAt(t, side);
-      if (used !== null) {
-        sum = (sum ?? 0) + remainingMultiplier(pool.credentials[index].share, used);
-      }
+      const active = shareAt(credential, t, side);
+      if (used === null || !active) return;
+      const share = shareAt(credential, used.atMs) ?? active;
+      sum = (sum ?? 0) + remainingMultiplier(share, used.usedPercent);
     });
     return sum;
   });
+}
+
+/* ---------- Capacity timeline ---------- */
+
+/** A timeline entry's plan weight and our share for one window. */
+const entryShare = (entry: CapacityEntry, window: PlanWindow): PlanShare => {
+  const weekly = window === 'weekly';
+  const multiplier = weekly ? entry.weightWeekly : entry.weightFiveHour;
+  const capPercent = weekly ? entry.shareWeeklyPercent : entry.shareFiveHourPercent;
+  return {
+    multiplier,
+    multiplierSet: true,
+    capPercent,
+    effective: (multiplier * capPercent) / 100,
+  };
+};
+
+const timelineOf = (provider: ForecastProvider, entries: readonly CapacityEntry[]) => {
+  const byAuth = new Map<string, CapacityEntry[]>();
+  entries
+    .filter((entry) => entry.provider === provider)
+    .forEach((entry) => byAuth.set(entry.authId, [...(byAuth.get(entry.authId) ?? []), entry]));
+  byAuth.forEach((list) => list.sort((left, right) => left.atMs - right.atMs));
+  return byAuth;
+};
+
+/**
+ * The pool as its history should be drawn: every credential gets its active
+ * periods from the capacity timeline, and credentials no longer in the pool
+ * (disabled or retired) that were active and have samples join for the time they
+ * were active. Before its first entry a credential stands as first recorded, from
+ * its first sample on. `capacity` stays the pool's current one. Without timeline
+ * entries for the provider the pool comes back unchanged.
+ */
+export function withCapacityTimeline(
+  pool: ProviderPool,
+  entries: readonly CapacityEntry[],
+  samples: QuotaHistorySample[]
+): ProviderPool {
+  const byAuth = timelineOf(pool.provider, entries);
+  if (byAuth.size === 0) return pool;
+
+  const withPeriods = (credential: PoolCredential): PoolCredential => {
+    const own = byAuth.get(credential.authId);
+    if (!own) return credential;
+    const window = planWindowOf(credential.window);
+    const firstSeen = Math.min(
+      own[0].atMs,
+      samplesFor(credential, samples)[0]?.atMs ?? Infinity,
+      credential.observedAtMs ?? Infinity
+    );
+    const periods = own.flatMap((entry, index) =>
+      entry.active
+        ? [
+            {
+              fromMs: index === 0 ? firstSeen : entry.atMs,
+              toMs: own[index + 1]?.atMs ?? Infinity,
+              share: entryShare(entry, window),
+            },
+          ]
+        : []
+    );
+    return { ...credential, periods };
+  };
+
+  const current = new Set(pool.credentials.map((credential) => credential.authId));
+  const past = Array.from(byAuth.entries()).flatMap(([authId, own]) => {
+    const active = own.filter((entry) => entry.active);
+    const lastActive = active[active.length - 1];
+    if (current.has(authId) || !lastActive) return [];
+    const credential = sampleCredential(authId, samples, (window) =>
+      entryShare(lastActive, window)
+    );
+    return credential ? [withPeriods(credential)] : [];
+  });
+
+  return { ...pool, credentials: [...pool.credentials.map(withPeriods), ...past] };
+}
+
+/**
+ * Pooled capacity over [fromMs, nowMs] as a step function, or null when no
+ * credential has a capacity timeline (the capacity is then today's throughout).
+ */
+export function poolCapacity(
+  pool: ProviderPool,
+  samples: QuotaHistorySample[],
+  fromMs: number,
+  nowMs: number
+): SeriesPoint[] | null {
+  if (!pool.credentials.some((credential) => credential.periods)) return null;
+  const perCredential = poolSnapshots(pool, samples, nowMs);
+  const times = [
+    fromMs,
+    nowMs,
+    ...perCredential.map((snapshots) => snapshots[0].atMs),
+    ...periodEdges(pool, fromMs, nowMs),
+  ].filter((t) => t >= fromMs && t <= nowMs);
+  return buildSeries(times, (t, side) => capacityAt(pool, perCredential, t, side));
+}
+
+/** Whether a capacity series ever differs from today's capacity, so its steps are worth drawing. */
+export const capacityVaries = (series: SeriesPoint[] | null, capacity: number): boolean =>
+  series !== null && series.some((point) => Math.abs(point.v - capacity) > 1e-9);
+
+/** What a capacity change did to its credential. */
+export type CapacityChangeKind = 'retired' | 'reactivated' | 'enabled' | 'disabled' | 'changed';
+
+/** One step of the pool's capacity: a credential retired, reactivated or resized. */
+export interface CapacityChange {
+  atMs: number;
+  authId: string;
+  /** Nickname, else the account label. */
+  name: string;
+  kind: CapacityChangeKind;
+  /** The credential's effective multiplier after the change. */
+  effective: number;
+  /** Change of the pool's capacity. */
+  delta: number;
+  /** The gateway's own words, e.g. "plan pro → max". */
+  reason: string;
+}
+
+/**
+ * Capacity changes in (fromMs, nowMs] of a pool from withCapacityTimeline, in its
+ * credentials' pooled windows. Changes that leave the window's effective multiplier
+ * as it was (e.g. a 5-hour reserve on a weekly pool) are no step and are left out.
+ */
+export function capacityChanges(
+  pool: ProviderPool,
+  entries: readonly CapacityEntry[],
+  fromMs: number,
+  nowMs: number
+): CapacityChange[] {
+  const byAuth = timelineOf(pool.provider, entries);
+  return pool.credentials
+    .flatMap((credential) => {
+      const own = byAuth.get(credential.authId) ?? [];
+      const window = planWindowOf(credential.window);
+      const effectiveOf = (entry: CapacityEntry) =>
+        entry.active ? entryShare(entry, window).effective : 0;
+      return own.flatMap((entry, index): CapacityChange[] => {
+        const previous = own[index - 1];
+        if (!previous || entry.atMs <= fromMs || entry.atMs > nowMs) return [];
+        const effective = effectiveOf(entry);
+        const delta = effective - effectiveOf(previous);
+        if (Math.abs(delta) < 1e-9) return [];
+        const kind: CapacityChangeKind =
+          previous.active && !entry.active
+            ? entry.retired
+              ? 'retired'
+              : 'disabled'
+            : !previous.active && entry.active
+              ? previous.retired
+                ? 'reactivated'
+                : 'enabled'
+              : 'changed';
+        return [
+          {
+            atMs: entry.atMs,
+            authId: entry.authId,
+            name: entry.nickname || entry.label || entry.authId,
+            kind,
+            effective,
+            delta,
+            reason: entry.reason,
+          },
+        ];
+      });
+    })
+    .sort((left, right) => left.atMs - right.atMs);
 }
 
 /**
@@ -1616,7 +1858,7 @@ export function learnActivity(
     const censored = history.flatMap((point, index) => {
       const endMs = history[index + 1]?.t ?? nowMs;
       const rationedBelow =
-        (knownCapacityAt(pool, snapshots, point.t) * (100 - CENSORED_ABOVE_USED)) / 100;
+        (capacityAt(pool, snapshots, point.t) * (100 - CENSORED_ABOVE_USED)) / 100;
       return point.v < rationedBelow && endMs > point.t ? [{ startMs: point.t, endMs }] : [];
     });
     const cost = (fromMs: number, toMs: number, weight: Weight, part: CostPart) =>

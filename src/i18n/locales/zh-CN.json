@@ -1661,7 +1661,14 @@
     "legend_reset_partial": "部分",
     "legend_reset_low": "大多未用",
     "person_pool": "网关池 {{capacity}} 的 {{percent}}%",
-    "reset_row": "重置"
+    "reset_row": "重置",
+    "capacity_retired": "{{name}} 已退役",
+    "capacity_reactivated": "{{name}} 已重新启用",
+    "capacity_enabled": "{{name}} 已启用",
+    "capacity_disabled": "{{name}} 已停用",
+    "capacity_removed": "{{name}} 已删除",
+    "capacity_changed": "{{name}} → {{value}}",
+    "legend_capacity": "容量"
   },
   "quota_management": {
     "search_label": "搜索账号",
@@ -2524,7 +2531,8 @@
     "stack_label": "堆叠方式",
     "stack_user": "按用户",
     "stack_subscription": "按订阅",
-    "users_title": "用户"
+    "users_title": "用户",
+    "retired_credential": "已退役：{{name}}"
   },
   "claude_credit": {
     "title": "Claude API 额度",
@@ -2786,7 +2794,16 @@
     "settings_hint_usageCap": "旧设置：窗口用到此比例后停止路由到这里。下方的预留会替代对应窗口的此设置。",
     "settings_hint_lender": "将此账号借给池的人。出借人的预留为其保留，可在“预留”栏中释放。",
     "settings_hint_reserveFiveHour": "每个 5 小时窗口为出借人保留的份额；只剩这么多时，池将不再使用此账号。",
-    "settings_hint_reserveWeekly": "每个每周窗口为出借人保留的份额；只剩这么多时，池将不再使用此账号。"
+    "settings_hint_reserveWeekly": "每个每周窗口为出借人保留的份额；只剩这么多时，池将不再使用此账号。",
+    "retired_badge": "已退役 · {{date}}",
+    "retired_title": "于 {{date}} 退役",
+    "retired_hint": "已退役：不计入池和总量，套餐、出借方、预留和历史均保留。可通过 ⚙ 或开关重新启用。",
+    "retire": "退役",
+    "retire_hint": "用于已结束的套餐：停用该凭证并将其移出池和总量，但保留套餐、出借方、预留和历史，过去的图表仍会显示它。“重新启用”可将其恢复。",
+    "retire_confirm_title": "退役 {{name}}？",
+    "retire_confirm_message": "从现在起它不再接收请求并离开池。设置和历史会保留，可随时重新启用。",
+    "retire_success": "{{name}} 已退役",
+    "reactivate": "重新启用"
   },
   "routing": {
     "aria": "路由：{{state}}",

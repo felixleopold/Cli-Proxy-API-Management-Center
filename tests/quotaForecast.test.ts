@@ -16,7 +16,10 @@ import {
   nightBands,
   nightHours,
   poolEmpty,
+  poolCapacity,
   poolHistory,
+  capacityChanges,
+  withCapacityTimeline,
   gatewayResetCredits,
   poolResetCredits,
   poolResetEvents,
@@ -45,6 +48,7 @@ import {
   normalizeQuotaHistorySamples,
   type QuotaHistorySample,
 } from '../src/services/api/quotaHistory';
+import { normalizeCapacityEntries, type CapacityEntry } from '../src/services/api/capacityHistory';
 
 const NOW = Date.UTC(2026, 9, 17, 12);
 const WEEK_MS = 7 * DAY_MS;
@@ -1131,5 +1135,127 @@ describe('reset events', () => {
     });
     expect(event.accounts.map((account) => account.authId)).toEqual(['a']);
     expect(resetUseOf(event.utilization)).toBe('low');
+  });
+});
+
+describe('capacity timeline', () => {
+  const entry = (overrides: Partial<CapacityEntry>): CapacityEntry => ({
+    atMs: NOW - 5 * DAY_MS,
+    authId: 'a',
+    provider: 'claude',
+    label: 'a@example.com',
+    nickname: '',
+    active: true,
+    retired: false,
+    plan: 'pro',
+    weightFiveHour: 1,
+    weightWeekly: 1,
+    shareFiveHourPercent: 100,
+    shareWeeklyPercent: 100,
+    lender: '',
+    lenderGroup: false,
+    reason: 'added',
+    source: 'observed',
+    ...overrides,
+  });
+
+  // An Ultra (10× weekly) retired a day ago beside a 1× account that stays.
+  const retiredUltra = () => {
+    const entries = [
+      entry({}),
+      entry({ authId: 'u', nickname: 'Ultra', weightWeekly: 10, weightFiveHour: 20 }),
+      entry({ authId: 'u', nickname: 'Ultra', atMs: NOW - DAY_MS, active: false, retired: true }),
+    ].map((value, index) => (index === 2 ? { ...value, reason: 'retired' } : value));
+    const samples = [
+      sample({ atMs: NOW - 2 * DAY_MS, usedPercent: 20 }),
+      sample({ authId: 'u', atMs: NOW - 2 * DAY_MS, usedPercent: 40 }),
+    ];
+    const current = credential({ usedPercent: 30 });
+    return { entries, samples, drawn: withCapacityTimeline(pool(current), entries, samples) };
+  };
+
+  test('a retired credential is drawn while it was active, and the capacity steps down', () => {
+    const { entries, samples, drawn } = retiredUltra();
+    expect(drawn.credentials.map((c) => c.authId)).toEqual(['a', 'u']);
+    expect(drawn.capacity).toBe(1);
+    const history = poolHistory(drawn, samples, NOW - 3 * DAY_MS, NOW);
+    expect(valueAt(history, NOW - 1.5 * DAY_MS)).toBeCloseTo(0.8 + 6);
+    expect(valueAt(history, NOW - 0.5 * DAY_MS)).toBeCloseTo(0.8);
+    expect(valueAt(history, NOW)).toBeCloseTo(0.7);
+    const capacity = poolCapacity(drawn, samples, NOW - 3 * DAY_MS, NOW) ?? [];
+    expect(valueAt(capacity, NOW - 3 * DAY_MS)).toBe(11);
+    expect(valueAt(capacity, NOW - 0.5 * DAY_MS)).toBe(1);
+    expect(capacityChanges(drawn, entries, NOW - 3 * DAY_MS, NOW)).toEqual([
+      {
+        atMs: NOW - DAY_MS,
+        authId: 'u',
+        name: 'Ultra',
+        kind: 'retired',
+        effective: 0,
+        delta: -10,
+        reason: 'retired',
+      },
+    ]);
+  });
+
+  test('a retired credential projects no further resets', () => {
+    const { samples, drawn } = retiredUltra();
+    const events = poolResetEvents(drawn, samples, NOW, NOW, NOW + 5 * DAY_MS);
+    expect(events.map((event) => event.accounts.map((account) => account.authId))).toEqual([['a']]);
+  });
+
+  test('each sample reads at the plan weight in effect when it was taken', () => {
+    // Upgraded 1× → 5× a day ago; the provider rescaled the used percent at the next sample.
+    const entries = [
+      entry({ atMs: NOW - 3 * DAY_MS }),
+      entry({ atMs: NOW - DAY_MS, plan: 'max', weightWeekly: 5, reason: 'plan pro → max' }),
+    ];
+    const samples = [
+      sample({ atMs: NOW - 2 * DAY_MS, usedPercent: 50 }),
+      sample({ atMs: NOW - DAY_MS + 2 * HOUR_MS, usedPercent: 10 }),
+    ];
+    const current = credential({
+      usedPercent: 10,
+      observedAtMs: NOW - DAY_MS + 2 * HOUR_MS,
+      share: planShareOf({ planWeightWeekly: 5 }, 'weekly'),
+    });
+    const drawn = withCapacityTimeline(pool(current), entries, samples);
+    const history = poolHistory(drawn, samples, NOW - 3 * DAY_MS, NOW);
+    expect(valueAt(history, NOW - 1.5 * DAY_MS)).toBeCloseTo(0.5);
+    // The last sample before the change keeps the old weight until the next one arrives.
+    expect(valueAt(history, NOW - DAY_MS + HOUR_MS)).toBeCloseTo(0.5);
+    expect(valueAt(history, NOW - DAY_MS + 3 * HOUR_MS)).toBeCloseTo(4.5);
+    const capacity = poolCapacity(drawn, samples, NOW - 3 * DAY_MS, NOW) ?? [];
+    expect(valueAt(capacity, NOW - 1.5 * DAY_MS)).toBe(1);
+    expect(valueAt(capacity, NOW - 0.5 * DAY_MS)).toBe(5);
+    expect(capacityChanges(drawn, entries, NOW - 3 * DAY_MS, NOW)).toMatchObject([
+      { kind: 'changed', effective: 5, delta: 4, reason: 'plan pro → max' },
+    ]);
+  });
+
+  test('without timeline entries the pool and its history are as before', () => {
+    const current = pool(credential({ usedPercent: 30 }));
+    expect(withCapacityTimeline(current, [], [])).toBe(current);
+    expect(poolCapacity(current, [], NOW - DAY_MS, NOW)).toBeNull();
+  });
+
+  test('entries are normalized, sorted by time, and malformed ones dropped', () => {
+    const raw = (at: number, extra = {}) => ({
+      at_ms: at,
+      auth_id: 'a',
+      provider: 'Claude',
+      active: true,
+      weight_five_hour: 20,
+      weight_weekly: 10,
+      share_five_hour_percent: 100,
+      share_weekly_percent: 70,
+      source: 'backfill',
+      ...extra,
+    });
+    const entries = normalizeCapacityEntries({
+      entries: [raw(2), raw(1), raw(3, { weight_weekly: 'x' }), null],
+    });
+    expect(entries.map((value) => value.atMs)).toEqual([1, 2]);
+    expect(entries[0]).toMatchObject({ provider: 'claude', source: 'backfill', weightWeekly: 10 });
   });
 });

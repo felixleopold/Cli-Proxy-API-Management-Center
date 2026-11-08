@@ -1664,7 +1664,14 @@
     "legend_reset_partial": "partly",
     "legend_reset_low": "mostly unused",
     "person_pool": "{{percent}}% of the gateway's {{capacity}} pool",
-    "reset_row": "Reset"
+    "reset_row": "Reset",
+    "capacity_retired": "{{name}} retired",
+    "capacity_reactivated": "{{name}} reactivated",
+    "capacity_enabled": "{{name}} enabled",
+    "capacity_disabled": "{{name}} disabled",
+    "capacity_removed": "{{name}} removed",
+    "capacity_changed": "{{name}} → {{value}}",
+    "legend_capacity": "Capacity"
   },
   "quota_management": {
     "search_label": "Search accounts",
@@ -2538,7 +2545,8 @@
     "stack_label": "Stack by",
     "stack_user": "By user",
     "stack_subscription": "By subscription",
-    "users_title": "Users"
+    "users_title": "Users",
+    "retired_credential": "Retired: {{name}}"
   },
   "claude_credit": {
     "title": "Claude API credits",
@@ -2805,7 +2813,16 @@
     "settings_hint_usageCap": "Older setting: stop routing here once this much of a window is used. A reserve below replaces it for its window.",
     "settings_hint_lender": "Who lends this account to the pool. A lender's reserve is kept for them and can be released from the Reserves strip.",
     "settings_hint_reserveFiveHour": "The share of each 5-hour window kept for the lender; the pool stops using the account once only this much is left.",
-    "settings_hint_reserveWeekly": "The share of each weekly window kept for the lender; the pool stops using the account once only this much is left."
+    "settings_hint_reserveWeekly": "The share of each weekly window kept for the lender; the pool stops using the account once only this much is left.",
+    "retired_badge": "Retired · {{date}}",
+    "retired_title": "Retired on {{date}}",
+    "retired_hint": "Retired: out of the pool and the totals, with its plan, lender, reserves and history kept. Reactivate it from ⚙ or the toggle.",
+    "retire": "Retire",
+    "retire_hint": "For a plan that has ended: disables the credential and takes it out of the pool and the totals, but keeps its plan, lender, reserves and history, so past charts still show it. Reactivate brings it back.",
+    "retire_confirm_title": "Retire {{name}}?",
+    "retire_confirm_message": "It stops taking requests and leaves the pool from now on. Its settings and history stay, and you can reactivate it at any time.",
+    "retire_success": "{{name}} retired",
+    "reactivate": "Reactivate"
   },
   "routing": {
     "aria": "Routing: {{state}}",

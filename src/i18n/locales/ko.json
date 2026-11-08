@@ -1664,7 +1664,14 @@
     "legend_reset_partial": "일부",
     "legend_reset_low": "대부분 미사용",
     "person_pool": "게이트웨이 풀 {{capacity}}의 {{percent}}%",
-    "reset_row": "초기화"
+    "reset_row": "초기화",
+    "capacity_retired": "{{name}} 은퇴",
+    "capacity_reactivated": "{{name}} 재활성화",
+    "capacity_enabled": "{{name}} 활성화",
+    "capacity_disabled": "{{name}} 비활성화",
+    "capacity_removed": "{{name}} 삭제",
+    "capacity_changed": "{{name}} → {{value}}",
+    "legend_capacity": "용량"
   },
   "quota_management": {
     "search_label": "계정 검색",
@@ -2538,7 +2545,8 @@
     "stack_label": "누적 기준",
     "stack_user": "사용자별",
     "stack_subscription": "구독별",
-    "users_title": "사용자"
+    "users_title": "사용자",
+    "retired_credential": "은퇴: {{name}}"
   },
   "claude_credit": {
     "title": "Claude API 크레딧",
@@ -2805,7 +2813,16 @@
     "settings_hint_usageCap": "이전 설정: 기간의 이만큼을 사용하면 이 계정으로 라우팅을 멈춥니다. 아래의 예약분이 해당 기간에서 이를 대체합니다.",
     "settings_hint_lender": "이 계정을 풀에 빌려준 사람입니다. 대여자의 예약분은 그 사람 몫으로 남으며 예약 영역에서 해제할 수 있습니다.",
     "settings_hint_reserveFiveHour": "각 5시간 기간에서 대여자 몫으로 남겨 두는 비율입니다. 이만큼만 남으면 풀은 이 계정을 사용하지 않습니다.",
-    "settings_hint_reserveWeekly": "각 주간 기간에서 대여자 몫으로 남겨 두는 비율입니다. 이만큼만 남으면 풀은 이 계정을 사용하지 않습니다."
+    "settings_hint_reserveWeekly": "각 주간 기간에서 대여자 몫으로 남겨 두는 비율입니다. 이만큼만 남으면 풀은 이 계정을 사용하지 않습니다.",
+    "retired_badge": "은퇴 · {{date}}",
+    "retired_title": "{{date}}에 은퇴",
+    "retired_hint": "은퇴: 풀과 합계에서 빠지며 플랜, 대여자, 예약분과 기록은 유지됩니다. ⚙ 또는 토글로 재활성화할 수 있습니다.",
+    "retire": "은퇴",
+    "retire_hint": "끝난 플랜용: 자격 증명을 비활성화하고 풀과 합계에서 빼지만 플랜, 대여자, 예약분과 기록은 유지하므로 과거 차트에 계속 표시됩니다. 재활성화하면 되돌아옵니다.",
+    "retire_confirm_title": "{{name}}을(를) 은퇴시킬까요?",
+    "retire_confirm_message": "지금부터 요청을 받지 않고 풀에서 빠집니다. 설정과 기록은 유지되며 언제든 재활성화할 수 있습니다.",
+    "retire_success": "{{name}} 은퇴",
+    "reactivate": "재활성화"
   },
   "routing": {
     "aria": "라우팅: {{state}}",

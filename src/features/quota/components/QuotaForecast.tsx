@@ -30,6 +30,8 @@ import {
   FORECAST_HORIZON_DAYS,
   FUTURE_USAGE,
   buildPools,
+  capacityChanges,
+  capacityVaries,
   drainBuckets,
   drainEdges,
   firstCredentialEmpty,
@@ -37,6 +39,7 @@ import {
   learnActivity,
   nightHours,
   poolEmpty,
+  poolCapacity,
   poolHistory,
   poolResetCredits,
   poolResetEvents,
@@ -44,6 +47,8 @@ import {
   recentBurn,
   steadyActivity,
   summarizePool,
+  withCapacityTimeline,
+  type CapacityChange,
   type CardReading,
   type DrainSpanDays,
   type ForecastHorizonDays,
@@ -66,7 +71,12 @@ import {
 } from '../usagePoolModel';
 import { HoverCard, InfoHint } from './HoverCard';
 import { readQuotaUiState, writeQuotaUiState } from '../uiState';
-import { DrainChart, RemainingChart, type ForecastRow } from './QuotaForecastChart';
+import {
+  DrainChart,
+  RemainingChart,
+  type CapacityMark,
+  type ForecastRow,
+} from './QuotaForecastChart';
 import styles from './QuotaForecast.module.scss';
 
 const SERIES_COLOR: Record<ForecastProvider, string> = {
@@ -74,6 +84,16 @@ const SERIES_COLOR: Record<ForecastProvider, string> = {
   codex: 'var(--fc-codex)',
   meta: 'var(--fc-meta)',
 };
+
+/** Gateway reasons a capacity change's label already says. */
+const STATUS_REASONS = new Set([
+  'retired',
+  'unretired',
+  'reactivated',
+  'enabled',
+  'disabled',
+  'removed',
+]);
 
 /** History drawn left of "now"; longer horizons keep a week so the chart stays readable. */
 const MAX_HISTORY_DAYS = 7;
@@ -87,6 +107,7 @@ const LEGEND_KEY = {
   bar: styles.keyBar,
   band: styles.keyBand,
   tick: styles.keyTick,
+  ceiling: styles.keyCeiling,
 };
 
 export interface QuotaForecastProps {
@@ -119,6 +140,8 @@ export function QuotaForecast({
 
   const samples = history.status === 'ok' ? history.samples : null;
   const ledger = history.status === 'ok' ? history.ledger : null;
+  // The capacity timeline; null on gateways without one, where capacity is today's throughout.
+  const timeline = history.status === 'ok' ? history.capacity : null;
   // Credentials without live signals join from their latest history reading, else their loaded card.
   const pools = useMemo(
     () => buildPools(files, samples ?? [], cardReadings),
@@ -218,18 +241,39 @@ export function QuotaForecast({
     [files]
   );
 
+  const capacityMark = useCallback(
+    (change: CapacityChange): CapacityMark => {
+      const name = accountNames.get(change.authId) ?? change.name;
+      const removed = change.reason.split(', ').includes('removed');
+      const kind = change.kind === 'disabled' && removed ? 'removed' : change.kind;
+      return {
+        atMs: change.atMs,
+        label: t(`quota_forecast.capacity_${kind}`, {
+          name,
+          value: numbers.multiplier(change.effective),
+        }),
+        delta: `${change.delta > 0 ? '+' : '−'}${numbers.multiplier(Math.abs(change.delta))}`,
+        // The gateway's reason, unless it only repeats the label ("retired").
+        detail: change.reason && !STATUS_REASONS.has(change.reason) ? change.reason : null,
+      };
+    },
+    [accountNames, numbers, t]
+  );
+
   const cards = useMemo(
     () =>
       visible.map((pool) => {
         const credits = resetCreditsFor
           ? poolResetCredits(pool, files, resetCreditsFor, nowMs)
           : [];
+        // History draws every credential for the time it was active, retired ones too.
+        const drawn = timeline ? withCapacityTimeline(pool, timeline, samples ?? []) : pool;
         const row: ForecastRow = {
           key: pool.provider,
           label: getTypeLabel(t, pool.provider),
           color: SERIES_COLOR[pool.provider],
           capacity: pool.capacity,
-          history: samples ? poolHistory(pool, samples, startMs, nowMs) : [],
+          history: samples ? poolHistory(drawn, samples, startMs, nowMs) : [],
           projection: projectPool(pool, nowMs, endMs, projected, scenario),
           // The likely range is the usual pattern's spread; the other choices are one pace each.
           range:
@@ -240,7 +284,11 @@ export function QuotaForecast({
                 }
               : null,
           credits,
-          resets: poolResetEvents(pool, samples ?? [], startMs, nowMs, endMs, projected, scenario),
+          resets: poolResetEvents(drawn, samples ?? [], startMs, nowMs, endMs, projected, scenario),
+          capacityHistory: samples ? poolCapacity(drawn, samples, startMs, nowMs) : null,
+          capacityMarks: timeline
+            ? capacityChanges(drawn, timeline, startMs, nowMs).map(capacityMark)
+            : [],
         };
         const first = firstCredentialEmpty(pool, nowMs, projected, scenario);
         return {
@@ -272,6 +320,8 @@ export function QuotaForecast({
       accountNames,
       prefs.burnHours,
       edges,
+      timeline,
+      capacityMark,
     ]
   );
 
@@ -817,6 +867,11 @@ export function QuotaForecast({
                       legendItem(
                         legendKey('range', row.color),
                         t('quota_management.forecast_legend_range')
+                      ),
+                    capacityVaries(row.capacityHistory, row.capacity) &&
+                      legendItem(
+                        legendKey('ceiling', row.color),
+                        t('quota_forecast.legend_capacity')
                       ),
                     hasNight &&
                       legendItem(

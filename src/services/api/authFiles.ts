@@ -21,7 +21,7 @@ import {
 import { parseTimestampMs } from '@/utils/timestamp';
 import { normalizeAuthFileCooldowns, normalizeCooldownTimestamp } from './authFileCooldowns';
 
-type AuthFileStatusResponse = { status: string; disabled: boolean };
+type AuthFileStatusResponse = { status: string; disabled: boolean; retired_at?: string };
 export type AuthFileLookup = { name: string; authIndex?: string };
 type AuthFileEntry = AuthFilesResponse['files'][number];
 export type AuthFileFieldsPatch = {
@@ -329,6 +329,7 @@ const normalizeAuthFileEntry = (
   const paceMode = readTextField(entry, 'pace_mode');
   const paceUntil = Date.parse(readTextField(entry, 'pace_until'));
   const routingStatus = normalizeRoutingStatus(entry['routing_status']);
+  const retiredAt = Date.parse(readTextField(entry, 'retired_at'));
 
   return {
     ...entry,
@@ -362,6 +363,7 @@ const normalizeAuthFileEntry = (
       ? { paceMode, paceUntilMs: paceUntil }
       : {}),
     ...(routingStatus ? { routingStatus } : {}),
+    ...(Number.isFinite(retiredAt) ? { retiredAtMs: retiredAt } : {}),
     ...(note ? { note } : {}),
     ...(email ? { email } : {}),
     ...(projectId ? { projectId } : {}),
@@ -608,12 +610,21 @@ export const authFilesApi = {
       )
     ),
 
-  setStatus: (name: string, disabled: boolean, authIndex?: string) =>
-    apiClient.patch<AuthFileStatusResponse>('/credentials/status', {
+  /** `retire` (with disabled) also retires a credential file; enabling clears a retirement. */
+  setStatus: async (name: string, disabled: boolean, authIndex?: string, retire = false) => {
+    const res = await apiClient.patch<AuthFileStatusResponse>('/credentials/status', {
       name,
       disabled,
+      ...(retire ? { retired: true } : {}),
       ...(authIndex ? { auth_index: authIndex } : {}),
-    }),
+    });
+    const retiredAt = Date.parse(res.retired_at ?? '');
+    return {
+      status: res.status,
+      disabled: res.disabled,
+      retiredAtMs: Number.isFinite(retiredAt) ? retiredAt : undefined,
+    };
+  },
 
   patchFields: (name: string, fields: AuthFileFieldsPatch) =>
     apiClient.patch('/credentials/fields', { name, ...fields }),

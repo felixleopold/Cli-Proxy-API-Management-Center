@@ -121,6 +121,8 @@ export interface AuthFileItem {
   paceUntilMs?: number;
   /** Why the gateway routes to this credential or not, right now; absent on older gateways. */
   routingStatus?: AuthFileRoutingStatus;
+  /** When the credential was retired (ms): disabled and out of the pool, metadata kept. */
+  retiredAtMs?: number;
   note?: string;
   success?: unknown;
   failed?: unknown;

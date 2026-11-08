@@ -447,7 +447,13 @@ export function DisabledAccountRow({
       details={
         <DetailsSection title={t('usage_accounts.details_account')}>
           <AccountFacts file={file} plan={label || null} />
-          <p className={styles.muted}>{t('usage_accounts.disabled_hint')}</p>
+          <p className={styles.muted}>
+            {t(
+              file.retiredAtMs !== undefined
+                ? 'usage_accounts.retired_hint'
+                : 'usage_accounts.disabled_hint'
+            )}
+          </p>
         </DetailsSection>
       }
       onFileChange={onFileChange}

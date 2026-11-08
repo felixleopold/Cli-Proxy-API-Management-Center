@@ -305,6 +305,7 @@ describe('serving credentials', () => {
     expect(credentialKind(OWN_ACCOUNT_AUTH_ID, known)).toBe('own_account');
     expect(credentialKind('claude-a', known)).toBe('subscription');
     expect(credentialKind('claude-gone', known)).toBe('removed');
+    expect(credentialKind('claude-ultra', known, new Set(['claude-ultra']))).toBe('retired');
   });
 });
 

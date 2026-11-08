@@ -424,6 +424,19 @@ strong + .cardLine {
   @include text-ellipsis;
 }
 
+/* "Retired · Nov 8" beside the name: quiet, like the row it sits in. */
+.retiredBadge {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
 .errorIcon {
   flex: none;
   color: var(--danger-color);

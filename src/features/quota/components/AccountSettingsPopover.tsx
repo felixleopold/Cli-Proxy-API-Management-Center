@@ -1,7 +1,8 @@
 /**
  * The ⚙ popover of an account row: its name and usage settings only, saved
  * diff-only through PATCH /credentials/fields, then the credential list
- * reloads. Every field explains itself on hover or focus of its ⓘ.
+ * reloads. Every field explains itself on hover or focus of its ⓘ. Below them,
+ * Retire (after a confirmation) or, once retired, Reactivate.
  */
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
@@ -10,7 +11,11 @@ import { Button } from '@/components/ui/Button';
 import { authFilesApi } from '@/services/api';
 import { useNotificationStore } from '@/stores';
 import type { AuthFileItem } from '@/types';
-import { CLAUDE_PLAN_WEIGHTS, type ClaudePlan } from '@/features/authFiles/constants';
+import {
+  CLAUDE_PLAN_WEIGHTS,
+  isRuntimeOnlyAuthFile,
+  type ClaudePlan,
+} from '@/features/authFiles/constants';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
 import {
   accountSettingsDraft,
@@ -31,14 +36,21 @@ export function AccountSettingsPopover({
   provider,
   onClose,
   onSaved,
+  statusPending,
+  onRetire,
+  onReactivate,
 }: {
   file: AuthFileItem;
   provider: string;
   onClose: () => void;
   onSaved: () => void;
+  statusPending: boolean;
+  onRetire: () => void;
+  onReactivate: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const showNotification = useNotificationStore((state) => state.showNotification);
+  const showConfirmation = useNotificationStore((state) => state.showConfirmation);
   const id = useId();
   const rootRef = useRef<HTMLFormElement>(null);
   // Seeded once: a list reload while open must not overwrite what is being typed.
@@ -221,6 +233,62 @@ export function AccountSettingsPopover({
             suffix: '%',
           })}
         </div>
+      )}
+
+      {file.disabled && file.retiredAtMs !== undefined ? (
+        <div className={`${styles.group} ${styles.lifecycle}`}>
+          <span className={styles.lifecycleText}>
+            {t('usage_accounts.retired_title', {
+              date: new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language, {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              }).format(file.retiredAtMs),
+            })}
+          </span>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={statusPending}
+            onClick={() => {
+              onReactivate();
+              closeToTrigger();
+            }}
+          >
+            {t('usage_accounts.reactivate')}
+          </Button>
+        </div>
+      ) : (
+        // Only credential files can be retired; the gateway refuses config API keys.
+        !isRuntimeOnlyAuthFile(file) && (
+          <div className={`${styles.group} ${styles.lifecycle}`}>
+            <span className={styles.label}>
+              <span>{t('usage_accounts.retire')}</span>
+              <InfoHint label={t('usage_accounts.retire')} text={t('usage_accounts.retire_hint')} />
+            </span>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={statusPending}
+              onClick={() => {
+                onClose();
+                showConfirmation({
+                  title: t('usage_accounts.retire_confirm_title', {
+                    name: file.nickname || file.email || file.name,
+                  }),
+                  message: t('usage_accounts.retire_confirm_message'),
+                  confirmText: t('usage_accounts.retire'),
+                  variant: 'danger',
+                  onConfirm: onRetire,
+                });
+              }}
+            >
+              {t('usage_accounts.retire')}
+            </Button>
+          </div>
+        )
       )}
 
       {error && (

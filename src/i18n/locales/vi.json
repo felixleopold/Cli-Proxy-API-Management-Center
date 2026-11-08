@@ -1621,7 +1621,14 @@
     "legend_reset_partial": "một phần",
     "legend_reset_low": "phần lớn chưa dùng",
     "person_pool": "{{percent}}% của pool gateway {{capacity}}",
-    "reset_row": "Đặt lại"
+    "reset_row": "Đặt lại",
+    "capacity_retired": "{{name}} đã ngừng",
+    "capacity_reactivated": "{{name}} đã kích hoạt lại",
+    "capacity_enabled": "{{name}} đã bật",
+    "capacity_disabled": "{{name}} đã tắt",
+    "capacity_removed": "{{name}} đã xóa",
+    "capacity_changed": "{{name}} → {{value}}",
+    "legend_capacity": "Dung lượng"
   },
   "quota_management": {
     "title": "Quản lý Quota",
@@ -2544,7 +2551,8 @@
     "stack_label": "Xếp chồng theo",
     "stack_user": "Theo người dùng",
     "stack_subscription": "Theo gói",
-    "users_title": "Người dùng"
+    "users_title": "Người dùng",
+    "retired_credential": "Đã ngừng: {{name}}"
   },
   "claude_credit": {
     "title": "Tín dụng Claude API",
@@ -2811,7 +2819,16 @@
     "settings_hint_usageCap": "Cài đặt cũ: ngừng định tuyến đến đây khi đã dùng chừng này của một kỳ. Phần giữ lại bên dưới thay thế nó cho kỳ đó.",
     "settings_hint_lender": "Người cho pool mượn tài khoản này. Phần giữ lại của người cho mượn được để dành cho họ và có thể giải phóng ở dải Phần giữ lại.",
     "settings_hint_reserveFiveHour": "Phần của mỗi kỳ 5 giờ được giữ cho người cho mượn; pool ngừng dùng tài khoản khi chỉ còn chừng đó.",
-    "settings_hint_reserveWeekly": "Phần của mỗi kỳ hằng tuần được giữ cho người cho mượn; pool ngừng dùng tài khoản khi chỉ còn chừng đó."
+    "settings_hint_reserveWeekly": "Phần của mỗi kỳ hằng tuần được giữ cho người cho mượn; pool ngừng dùng tài khoản khi chỉ còn chừng đó.",
+    "retired_badge": "Đã ngừng · {{date}}",
+    "retired_title": "Ngừng ngày {{date}}",
+    "retired_hint": "Đã ngừng: ra khỏi pool và tổng, giữ nguyên gói, bên cho mượn, phần giữ lại và lịch sử. Kích hoạt lại qua ⚙ hoặc công tắc.",
+    "retire": "Ngừng dùng",
+    "retire_hint": "Cho gói đã kết thúc: tắt thông tin xác thực và đưa nó ra khỏi pool và tổng, nhưng giữ gói, bên cho mượn, phần giữ lại và lịch sử để biểu đồ cũ vẫn hiển thị. Kích hoạt lại sẽ đưa nó trở lại.",
+    "retire_confirm_title": "Ngừng dùng {{name}}?",
+    "retire_confirm_message": "Từ giờ nó không nhận yêu cầu và rời pool. Cài đặt và lịch sử được giữ, có thể kích hoạt lại bất cứ lúc nào.",
+    "retire_success": "Đã ngừng {{name}}",
+    "reactivate": "Kích hoạt lại"
   },
   "routing": {
     "aria": "Định tuyến: {{state}}",

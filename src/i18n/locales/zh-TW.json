@@ -1687,7 +1687,14 @@
     "legend_reset_partial": "部分",
     "legend_reset_low": "大多未用",
     "person_pool": "閘道池 {{capacity}} 的 {{percent}}%",
-    "reset_row": "重置"
+    "reset_row": "重置",
+    "capacity_retired": "{{name}} 已退役",
+    "capacity_reactivated": "{{name}} 已重新啟用",
+    "capacity_enabled": "{{name}} 已啟用",
+    "capacity_disabled": "{{name}} 已停用",
+    "capacity_removed": "{{name}} 已刪除",
+    "capacity_changed": "{{name}} → {{value}}",
+    "legend_capacity": "容量"
   },
   "quota_management": {
     "search_label": "搜尋帳號",
@@ -2550,7 +2557,8 @@
     "stack_label": "堆疊方式",
     "stack_user": "依使用者",
     "stack_subscription": "依訂閱",
-    "users_title": "使用者"
+    "users_title": "使用者",
+    "retired_credential": "已退役：{{name}}"
   },
   "claude_credit": {
     "title": "Claude API 額度",
@@ -2812,7 +2820,16 @@
     "settings_hint_usageCap": "舊設定：視窗用到此比例後停止路由到這裡。下方的預留會取代對應視窗的此設定。",
     "settings_hint_lender": "將此帳號借給池的人。出借人的預留為其保留，可在「預留」列中釋放。",
     "settings_hint_reserveFiveHour": "每個 5 小時視窗為出借人保留的份額；只剩這麼多時，池將不再使用此帳號。",
-    "settings_hint_reserveWeekly": "每個每週視窗為出借人保留的份額；只剩這麼多時，池將不再使用此帳號。"
+    "settings_hint_reserveWeekly": "每個每週視窗為出借人保留的份額；只剩這麼多時，池將不再使用此帳號。",
+    "retired_badge": "已退役 · {{date}}",
+    "retired_title": "於 {{date}} 退役",
+    "retired_hint": "已退役：不計入池與總量，方案、出借方、預留與歷史皆保留。可透過 ⚙ 或開關重新啟用。",
+    "retire": "退役",
+    "retire_hint": "用於已結束的方案：停用此憑證並將其移出池與總量，但保留方案、出借方、預留與歷史，過去的圖表仍會顯示它。「重新啟用」可將其恢復。",
+    "retire_confirm_title": "退役 {{name}}？",
+    "retire_confirm_message": "從現在起它不再接收請求並離開池。設定與歷史會保留，可隨時重新啟用。",
+    "retire_success": "{{name}} 已退役",
+    "reactivate": "重新啟用"
   },
   "routing": {
     "aria": "路由：{{state}}",
