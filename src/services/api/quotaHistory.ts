@@ -70,15 +70,71 @@ export const normalizeQuotaHistorySamples = (payload: unknown): QuotaHistorySamp
   return samples.sort((left, right) => left.atMs - right.atMs);
 };
 
+/** A private credential in the private history response, listed even without samples. */
+export interface PrivateHistoryCredential {
+  authId: string;
+  label: string;
+  provider: string;
+  privateUser: string;
+  disabled: boolean;
+}
+
+export type PrivateQuotaHistoryResult =
+  | { status: 'ok'; samples: QuotaHistorySample[]; credentials: PrivateHistoryCredential[] }
+  | { status: 'disabled' };
+
+export const normalizePrivateHistoryCredentials = (
+  payload: unknown
+): PrivateHistoryCredential[] => {
+  const raw = isRecord(payload) && Array.isArray(payload.credentials) ? payload.credentials : [];
+  return raw.flatMap((entry: unknown) => {
+    if (!isRecord(entry) || typeof entry.auth_id !== 'string' || !entry.auth_id) return [];
+    const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+    return [
+      {
+        authId: entry.auth_id,
+        label: text(entry.label) || entry.auth_id,
+        provider: text(entry.provider).toLowerCase(),
+        privateUser: text(entry.private_user),
+        disabled: entry.disabled === true,
+      },
+    ];
+  });
+};
+
+const historyParams = (fromMs: number, toMs: number) => ({
+  params: { from: new Date(fromMs).toISOString(), to: new Date(toMs).toISOString() },
+});
+
+const isDisabled = (error: unknown) => isRecord(error) && error.status === 409;
+
 export const quotaHistoryApi = {
   list: async (fromMs: number, toMs: number): Promise<QuotaHistoryResult> => {
     try {
-      const payload = await apiClient.get<unknown>('/observability/quota/history', {
-        params: { from: new Date(fromMs).toISOString(), to: new Date(toMs).toISOString() },
-      });
+      const payload = await apiClient.get<unknown>(
+        '/observability/quota/history',
+        historyParams(fromMs, toMs)
+      );
       return { status: 'ok', samples: normalizeQuotaHistorySamples(payload) };
     } catch (error: unknown) {
-      if (isRecord(error) && error.status === 409) return { status: 'disabled' };
+      if (isDisabled(error)) return { status: 'disabled' };
+      throw error;
+    }
+  },
+  /** The private credentials' history, which the shared endpoint leaves out. */
+  listPrivate: async (fromMs: number, toMs: number): Promise<PrivateQuotaHistoryResult> => {
+    try {
+      const payload = await apiClient.get<unknown>(
+        '/observability/quota/history/private',
+        historyParams(fromMs, toMs)
+      );
+      return {
+        status: 'ok',
+        samples: normalizeQuotaHistorySamples(payload),
+        credentials: normalizePrivateHistoryCredentials(payload),
+      };
+    } catch (error: unknown) {
+      if (isDisabled(error)) return { status: 'disabled' };
       throw error;
     }
   },

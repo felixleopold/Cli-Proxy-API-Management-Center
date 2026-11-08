@@ -2876,5 +2876,21 @@
     "keep_hint": "可选：释放期间每个窗口仍为出借人保留的份额。留空则释放全部预留。",
     "accounts": "{{count}} 个账号",
     "keep_invalid": "请输入大于 0 且小于 100 的数字，或留空以释放全部预留。"
+  },
+  "private_usage": {
+    "title": "私有用量",
+    "refresh": "刷新",
+    "window_session": "5 小时会话",
+    "window_weekly": "每周",
+    "left_in": "剩余 · {{window}}",
+    "stat_used": "已用",
+    "stat_last_sample": "最后采样",
+    "until_reset": "至重置",
+    "no_samples": "暂无采样",
+    "no_accounts": "没有私有凭证。",
+    "history_off": "此服务器已关闭额度历史，私有用量无可显示内容。",
+    "load_failed": "无法加载私有额度历史。",
+    "private_for": "私有 · {{user}}",
+    "disabled": "已禁用"
   }
 }

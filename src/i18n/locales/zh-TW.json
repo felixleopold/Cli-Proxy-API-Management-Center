@@ -2902,5 +2902,21 @@
     "keep_label": "至少保留",
     "keep_hint": "可選：釋放期間每個視窗仍為出借人保留的份額。留空則釋放全部預留。",
     "keep_invalid": "請輸入大於 0 且小於 100 的數字，或留空以釋放全部預留。"
+  },
+  "private_usage": {
+    "title": "私有用量",
+    "refresh": "重新整理",
+    "window_session": "5 小時工作階段",
+    "window_weekly": "每週",
+    "left_in": "剩餘 · {{window}}",
+    "stat_used": "已用",
+    "stat_last_sample": "最後取樣",
+    "until_reset": "至重設",
+    "no_samples": "尚無取樣",
+    "no_accounts": "沒有私有憑證。",
+    "history_off": "此伺服器已關閉額度歷史，私有用量無可顯示內容。",
+    "load_failed": "無法載入私有額度歷史。",
+    "private_for": "私有 · {{user}}",
+    "disabled": "已停用"
   }
 }

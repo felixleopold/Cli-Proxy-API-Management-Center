@@ -2903,5 +2903,21 @@
     "keep_label": "Giữ ít nhất",
     "keep_hint": "Tùy chọn: phần của mỗi kỳ vẫn giữ cho người cho mượn khi giải phóng. Để trống để giải phóng toàn bộ.",
     "keep_invalid": "Nhập một số lớn hơn 0 và nhỏ hơn 100, hoặc để trống để giải phóng toàn bộ."
+  },
+  "private_usage": {
+    "title": "Mức dùng riêng",
+    "refresh": "Làm mới",
+    "window_session": "Phiên 5 giờ",
+    "window_weekly": "Hằng tuần",
+    "left_in": "còn lại · {{window}}",
+    "stat_used": "Đã dùng",
+    "stat_last_sample": "Mẫu gần nhất",
+    "until_reset": "Đến lúc đặt lại",
+    "no_samples": "Chưa có mẫu",
+    "no_accounts": "Không có thông tin xác thực riêng.",
+    "history_off": "Lịch sử hạn mức đang tắt trên máy chủ này nên không có gì để hiển thị.",
+    "load_failed": "Không thể tải lịch sử hạn mức riêng.",
+    "private_for": "Riêng · {{user}}",
+    "disabled": "Đã tắt"
   }
 }

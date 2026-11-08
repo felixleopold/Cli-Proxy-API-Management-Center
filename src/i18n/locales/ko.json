@@ -2897,5 +2897,21 @@
     "keep_label": "최소 유지",
     "keep_hint": "선택 사항: 해제 중에도 각 기간에서 대여자 몫으로 남겨 둘 비율입니다. 비워 두면 예약 전체를 해제합니다.",
     "keep_invalid": "0보다 크고 100보다 작은 숫자를 입력하거나 비워 두어 예약 전체를 해제하세요."
+  },
+  "private_usage": {
+    "title": "개인 사용량",
+    "refresh": "새로고침",
+    "window_session": "5시간 세션",
+    "window_weekly": "주간",
+    "left_in": "남음 · {{window}}",
+    "stat_used": "사용",
+    "stat_last_sample": "마지막 샘플",
+    "until_reset": "재설정까지",
+    "no_samples": "아직 샘플 없음",
+    "no_accounts": "개인 자격 증명이 없습니다.",
+    "history_off": "이 서버에서 할당량 기록이 꺼져 있어 표시할 내용이 없습니다.",
+    "load_failed": "개인 할당량 기록을 불러올 수 없습니다.",
+    "private_for": "개인 · {{user}}",
+    "disabled": "비활성화됨"
   }
 }

@@ -148,6 +148,15 @@ Current base: upstream `v1.25.6`.
   list and their samples and capacity timeline entries from the history it shares
   (`src/features/quota/privateCredentials.ts`), so counts, tabs, pools, the forecast, accounts,
   spend, reserves and capacity never include them. Tests: `tests/privateCredentials.test.ts`.
+- **Private usage page** (`/private-usage`, hidden: no nav entry, no link; reached only by URL;
+  `src/features/quota/PrivateUsagePage.tsx`). Since Usage & quota leaves private credentials out,
+  this page reads `GET /observability/quota/history/private` (`quotaHistoryApi.listPrivate`:
+  samples plus the private credentials, so accounts without samples still show "No samples
+  yet"; 409 says history is off) and draws each account's 5-hour session and weekly window as %
+  left over time with the forecast's `RemainingChart` (readings held until the next sample,
+  refilled at each passed reset, flat until the next reset), with current value, used, next reset,
+  last sample and the Past / Next controls. Logic: `privateUsageModel.ts`; tests:
+  `tests/privateUsage.test.ts` (also asserts nothing else in `src` links the route).
 - **Taller charts** (`src/features/quota/tallCharts.ts`, `components/TallChartToggle.tsx`). The
   forecast cards (Remaining and Drain rate) and the Spend history chart each have a quiet
   fold/unfold icon that draws the chart twice as tall, with twice the y ticks, so dense steps,
