@@ -1391,4 +1391,30 @@ describe('selected stretch', () => {
     expect(activity.rates.get('b')).toBe(0);
     expect((activity.rates.get('a') ?? 0) * HOUR_MS).toBeCloseTo(1);
   });
+
+  test('weighs a drain by the plan in effect then, not after an upgrade', () => {
+    const upgraded = credential({
+      share: planShareOf({ planMultiplier: 5 }, 'weekly'),
+      periods: [
+        { fromMs: 0, toMs: NOW - 2 * HOUR_MS, share: planShareOf({}, 'weekly') },
+        {
+          fromMs: NOW - 2 * HOUR_MS,
+          toMs: Infinity,
+          share: planShareOf({ planMultiplier: 5 }, 'weekly'),
+        },
+      ],
+    });
+    const samples = [
+      sample({ atMs: NOW - 4 * HOUR_MS, usedPercent: 10 }),
+      sample({ atMs: NOW - 3 * HOUR_MS, usedPercent: 20 }),
+    ];
+    const { perHour } = stretchActivity(
+      pool(upgraded),
+      pool(upgraded),
+      samples,
+      NOW - 4 * HOUR_MS,
+      NOW - 3 * HOUR_MS
+    );
+    expect(perHour).toBeCloseTo(0.1);
+  });
 });

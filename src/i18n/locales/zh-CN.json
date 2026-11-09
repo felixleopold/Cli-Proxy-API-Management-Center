@@ -1668,7 +1668,7 @@
     "person_pool": "网关池 {{capacity}} 的 {{percent}}%",
     "reset_row": "重置",
     "selection_label": "按所选速度",
-    "selection_hint": "拖选过去的一段，以其速度预测",
+    "selection_hint": "拖选过去的一段，以其速度预测 (Shift+←/→)",
     "selection_range": "{{from}} – {{to}}",
     "selection_pace": "速度",
     "selection_clear": "清除",

@@ -1694,7 +1694,7 @@
     "person_pool": "閘道池 {{capacity}} 的 {{percent}}%",
     "reset_row": "重置",
     "selection_label": "依所選速度",
-    "selection_hint": "拖選過去的一段，以其速度預測",
+    "selection_hint": "拖選過去的一段，以其速度預測 (Shift+←/→)",
     "selection_range": "{{from}} – {{to}}",
     "selection_pace": "速度",
     "selection_clear": "清除",

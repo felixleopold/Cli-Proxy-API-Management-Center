@@ -332,7 +332,11 @@ export function QuotaForecast({
         };
         const first = firstCredentialEmpty(pool, nowMs, projected, scenario);
         const stretch =
-          selection?.provider === pool.provider && samples && !pool.unread
+          // A stretch older than the loaded history has no drain left to measure.
+          selection?.provider === pool.provider &&
+          selection.fromMs >= startMs &&
+          samples &&
+          !pool.unread
             ? {
                 ...selection,
                 ...stretchActivity(pool, drawn, samples, selection.fromMs, selection.toMs),

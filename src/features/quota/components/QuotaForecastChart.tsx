@@ -516,13 +516,7 @@ const resetMarkInputs = (
     ];
   });
   const flat = row.resets.flatMap((event) => {
-    if (
-      !inView(event.atMs) ||
-      jumps.some((jump) => resetEventAt([event], jump.t)) ||
-      row.capacityMarks.some((mark) => Math.abs(mark.atMs - event.atMs) <= SAME_CHANGE_MS)
-    ) {
-      return [];
-    }
+    if (!inView(event.atMs) || jumps.some((jump) => resetEventAt([event], jump.t))) return [];
     const value = seriesAt(row, event.atMs, nowMs);
     if (value === null) return [];
     return [
@@ -533,7 +527,10 @@ const resetMarkInputs = (
         text: formatJump(event.restore),
         use: resetUseOf(event.utilization),
         size: event.restore,
-        labelled: !longView,
+        // A capacity change at the same instant carries the label.
+        labelled:
+          !longView &&
+          !row.capacityMarks.some((mark) => Math.abs(mark.atMs - event.atMs) <= SAME_CHANGE_MS),
       },
     ];
   });
@@ -603,6 +600,28 @@ export function RemainingChart({
   const { hoverMs, setHoverMs, focusProps } = useScrub(fromMs, toMs, nowMs, resetStops);
   // A drag across the past in progress, as the instant it started and where it is now.
   const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
+  // Where a Shift+arrow selection started.
+  const [keyAnchor, setKeyAnchor] = useState<number | null>(null);
+  /** Shift+←/→ grows a selection from the crosshair, across the past only. */
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const arrow = event.key === 'ArrowLeft' || event.key === 'ArrowRight';
+    if (onSelect && arrow && event.shiftKey) {
+      event.preventDefault();
+      const at = Math.min(hoverMs ?? nowMs, nowMs);
+      const anchor = keyAnchor ?? at;
+      const step = ((toMs - fromMs) / 48) * (event.key === 'ArrowLeft' ? -1 : 1);
+      const next = Math.min(nowMs, Math.max(fromMs, at + step));
+      setKeyAnchor(anchor);
+      setHoverMs(next);
+      onSelect(
+        next === anchor ? null : { fromMs: Math.min(anchor, next), toMs: Math.max(anchor, next) }
+      );
+      return;
+    }
+    if (event.key !== 'Shift') setKeyAnchor(null);
+    if (event.key === 'Escape') onSelect?.(null);
+    focusProps.onKeyDown(event);
+  };
 
   const pointerMs = (event: PointerEvent<SVGRectElement>) => {
     const bounds = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
@@ -779,9 +798,10 @@ export function RemainingChart({
       ref={ref}
       className={styles.chart}
       {...focusProps}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') onSelect?.(null);
-        focusProps.onKeyDown(event);
+      onKeyDown={onKeyDown}
+      onBlur={() => {
+        setKeyAnchor(null);
+        focusProps.onBlur();
       }}
       aria-label={ariaLabel}
       role="group"

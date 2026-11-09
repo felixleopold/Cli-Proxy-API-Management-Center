@@ -1628,7 +1628,7 @@
     "person_pool": "{{percent}}% của pool gateway {{capacity}}",
     "reset_row": "Đặt lại",
     "selection_label": "Theo tốc độ đã chọn",
-    "selection_hint": "Kéo qua một đoạn quá khứ để dự báo theo tốc độ đó",
+    "selection_hint": "Kéo qua một đoạn quá khứ để dự báo theo tốc độ đó (Shift+←/→)",
     "selection_range": "{{from}} – {{to}}",
     "selection_pace": "Tốc độ",
     "selection_clear": "Xóa",

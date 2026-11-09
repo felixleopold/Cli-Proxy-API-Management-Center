@@ -1671,7 +1671,7 @@
     "person_pool": "{{percent}}% of the gateway's {{capacity}} pool",
     "reset_row": "Reset",
     "selection_label": "At selected pace",
-    "selection_hint": "Drag across the past to project its pace",
+    "selection_hint": "Drag across the past to project its pace (Shift+←/→)",
     "selection_range": "{{from}} – {{to}}",
     "selection_pace": "Pace",
     "selection_clear": "Clear",

@@ -1554,8 +1554,15 @@ export function stretchActivity(
   toMs: number
 ): { perHour: number; activity: PoolActivity } {
   const spanMs = Math.max(1, toMs - fromMs);
+  // Each drain weighs by the plan in effect when it happened, not today's.
   const drainedOf = (credential: PoolCredential) =>
-    (drainedPercent(credential, samples, fromMs, toMs) * credential.share.multiplier) / 100;
+    drainOf(samplesFor(credential, samples), rationedAbove(credential))
+      .filter(({ atMs }) => atMs > fromMs && atMs <= toMs)
+      .reduce(
+        (sum, { atMs, delta }) =>
+          sum + (delta * (shareAt(credential, atMs)?.multiplier ?? 0)) / 100,
+        0
+      );
   const perMs =
     drawn.credentials.reduce((sum, credential) => sum + drainedOf(credential), 0) / spanMs;
   const own = pool.credentials.map(drainedOf);

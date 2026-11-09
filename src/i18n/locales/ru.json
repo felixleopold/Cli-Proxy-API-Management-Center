@@ -1676,7 +1676,7 @@
     "person_pool": "{{percent}}% пула шлюза ({{capacity}})",
     "reset_row": "Сброс",
     "selection_label": "В выбранном темпе",
-    "selection_hint": "Выделите участок прошлого, чтобы спрогнозировать его темп",
+    "selection_hint": "Выделите участок прошлого, чтобы спрогнозировать его темп (Shift+←/→)",
     "selection_range": "{{from}} – {{to}}",
     "selection_pace": "Темп",
     "selection_clear": "Сбросить",
