@@ -118,6 +118,17 @@ describe('buildPools with a refreshed card', () => {
   test('a newer card without the weekly window keeps the weekly reading', () => {
     expect(pooled(card(5 * HOUR_MS, NOW))).toMatchObject({ window: 'weekly' });
   });
+
+  test('a newer weekly card replaces a live 5-hour-only reading', () => {
+    const session = file('claude', {
+      'Anthropic-Ratelimit-Unified-5h-Utilization': '0.2',
+      'Anthropic-Ratelimit-Unified-5h-Reset': unix(NOW + HOUR_MS),
+    });
+    expect(buildPools([session], [], card(WEEK_MS, NOW))[0].credentials[0]).toMatchObject({
+      window: 'weekly',
+      usedPercent: 74,
+    });
+  });
 });
 
 describe('readPoolCredential', () => {
