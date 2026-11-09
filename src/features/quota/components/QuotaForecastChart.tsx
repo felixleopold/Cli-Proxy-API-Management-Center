@@ -25,6 +25,7 @@ import {
   type SeriesPoint,
 } from '../quotaForecastModel';
 import { capacityChips } from './capacityMarks';
+import { RESET_DOT_RADIUS, placeResetMarks, type ResetMarkInput } from './resetMarks';
 import { TALL_FACTOR } from '../tallCharts';
 import styles from './QuotaForecast.module.scss';
 
@@ -414,13 +415,19 @@ export interface RemainingChartProps {
   creditLabel: string;
   /** Name of a reset in the accessible table. */
   resetLabel: string;
-  /** Tooltip row of one account in a reset, e.g. value "96% used", label "agent01". */
   /** A chip standing for several capacity changes, e.g. "2 changes". */
   formatChangeCount: (count: number) => string;
+  /** Tooltip row of one account in a reset, e.g. value "96% used", label "agent01". */
   formatResetAccount: (
     account: ResetAccount,
     projected: boolean
   ) => { value: string; label: string };
+  /** A dragged stretch of the past and its pace projected forward, if any. */
+  selection?: ForecastSelection | null;
+  /** Called with the stretch dragged across the past, or null on a click. */
+  onSelect?: (range: { fromMs: number; toMs: number } | null) => void;
+  /** Tooltip name of the projection at the selected pace. */
+  selectionLabel?: string;
 }
 
 /** Hovering this close to a manual reset marker names it in the tooltip. */
@@ -430,8 +437,6 @@ const JUMP_LABEL_MIN_SHARE = 0.02;
 /** Views longer than this (a 30-day or All past) label only jumps of this share. */
 const LONG_VIEW_MS = 21 * DAY_MS;
 const LONG_VIEW_JUMP_MIN_SHARE = 0.08;
-/** Labels closer than this collide; the second moves below the line, else is dropped. */
-const JUMP_LABEL_GAP_PX = 58;
 /** Hovering this close to a reset names its accounts in the tooltip. */
 const RESET_HOVER_PX = 10;
 const JUMP_PILL_HEIGHT = 16;
@@ -472,62 +477,79 @@ const capacityAt = (row: ForecastRow, t: number, nowMs: number) =>
 /** Two instants this close are the same change (the gateway samples on a tick). */
 const SAME_CHANGE_MS = 60 * 1000;
 
-interface JumpLabel {
-  x: number;
-  /** Centre line of the pill. */
-  y: number;
-  text: string;
-  /** How fully the resetting accounts were used; null for a jump that is no reset (an account joining). */
-  use: ResetUse | null;
-}
-
-/** Labels for reset jumps, kept apart: above the line, else below it, else dropped. */
-const placeJumpLabels = (
+/**
+ * Every reset step in view, plus larger steps that are no reset (an account
+ * joining). A reset that gave back next to nothing has no visible step and
+ * still gets its dot. Over a long past only the larger resets get a pill.
+ */
+const resetMarkInputs = (
   row: ForecastRow,
   frame: Frame,
-  nowX: number,
+  nowMs: number,
   formatJump: (delta: number) => string
-): JumpLabel[] => {
-  // Over a long past the small resets go unlabelled, so the larger ones still read.
-  const span = frame.width > 0 ? frame.invertX(frame.width) - frame.invertX(0) : 0;
-  const minDelta =
-    row.capacity * (span > LONG_VIEW_MS ? LONG_VIEW_JUMP_MIN_SHARE : JUMP_LABEL_MIN_SHARE);
-  // A capacity change explains its own step; it gets its marker, not a second pill.
-  const jumps = [
-    ...seriesJumps(row.history, minDelta),
-    ...seriesJumps(row.projection, minDelta),
-  ].filter(
-    (jump) => !row.capacityMarks.some((mark) => Math.abs(mark.atMs - jump.t) <= SAME_CHANGE_MS)
-  );
+): ResetMarkInput[] => {
+  const span = frame.invertX(frame.width) - frame.invertX(0);
+  const longView = span > LONG_VIEW_MS;
+  const minDelta = row.capacity * (longView ? LONG_VIEW_JUMP_MIN_SHARE : JUMP_LABEL_MIN_SHARE);
   const right = frame.width - MARGIN.right;
-  // The "Now" label already sits above the plot.
-  const taken: { x: number; above: boolean }[] = [{ x: nowX, above: true }];
-  const clear = (x: number, above: boolean) =>
-    taken.every((spot) => spot.above !== above || Math.abs(spot.x - x) >= JUMP_LABEL_GAP_PX);
-  return jumps.flatMap((jump) => {
-    const x = frame.x(jump.t);
-    if (x < MARGIN.left || x > right) return [];
-    const above = clear(x, true);
-    if (!above && !clear(x, false)) return [];
-    taken.push({ x, above });
-    const text = formatJump(jump.to - jump.from);
-    const half = pillWidth(text) / 2 + 2;
+  const inView = (t: number) => frame.x(t) >= MARGIN.left && frame.x(t) <= right;
+  // A capacity change explains its own step; it gets its marker, not a reset mark.
+  const jumps = [...seriesJumps(row.history, 1e-9), ...seriesJumps(row.projection, 1e-9)].filter(
+    (jump) =>
+      inView(jump.t) &&
+      !row.capacityMarks.some((mark) => Math.abs(mark.atMs - jump.t) <= SAME_CHANGE_MS)
+  );
+  const fromJumps = jumps.flatMap((jump) => {
     const event = resetEventAt(row.resets, jump.t);
+    const delta = jump.to - jump.from;
+    if (!event && delta < minDelta) return [];
     return [
       {
-        x: Math.min(right - half, Math.max(MARGIN.left + half, x)),
-        y: above
-          ? Math.max(frame.top + JUMP_PILL_HEIGHT / 2, frame.y(jump.to) - JUMP_PILL_HEIGHT / 2 - 4)
-          : Math.min(
-              frame.baseY - JUMP_PILL_HEIGHT / 2 - 2,
-              frame.y(jump.from) + JUMP_PILL_HEIGHT / 2 + 4
-            ),
-        text,
+        x: frame.x(jump.t),
+        yTo: frame.y(jump.to),
+        yFrom: frame.y(jump.from),
+        text: formatJump(delta),
         use: event ? resetUseOf(event.utilization) : null,
+        size: delta,
+        labelled: delta >= minDelta || (event !== null && !longView),
       },
     ];
   });
+  const flat = row.resets.flatMap((event) => {
+    if (
+      !inView(event.atMs) ||
+      jumps.some((jump) => resetEventAt([event], jump.t)) ||
+      row.capacityMarks.some((mark) => Math.abs(mark.atMs - event.atMs) <= SAME_CHANGE_MS)
+    ) {
+      return [];
+    }
+    const value = seriesAt(row, event.atMs, nowMs);
+    if (value === null) return [];
+    return [
+      {
+        x: frame.x(event.atMs),
+        yTo: frame.y(value),
+        yFrom: frame.y(value),
+        text: formatJump(event.restore),
+        use: resetUseOf(event.utilization),
+        size: event.restore,
+        labelled: !longView,
+      },
+    ];
+  });
+  return [...fromJumps, ...flat];
 };
+
+/** A stretch of the past whose average pace is projected forward. */
+export interface ForecastSelection {
+  fromMs: number;
+  toMs: number;
+  /** Remaining from now on at that pace. */
+  projection: SeriesPoint[];
+}
+
+/** A drag narrower than this is a click: it clears the selection. */
+const MIN_SELECTION_PX = 6;
 
 /** One pool's remaining quota: solid history, dashed projection inside its likely range. */
 export function RemainingChart({
@@ -547,6 +569,9 @@ export function RemainingChart({
   resetLabel,
   formatResetAccount,
   formatChangeCount,
+  selection = null,
+  onSelect,
+  selectionLabel = '',
   tall = false,
 }: RemainingChartProps) {
   const [ref, width] = useElementWidth();
@@ -576,11 +601,36 @@ export function RemainingChart({
     [row.resets, row.capacityMarks]
   );
   const { hoverMs, setHoverMs, focusProps } = useScrub(fromMs, toMs, nowMs, resetStops);
+  // A drag across the past in progress, as the instant it started and where it is now.
+  const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
 
-  const onPointerMove = (event: PointerEvent<SVGRectElement>) => {
+  const pointerMs = (event: PointerEvent<SVGRectElement>) => {
     const bounds = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
-    if (bounds) setHoverMs(frame.invertX(event.clientX - bounds.left));
+    return bounds ? frame.invertX(event.clientX - bounds.left) : null;
   };
+  const onPointerMove = (event: PointerEvent<SVGRectElement>) => {
+    const t = pointerMs(event);
+    if (t === null) return;
+    setHoverMs(t);
+    if (drag) setDrag({ from: drag.from, to: Math.min(t, nowMs) });
+  };
+  const onPointerDown = (event: PointerEvent<SVGRectElement>) => {
+    const t = pointerMs(event);
+    if (!onSelect || event.button !== 0 || t === null || t > nowMs) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDrag({ from: t, to: t });
+  };
+  const onPointerUp = () => {
+    if (!drag || !onSelect) return;
+    const wide = Math.abs(frame.x(drag.to) - frame.x(drag.from)) >= MIN_SELECTION_PX;
+    onSelect(
+      wide ? { fromMs: Math.min(drag.from, drag.to), toMs: Math.max(drag.from, drag.to) } : null
+    );
+    setDrag(null);
+  };
+  const band = drag
+    ? { fromMs: Math.min(drag.from, drag.to), toMs: Math.max(drag.from, drag.to) }
+    : selection;
 
   const creditTolerance = (CREDIT_HOVER_PX / Math.max(1, plotWidth)) * (toMs - fromMs);
   const resetTolerance = (RESET_HOVER_PX / Math.max(1, plotWidth)) * (toMs - fromMs);
@@ -597,6 +647,7 @@ export function RemainingChart({
     const low = projected && row.range ? valueAt(row.range.low, t) : null;
     const high = projected && row.range ? valueAt(row.range.high, t) : null;
     const name = projected ? projectedLabel : remainingLabel;
+    const selected = projected && selection ? valueAt(selection.projection, t) : null;
     // Without a remaining value (before the first sample, in a gap) the markers still explain themselves.
     return [
       ...(value === null
@@ -611,6 +662,17 @@ export function RemainingChart({
                 low !== null && high !== null && formatValue(low) !== formatValue(high)
                   ? `${name} · ${formatValue(low)}–${formatValue(high)}`
                   : name,
+            },
+          ]),
+      ...(selected === null
+        ? []
+        : [
+            {
+              key: 'selection',
+              color: 'var(--text-primary)',
+              dashed: true,
+              value: formatPoint(selected, capacityAt(row, t, nowMs)),
+              label: selectionLabel,
             },
           ]),
       ...(() => {
@@ -664,7 +726,7 @@ export function RemainingChart({
   const hoverValue = hoverMs === null ? null : seriesAt(row, hoverMs, nowMs);
   const hoverRows = hoverMs === null ? [] : tooltipRows(hoverMs);
   const nowX = frame.x(nowMs);
-  const jumpLabels = placeJumpLabels(row, frame, nowX, formatJump);
+  const selectionLine = selection ? toPixels(selection.projection) : [];
   // Capacity changes: a dot where the capacity line steps, larger for meaningful ones.
   const chipMin = yMax * CAPACITY_CHIP_MIN_SHARE;
   const changeDots = row.capacityMarks.flatMap((mark) => {
@@ -674,6 +736,17 @@ export function RemainingChart({
       ? []
       : [{ x, y: frame.y(value), major: mark.size >= chipMin }];
   });
+  const resetMarks = placeResetMarks(
+    resetMarkInputs(row, frame, nowMs, formatJump),
+    { left: MARGIN.left, right: frame.width - MARGIN.right, top: frame.top, bottom: frame.baseY },
+    // The current value's dot and the capacity changes' dots.
+    [
+      ...(current ? [{ x: frame.x(current.t), y: frame.y(current.v), r: 6 }] : []),
+      ...changeDots.map((dot) => ({ ...dot, r: 5 })),
+    ].map(({ x, y, r }) => ({ left: x - r, right: x + r, top: y - r, bottom: y + r })),
+    pillWidth,
+    JUMP_PILL_HEIGHT
+  );
   // Delta chips share the lane of the "Now" label, which they keep clear of.
   const nowHalf = laneTextWidth(nowLabel) / 2 + 10;
   const chips = capacityChips(
@@ -702,7 +775,17 @@ export function RemainingChart({
       : '';
 
   return (
-    <div ref={ref} className={styles.chart} {...focusProps} aria-label={ariaLabel} role="group">
+    <div
+      ref={ref}
+      className={styles.chart}
+      {...focusProps}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') onSelect?.(null);
+        focusProps.onKeyDown(event);
+      }}
+      aria-label={ariaLabel}
+      role="group"
+    >
       <svg
         width={width}
         height={frame.height}
@@ -743,6 +826,16 @@ export function RemainingChart({
             height={frame.plotHeight}
           />
         ))}
+
+        {band && (
+          <rect
+            className={styles.selectionBand}
+            x={frame.x(Math.max(fromMs, band.fromMs))}
+            y={frame.top}
+            width={Math.max(1, frame.x(band.toMs) - frame.x(Math.max(fromMs, band.fromMs)))}
+            height={frame.plotHeight}
+          />
+        )}
 
         {/* Under the data, so a reset that lands at now reads as a step in the fill. */}
         <line className={styles.nowLine} x1={nowX} x2={nowX} y1={frame.top - 8} y2={frame.baseY} />
@@ -806,32 +899,46 @@ export function RemainingChart({
           />
         )}
 
-        {jumpLabels.map((label) => {
-          const width = pillWidth(label.text);
-          return (
-            <g
-              key={`${label.x}-${label.y}`}
-              className={styles.jump}
-              style={
-                {
-                  '--use': label.use ? USE_COLOR[label.use] : 'var(--text-secondary)',
-                } as CSSProperties
-              }
-            >
-              <rect
-                className={styles.jumpPill}
-                x={label.x - width / 2}
-                y={label.y - JUMP_PILL_HEIGHT / 2}
-                width={width}
-                height={JUMP_PILL_HEIGHT}
-                rx={JUMP_PILL_HEIGHT / 2}
+        {selectionLine.length > 1 && (
+          <path className={`${styles.line} ${styles.selectionLine}`} d={linePath(selectionLine)} />
+        )}
+
+        {resetMarks.map((mark) => (
+          <g
+            key={`${mark.x}-${mark.yTo}`}
+            className={styles.jump}
+            style={
+              { '--use': mark.use ? USE_COLOR[mark.use] : 'var(--text-secondary)' } as CSSProperties
+            }
+          >
+            {/* A pill stacked away from its step hangs from it by a thin leader. */}
+            {mark.pill && Math.abs(mark.pill.y - mark.yTo) > JUMP_PILL_HEIGHT + 8 && (
+              <line
+                className={styles.jumpLeader}
+                x1={mark.x}
+                x2={mark.x}
+                y1={mark.yTo + (mark.pill.y < mark.yTo ? -RESET_DOT_RADIUS : RESET_DOT_RADIUS)}
+                y2={mark.pill.y + (mark.pill.y < mark.yTo ? 1 : -1) * (JUMP_PILL_HEIGHT / 2)}
               />
-              <text className={styles.jumpLabel} x={label.x} y={label.y} dy="0.35em">
-                {label.text}
-              </text>
-            </g>
-          );
-        })}
+            )}
+            <circle className={styles.jumpDot} cx={mark.x} cy={mark.yTo} r={RESET_DOT_RADIUS} />
+            {mark.pill && (
+              <>
+                <rect
+                  className={styles.jumpPill}
+                  x={mark.pill.x - mark.pill.width / 2}
+                  y={mark.pill.y - JUMP_PILL_HEIGHT / 2}
+                  width={mark.pill.width}
+                  height={JUMP_PILL_HEIGHT}
+                  rx={JUMP_PILL_HEIGHT / 2}
+                />
+                <text className={styles.jumpLabel} x={mark.pill.x} y={mark.pill.y} dy="0.35em">
+                  {mark.text}
+                </text>
+              </>
+            )}
+          </g>
+        ))}
 
         {changeDots.map((dot) => (
           <circle
@@ -867,7 +974,11 @@ export function RemainingChart({
           y={frame.top}
           width={plotWidth}
           height={frame.plotHeight}
+          data-selectable={onSelect ? 1 : undefined}
+          onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={() => setDrag(null)}
           onPointerLeave={() => setHoverMs(null)}
         />
       </svg>

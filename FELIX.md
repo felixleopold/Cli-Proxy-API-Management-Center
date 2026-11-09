@@ -111,9 +111,15 @@ Current base: upstream `v1.25.6`.
   what `GET /usage/pool?user=` leaves that person after their reserve (with their 5-hour reserve
   override toggle); the charts stay pool-wide. Every control and stat explains itself on hover. Each
   card reads "11.1× of 15×" with Runs out ("After Nov 11" when it lasts past the chart), First
-  account dry, Next reset (+restore at time) and Burn. Reset jumps are pills coloured by how much of
-  the resetting accounts' share was used before the reset (≥ 90% green, ≥ 60% amber, else red);
-  hovering one lists the accounts and their used % (`poolResetEvents`). Tests:
+  account dry, Next reset (+restore at time) and Burn. Every reset is a dot on its step coloured by how much
+  of the resetting accounts' share was used before the reset (≥ 90% green, ≥ 60% amber, else red),
+  so a reset that gave back almost nothing still shows; its "+0.9×" pill takes the first free slot
+  beside the dot (above, stacked higher, then below) clear of other pills and dots, and is left
+  out only when none fits (`components/resetMarks.ts`); hovering one lists the accounts and their
+  used % (`poolResetEvents`). Dragging across the past selects a stretch: a dotted line projects the
+  pool from now at that stretch's average drain (spread evenly over the day, split over today's
+  accounts as they drained then; `stretchActivity`), with its pace and run-out time under the chart;
+  a click or Escape clears it. Tests:
   `tests/quotaForecast.test.ts`.
 - **Capacity timeline and retirement** (gateway `GET /observability/capacity/history`,
   f-squared/CLIProxyAPI `feat/capacity-timeline`). The forecast loads the timeline over the same 14
