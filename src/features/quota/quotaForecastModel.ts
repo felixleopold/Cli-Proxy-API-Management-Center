@@ -396,10 +396,13 @@ export function buildPools(
     if (!isForecastProvider(provider)) return;
     const card = typeof file.id === 'string' ? cardReadings.get(file.id) : undefined;
     const signalled = readPoolCredential(file) ?? historyCredential(file, samples);
+    const fromCard = cardCredential(file, card);
+    // Only a newer reading of the same window replaces it: a 5-hour-only card keeps the weekly one.
     const credential =
-      signalled && !cardIsNewer(card, signalled.observedAtMs)
+      signalled &&
+      !(fromCard?.window === signalled.window && cardIsNewer(card, signalled.observedAtMs))
         ? signalled
-        : (cardCredential(file, card) ?? signalled);
+        : (fromCard ?? signalled);
     if (!credential) return;
     byProvider.set(provider, [...(byProvider.get(provider) ?? []), credential]);
   });
