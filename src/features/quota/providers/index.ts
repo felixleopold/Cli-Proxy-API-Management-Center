@@ -31,6 +31,8 @@ export interface QuotaCardState {
   status: 'idle' | 'loading' | 'success' | 'error';
   error?: string;
   errorStatus?: number;
+  /** When a successful reading came back from the provider. */
+  fetchedAtMs?: number;
 }
 
 export interface QuotaAdapter {

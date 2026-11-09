@@ -303,7 +303,16 @@ interface CardWindow {
 export interface CardReading extends CardWindow {
   /** The 5-hour window, when the card has one; an idle one has no reset yet. */
   short: (Omit<CardWindow, 'resetAtMs'> & { resetAtMs: number | null }) | null;
+  /** When the card was fetched; null for a card loaded before fetch times were kept. */
+  observedAtMs: number | null;
 }
+
+/**
+ * Whether a loaded card is newer than a live or history reading taken at `atMs`
+ * (null: unknown), so a card refreshed by hand wins until the gateway reports again.
+ */
+export const cardIsNewer = (card: CardReading | null | undefined, atMs: number | null): boolean =>
+  typeof card?.observedAtMs === 'number' && (atMs === null || card.observedAtMs > atMs);
 
 const cardWindow = (
   provider: QuotaProviderType,
@@ -325,10 +334,11 @@ const cardWindow = (
  */
 export function cardReading(
   provider: QuotaProviderType,
-  quota: { status?: string } | undefined
+  quota: { status?: string; fetchedAtMs?: number } | undefined
 ): CardReading | null {
-  const pooled = cardWindow(provider, quota);
-  if (!pooled) return null;
+  const window = cardWindow(provider, quota);
+  if (!window) return null;
+  const pooled = { ...window, observedAtMs: quota?.fetchedAtMs ?? null };
   const short = cardWindow(provider, quota, 5);
   // Without a 5-hour window the lane falls back to a longer one, which is not short.
   if (short && short.periodMs < WEEKLY_MIN_MINUTES * 60 * 1000) return { ...pooled, short };
@@ -356,7 +366,7 @@ const cardCredential = (
     periodMs: reading.periodMs,
     usedPercent: reading.usedPercent,
     resetAtMs: reading.resetAtMs,
-    observedAtMs: null,
+    observedAtMs: reading.observedAtMs,
     share: planShareOf(file, planWindowOf(kind)),
   };
 };
@@ -371,7 +381,8 @@ export const hasForecastCredentials = (files: AuthFileItem[]): boolean =>
 /**
  * One pool per provider that has at least one enabled credential reporting a
  * window: live, else from its latest history reading, else from its loaded
- * quota card (a credential the gateway has not routed to yet has neither).
+ * quota card (a credential the gateway has not routed to yet has neither). A
+ * card fetched after the live or history reading wins over it.
  */
 export function buildPools(
   files: AuthFileItem[],
@@ -383,11 +394,12 @@ export function buildPools(
     if (file.disabled) return;
     const provider = providerOf(file);
     if (!isForecastProvider(provider)) return;
-    // A card reading has no observation time, so newer history must win over it.
+    const card = typeof file.id === 'string' ? cardReadings.get(file.id) : undefined;
+    const signalled = readPoolCredential(file) ?? historyCredential(file, samples);
     const credential =
-      readPoolCredential(file) ??
-      historyCredential(file, samples) ??
-      cardCredential(file, typeof file.id === 'string' ? cardReadings.get(file.id) : undefined);
+      signalled && !cardIsNewer(card, signalled.observedAtMs)
+        ? signalled
+        : (cardCredential(file, card) ?? signalled);
     if (!credential) return;
     byProvider.set(provider, [...(byProvider.get(provider) ?? []), credential]);
   });
@@ -413,11 +425,12 @@ const usedNow = (usedPercent: number, resetAtMs: number, nowMs: number) =>
 export function readShortWindow(
   file: AuthFileItem,
   nowMs: number
-): { minutes: number; usedPercent: number; resetAtMs: number } | null {
+): { minutes: number; usedPercent: number; resetAtMs: number; observedAtMs: number | null } | null {
   const provider = providerOf(file);
   const signal = readSignals(file);
   if (!isForecastProvider(provider) || !signal) return null;
-  const short = readSignalWindows(provider, signal, readObservedAtMs(file))
+  const observedAtMs = readObservedAtMs(file);
+  const short = readSignalWindows(provider, signal, observedAtMs)
     .filter((window) => window.minutes < WEEKLY_MIN_MINUTES)
     .sort((left, right) => left.minutes - right.minutes)[0];
   return short
@@ -425,6 +438,7 @@ export function readShortWindow(
         minutes: short.minutes,
         usedPercent: usedNow(short.usedPercent, short.resetAtMs, nowMs),
         resetAtMs: short.resetAtMs,
+        observedAtMs,
       }
     : null;
 }
@@ -469,15 +483,16 @@ export const providerMultipliers = (
     ];
   });
 
-/** The short window from live signals, else from the loaded card. */
+/** The short window from live signals, else (or when fetched later) from the loaded card. */
 const shortWindowOf = (
   file: AuthFileItem,
   nowMs: number,
   cardReadings: ReadonlyMap<string, CardReading>
 ): { minutes: number; usedPercent: number } | null => {
+  const reading = typeof file.id === 'string' ? cardReadings.get(file.id) : undefined;
   const live = readShortWindow(file, nowMs);
-  if (live) return live;
-  const card = typeof file.id === 'string' ? cardReadings.get(file.id)?.short : undefined;
+  if (live && !(reading?.short && cardIsNewer(reading, live.observedAtMs))) return live;
+  const card = reading?.short;
   return card
     ? {
         minutes: card.periodMs / 60_000,

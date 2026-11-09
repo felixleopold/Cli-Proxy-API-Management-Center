@@ -11,6 +11,7 @@ import { DAY_MS, HOUR_MS } from '@/utils/time/durations';
 import type { QuotaFileEntry } from './logic';
 import type { NextResets } from './accountControls';
 import {
+  cardIsNewer,
   readShortWindow,
   type CardReading,
   type PoolCredential,
@@ -108,15 +109,21 @@ export interface AccountWindowSources {
   /** The loaded quota card's windows. */
   card: CardReading | null;
   /** The live 5-hour window, which the pools leave out when a weekly one exists. */
-  liveShort: { minutes: number; usedPercent: number; resetAtMs: number | null } | null;
+  liveShort: {
+    minutes: number;
+    usedPercent: number;
+    resetAtMs: number | null;
+    observedAtMs: number | null;
+  } | null;
   nowMs: number;
 }
 
 /**
  * The row's two windows from the same readings as the pool cards, so a row
  * reads before its quota card loads: the pooled reading wins for its window,
- * the loaded card fills the other one. A window nothing reports stays null and
- * renders as unknown, never as an empty bar.
+ * the loaded card fills the other one, and a card fetched after a live reading
+ * replaces it (a refresh shows at once). A window nothing reports stays null
+ * and renders as unknown, never as an empty bar.
  */
 export function accountWindows({
   pooled,
@@ -127,17 +134,21 @@ export function accountWindows({
   // A card without a 5-hour window falls back to a longer one there (e.g. Devin's daily).
   const cardShort = card?.short && card.short.periodMs <= SHORT_PERIOD_MS ? card.short : null;
   const cardLong = card && (!cardShort || card.periodMs > cardShort.periodMs) ? card : null;
-  const long = pooled?.window === 'weekly' ? pooled : cardLong;
-  const short: WindowSource | null =
+  const long =
+    pooled?.window === 'weekly' && !(cardLong && cardIsNewer(card, pooled.observedAtMs))
+      ? pooled
+      : cardLong;
+  const live =
     pooled?.window === 'session'
       ? pooled
-      : liveShort
-        ? {
-            usedPercent: liveShort.usedPercent,
-            resetAtMs: liveShort.resetAtMs,
-            periodMs: liveShort.minutes * 60_000,
-          }
-        : cardShort;
+      : liveShort && {
+          usedPercent: liveShort.usedPercent,
+          resetAtMs: liveShort.resetAtMs,
+          periodMs: liveShort.minutes * 60_000,
+          observedAtMs: liveShort.observedAtMs,
+        };
+  const short: WindowSource | null =
+    live && !(cardShort && cardIsNewer(card, live.observedAtMs)) ? live : cardShort;
   return {
     short: short ? windowNow(short, nowMs) : null,
     long: long ? windowNow(long, nowMs) : null,
