@@ -441,6 +441,37 @@
   color: var(--text-tertiary);
 }
 
+/* The dragged stretch: when, its pace, where that pace runs out, and a way back. */
+.selectionBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+
+  strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+}
+
+.selectionClear {
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--text-primary);
+  }
+}
+
 .keyLine,
 .keyArea,
 .keyDashed,
@@ -448,6 +479,7 @@
 .keyBar,
 .keyBand,
 .keyTick,
+.keyDotted,
 .keyDot {
   flex: none;
   display: inline-block;
@@ -471,6 +503,12 @@
   width: 14px;
   height: 0;
   border-top: 2px dashed var(--series);
+}
+
+.keyDotted {
+  width: 14px;
+  height: 0;
+  border-top: 2px dotted var(--series);
 }
 
 .keyCeiling {
@@ -587,6 +625,19 @@
   stroke-width: 1px;
 }
 
+/* Every reset's step: a dot in the colour of how well it was used, ringed off the line. */
+.jumpDot {
+  fill: var(--use);
+  stroke: var(--fc-surface);
+  stroke-width: 1.5;
+}
+
+.jumpLeader {
+  stroke: color-mix(in srgb, var(--use) 55%, transparent);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
 .jumpLabel {
   font-family: $font-mono;
   font-variant-numeric: tabular-nums;
@@ -667,6 +718,29 @@
 .hitArea {
   fill: transparent;
   pointer-events: all;
+
+  /* Horizontal drags select a stretch of the past; vertical ones still scroll. */
+  &[data-selectable] {
+    cursor: crosshair;
+    touch-action: pan-y;
+  }
+}
+
+/* A stretch of the past whose pace is projected forward. */
+.selectionBand {
+  fill: var(--text-primary);
+  opacity: 0.07;
+  pointer-events: none;
+}
+
+/* The projection at the selected stretch's pace: dotted, in the text colour. */
+.selectionLine {
+  stroke: var(--text-primary);
+  stroke-width: 1.5;
+  stroke-dasharray: 0.5 4;
+  stroke-linecap: round;
+  opacity: 0.85;
+  pointer-events: none;
 }
 
 .columnGroup {

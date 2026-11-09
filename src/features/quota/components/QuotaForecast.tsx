@@ -48,6 +48,7 @@ import {
   projectPool,
   recentBurn,
   steadyActivity,
+  stretchActivity,
   summarizePool,
   withCapacityTimeline,
   withTimelineProviders,
@@ -110,6 +111,7 @@ const LEGEND_KEY = {
   bar: styles.keyBar,
   band: styles.keyBand,
   tick: styles.keyTick,
+  dotted: styles.keyDotted,
   ceiling: styles.keyCeiling,
   change: styles.keyChange,
 };
@@ -183,6 +185,12 @@ export function QuotaForecast({
     writeTallChart(tallKind, next);
   };
   const [drainDays, setDrainDays] = useState<DrainSpanDays>(7);
+  // A stretch of one card's past dragged across, whose pace that card also projects.
+  const [selection, setSelection] = useState<{
+    provider: ForecastProvider;
+    fromMs: number;
+    toMs: number;
+  } | null>(null);
   const users = useLedgerUsers();
   const [person, setPerson] = useState('');
   // Only a chosen person needs the gateway's pool report; everyone is the cards' own view.
@@ -221,7 +229,7 @@ export function QuotaForecast({
       multiplier: (value: number) => formatMultiplier(value, language),
       /** Remaining as a whole percent of `of`. */
       share: (remaining: number, of: number) => whole.format((shareLeft(remaining, of) ?? 0) * 100),
-      when: (ms: number) => (ms - nowMs < 6 * DAY_MS ? when : whenWithDate).format(ms),
+      when: (ms: number) => (Math.abs(ms - nowMs) < 6 * DAY_MS ? when : whenWithDate).format(ms),
       date: (ms: number) => date.format(ms),
       hour: (hour: number) => clockHour.format(new Date(2000, 0, 1, hour)),
     };
@@ -323,6 +331,17 @@ export function QuotaForecast({
             : [],
         };
         const first = firstCredentialEmpty(pool, nowMs, projected, scenario);
+        const stretch =
+          // A stretch older than the loaded history has no drain left to measure.
+          selection?.provider === pool.provider &&
+          selection.fromMs >= startMs &&
+          samples &&
+          !pool.unread
+            ? {
+                ...selection,
+                ...stretchActivity(pool, drawn, samples, selection.fromMs, selection.toMs),
+              }
+            : null;
         return {
           pool,
           row,
@@ -334,6 +353,13 @@ export function QuotaForecast({
           },
           burn: recent && !pool.unread ? recentBurn(pool, recent, nowMs, prefs.burnHours) : null,
           drain: recent ? drainBuckets(pool, recent, edges) : null,
+          selected: stretch && {
+            fromMs: stretch.fromMs,
+            toMs: stretch.toMs,
+            perHour: stretch.perHour,
+            projection: projectPool(pool, nowMs, endMs, stretch.activity),
+            empty: poolEmpty(pool, nowMs, endMs, stretch.activity),
+          },
         };
       }),
     [
@@ -355,6 +381,7 @@ export function QuotaForecast({
       edges,
       timeline,
       capacityMark,
+      selection,
     ]
   );
 
@@ -734,7 +761,7 @@ export function QuotaForecast({
       )}
       {personBarNode}
 
-      {cards.map(({ pool, row, summary, empty, first, burn, drain }) => {
+      {cards.map(({ pool, row, summary, empty, first, burn, drain, selected }) => {
         const provider = pool.provider;
         const name = getTypeLabel(t, provider);
         const icon = getAuthFileIcon(provider, resolvedTheme);
@@ -894,6 +921,11 @@ export function QuotaForecast({
                 resetLabel={t('quota_forecast.reset_row')}
                 formatResetAccount={formatResetAccount}
                 formatChangeCount={(count) => t('quota_forecast.capacity_changes', { count })}
+                selection={selected}
+                onSelect={
+                  samples ? (range) => setSelection(range && { provider, ...range }) : undefined
+                }
+                selectionLabel={t('quota_forecast.selection_label')}
               />
             ) : drain ? (
               <DrainChart
@@ -917,6 +949,33 @@ export function QuotaForecast({
                   : history.status === 'disabled'
                     ? t('quota_management.forecast_drain_unavailable')
                     : t('quota_management.forecast_history_error')}
+              </div>
+            )}
+
+            {view === 'remaining' && selected && (
+              <div className={styles.selectionBar} role="status">
+                <span>
+                  {t('quota_forecast.selection_range', {
+                    from: numbers.when(selected.fromMs),
+                    to: numbers.when(selected.toMs),
+                  })}
+                </span>
+                <span>
+                  {t('quota_forecast.selection_pace')}{' '}
+                  <strong>
+                    {t('quota_forecast.per_hour', { rate: numbers.multiplier(selected.perHour) })}
+                  </strong>
+                </span>
+                <span>
+                  {t('quota_forecast.stat_runs_out')} <strong>{emptyText(selected.empty)}</strong>
+                </span>
+                <button
+                  type="button"
+                  className={styles.selectionClear}
+                  onClick={() => setSelection(null)}
+                >
+                  {t('quota_forecast.selection_clear')}
+                </button>
               </div>
             )}
 
@@ -970,6 +1029,17 @@ export function QuotaForecast({
                         legendKey('tick', 'var(--amber-color)'),
                         t('quota_management.forecast_legend_reset_credit')
                       ),
+                    selected
+                      ? legendItem(
+                          legendKey('dotted', 'var(--text-primary)'),
+                          t('quota_forecast.selection_label')
+                        )
+                      : samples &&
+                        row.history.length > 1 && (
+                          <span key="select-hint" className={styles.legendNote}>
+                            {t('quota_forecast.selection_hint')}
+                          </span>
+                        ),
                   ]
                 : drain && [
                     legendItem(

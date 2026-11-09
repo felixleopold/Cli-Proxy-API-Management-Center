@@ -34,6 +34,7 @@ import {
   recentBurn,
   seriesJumps,
   steadyActivity,
+  stretchActivity,
   summarizePool,
   valueAt,
 } from '../src/features/quota/quotaForecastModel';
@@ -1365,5 +1366,55 @@ describe('capacity timeline', () => {
     });
     expect(entries.map((value) => value.atMs)).toEqual([1, 2]);
     expect(entries[0]).toMatchObject({ provider: 'claude', source: 'backfill', weightWeekly: 10 });
+  });
+});
+
+describe('selected stretch', () => {
+  test('projects the stretch average, split over the accounts that drained then', () => {
+    const a = credential({ share: planShareOf({ planMultiplier: 10 }, 'weekly') });
+    const b = credential({ authId: 'b' });
+    const samples = [
+      sample({ atMs: NOW - 10 * HOUR_MS, usedPercent: 10 }),
+      sample({ atMs: NOW - 6 * HOUR_MS, usedPercent: 14 }),
+      sample({ authId: 'b', atMs: NOW - 10 * HOUR_MS, usedPercent: 5 }),
+      sample({ authId: 'b', atMs: NOW - 6 * HOUR_MS, usedPercent: 5 }),
+    ];
+    const { perHour, activity } = stretchActivity(
+      pool(a, b),
+      pool(a, b),
+      samples,
+      NOW - 10 * HOUR_MS,
+      NOW - 6 * HOUR_MS
+    );
+    // 4% of a 10× plan over 4 hours.
+    expect(perHour).toBeCloseTo(0.1);
+    expect(activity.rates.get('b')).toBe(0);
+    expect((activity.rates.get('a') ?? 0) * HOUR_MS).toBeCloseTo(1);
+  });
+
+  test('weighs a drain by the plan in effect then, not after an upgrade', () => {
+    const upgraded = credential({
+      share: planShareOf({ planMultiplier: 5 }, 'weekly'),
+      periods: [
+        { fromMs: 0, toMs: NOW - 2 * HOUR_MS, share: planShareOf({}, 'weekly') },
+        {
+          fromMs: NOW - 2 * HOUR_MS,
+          toMs: Infinity,
+          share: planShareOf({ planMultiplier: 5 }, 'weekly'),
+        },
+      ],
+    });
+    const samples = [
+      sample({ atMs: NOW - 4 * HOUR_MS, usedPercent: 10 }),
+      sample({ atMs: NOW - 3 * HOUR_MS, usedPercent: 20 }),
+    ];
+    const { perHour } = stretchActivity(
+      pool(upgraded),
+      pool(upgraded),
+      samples,
+      NOW - 4 * HOUR_MS,
+      NOW - 3 * HOUR_MS
+    );
+    expect(perHour).toBeCloseTo(0.1);
   });
 });

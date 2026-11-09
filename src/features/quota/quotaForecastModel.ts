@@ -1539,6 +1539,54 @@ export function recentBurn(
   return drained / 100 / hours;
 }
 
+/**
+ * "Carry on as in this stretch": the pool's average drain over [fromMs, toMs],
+ * in multipliers per hour, as an activity spread evenly over the day. `drawn`
+ * (the pool with its timeline) measures the drain, retired accounts included;
+ * today's accounts share it as they shared that stretch's drain, or by their
+ * effective multiplier when none of them drained then.
+ */
+export function stretchActivity(
+  pool: ProviderPool,
+  drawn: ProviderPool,
+  samples: QuotaHistorySample[],
+  fromMs: number,
+  toMs: number
+): { perHour: number; activity: PoolActivity } {
+  const spanMs = Math.max(1, toMs - fromMs);
+  // Each drain weighs by the plan in effect when it happened, not today's.
+  const drainedOf = (credential: PoolCredential) =>
+    drainOf(samplesFor(credential, samples), rationedAbove(credential))
+      .filter(({ atMs }) => atMs > fromMs && atMs <= toMs)
+      .reduce(
+        (sum, { atMs, delta }) =>
+          sum + (delta * (shareAt(credential, atMs)?.multiplier ?? 0)) / 100,
+        0
+      );
+  const perMs =
+    drawn.credentials.reduce((sum, credential) => sum + drainedOf(credential), 0) / spanMs;
+  // Today's accounts read with their timeline too, so the split uses past plan weights.
+  const own = pool.credentials.map((credential) =>
+    drainedOf(drawn.credentials.find((other) => other.authId === credential.authId) ?? credential)
+  );
+  const ownTotal = own.reduce((sum, value) => sum + value, 0);
+  const effectiveTotal = pool.credentials.reduce((sum, c) => sum + c.share.effective, 0);
+  const rates = new Map(
+    pool.credentials.map((credential, index) => {
+      const weight =
+        ownTotal > 0
+          ? own[index] / ownTotal
+          : effectiveTotal > 0
+            ? credential.share.effective / effectiveTotal
+            : 0;
+      const { multiplier } = credential.share;
+      // Percent of its own window per ms, so the pooled drain adds up to perMs.
+      return [credential.authId, multiplier > 0 ? (perMs * weight * 100) / multiplier : 0];
+    })
+  );
+  return { perHour: perMs * HOUR_MS, activity: { ...FLAT_ACTIVITY, rates } };
+}
+
 /* ---------- Activity: when in the day quota gets used ---------- */
 
 /** Local hours [startHour, endHour) assumed asleep until history says otherwise. */
