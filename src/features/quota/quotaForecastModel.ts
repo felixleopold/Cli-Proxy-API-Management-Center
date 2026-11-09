@@ -1565,7 +1565,10 @@ export function stretchActivity(
       );
   const perMs =
     drawn.credentials.reduce((sum, credential) => sum + drainedOf(credential), 0) / spanMs;
-  const own = pool.credentials.map(drainedOf);
+  // Today's accounts read with their timeline too, so the split uses past plan weights.
+  const own = pool.credentials.map((credential) =>
+    drainedOf(drawn.credentials.find((other) => other.authId === credential.authId) ?? credential)
+  );
   const ownTotal = own.reduce((sum, value) => sum + value, 0);
   const effectiveTotal = pool.credentials.reduce((sum, c) => sum + c.share.effective, 0);
   const rates = new Map(
