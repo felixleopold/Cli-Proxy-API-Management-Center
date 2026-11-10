@@ -413,12 +413,12 @@ describe('release and pace requests', () => {
     }
   });
 
-  test('pauses an account with the gateway\'s `until`, and resumes by name', async () => {
+  test('pauses an account with the gateway\'s `paused_until`, and resumes by name', async () => {
     const { post, delete: del } = apiClient;
     const sent: unknown[] = [];
     apiClient.post = (async (url: string, data?: unknown) => {
       sent.push([url, data]);
-      return { name: 'a.json', until: '2026-11-04T17:20:00Z' };
+      return { name: 'a.json', paused_until: '2026-11-04T17:20:00Z' };
     }) as typeof apiClient.post;
     apiClient.delete = (async (url: string, config?: unknown) => {
       sent.push([url, config]);

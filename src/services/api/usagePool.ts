@@ -176,7 +176,7 @@ export const usagePoolApi = {
   /** Pauses a credential: no traffic at all until the end; resolves to it when the gateway reports one. */
   async pauseAccount(name: string, span: TimedSpan): Promise<number | null> {
     const data = await apiClient.post<unknown>('/usage/pause', { name, ...span });
-    return time(isRecord(data) ? data.until : undefined);
+    return time(isRecord(data) ? data.paused_until : undefined);
   },
 
   resumeAccount: (name: string) => apiClient.delete('/usage/pause', { params: { name } }),
