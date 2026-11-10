@@ -12,6 +12,7 @@ import { useId, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { IconRefreshCw, IconTimer } from '@/components/ui/icons';
+import { useNow } from '@/hooks/useNow';
 import type {
   AntigravityQuotaState,
   AuthFileItem,
@@ -30,6 +31,7 @@ import { formatUsd, type SubscriptionSummary } from '@/features/usage/usageModel
 import type { AccountWindows } from '../accountCards';
 import { isQuotaRefreshDisabled, resolveQuotaProviderType, type QuotaFileEntry } from '../logic';
 import { formatMultiplier, planShareOf, planShareText } from '../planMultipliers';
+import { isRenewalSoon, resolveRenewal, type Renewal } from '../renewal';
 import { QUOTA_ADAPTERS, type QuotaCardState } from '../providers';
 import type { QuotaProviderType } from '../providers/types';
 import { getAntigravityPlanLabel } from '../providers/antigravity/plan';
@@ -42,6 +44,7 @@ import { AccountRow, DetailFact, RowIconButton } from './AccountRow';
 import { HoverCard } from './HoverCard';
 import bodyStyles from './QuotaBody.module.scss';
 import styles from './Accounts.module.scss';
+import renewalStyles from './Renewal.module.scss';
 
 const quotaClasses = bindQuotaClasses(bodyStyles, 'QuotaBody.module.scss');
 
@@ -65,33 +68,72 @@ function planLabel(
   return null;
 }
 
+/** The renewal date of a loaded account's plan: "~Nov 21" when estimated. */
+function useRenewal(
+  type: QuotaProviderType | null,
+  file: AuthFileItem,
+  quota?: QuotaCardState
+): { renewal: Renewal; now: number; date: string } | null {
+  const { i18n } = useTranslation();
+  const now = useNow();
+  const liveActiveUntil =
+    type === 'codex' && quota?.status === 'success'
+      ? (quota as CodexQuotaState).subscriptionActiveUntil
+      : null;
+  const renewal = type && !file.disabled ? resolveRenewal(type, file, now, liveActiveUntil) : null;
+  if (!renewal) return null;
+  const date = new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language, {
+    month: 'short',
+    day: 'numeric',
+  }).format(renewal.atMs);
+  return { renewal, now, date: `${renewal.estimated ? '~' : ''}${date}` };
+}
+
 /** The multiplier chip, with the plan and our share on hover; nothing outside the pools. */
 function PlanCell({
   label,
   file,
   type,
+  quota,
 }: {
   label: string | null;
   file: AuthFileItem;
-  type: string;
+  type: QuotaProviderType;
+  quota?: QuotaCardState;
 }) {
   const { t, i18n } = useTranslation();
+  const renewing = useRenewal(type, file, quota);
   const share = supportsAuthFileUsageCap(type) ? planShareOf(file, 'weekly') : null;
   if (!share) return null;
+  const soon = renewing && isRenewalSoon(renewing.renewal, renewing.now);
   return (
-    <HoverCard
-      focusable
-      content={
-        <>
-          {label && <strong>{label}</strong>}
-          <span className={styles.cardLine}>{planShareText(t, share, i18n.resolvedLanguage)}</span>
-        </>
-      }
-    >
-      <span className={`${styles.chip} ${share.multiplierSet ? '' : styles.chipUnset}`}>
-        {formatMultiplier(share.multiplier, i18n.resolvedLanguage)}
-      </span>
-    </HoverCard>
+    <>
+      <HoverCard
+        focusable
+        content={
+          <>
+            {label && <strong>{label}</strong>}
+            <span className={styles.cardLine}>
+              {planShareText(t, share, i18n.resolvedLanguage)}
+            </span>
+          </>
+        }
+      >
+        <span className={`${styles.chip} ${share.multiplierSet ? '' : styles.chipUnset}`}>
+          {formatMultiplier(share.multiplier, i18n.resolvedLanguage)}
+        </span>
+      </HoverCard>
+      {soon && (
+        <span
+          className={renewalStyles.marker}
+          role="img"
+          aria-label={t('usage_accounts.renews_soon', { date: renewing.date })}
+          title={t('usage_accounts.renews_soon', { date: renewing.date })}
+        >
+          ↻
+        </span>
+      )}
+    </>
   );
 }
 
@@ -109,9 +151,18 @@ const rowName = (file: AuthFileItem) => {
 };
 
 /** The account half of a row's details: who it is, how it is pooled and routed. */
-function AccountFacts({ file, plan }: { file: AuthFileItem; plan: string | null }) {
+function AccountFacts({
+  file,
+  plan,
+  quota,
+}: {
+  file: AuthFileItem;
+  plan: string | null;
+  quota?: QuotaCardState;
+}) {
   const { t, i18n } = useTranslation();
   const type = resolveQuotaProviderType({ ...file, disabled: false });
+  const renewing = useRenewal(type, file, quota);
   const share = type && supportsAuthFileUsageCap(type) ? planShareOf(file, 'weekly') : null;
   const { email } = rowName(file);
   return (
@@ -125,6 +176,15 @@ function AccountFacts({ file, plan }: { file: AuthFileItem; plan: string | null 
           {[plan, share && planShareText(t, share, i18n.resolvedLanguage)]
             .filter(Boolean)
             .join(' · ')}
+        </DetailFact>
+      )}
+      {renewing && (
+        <DetailFact label={t('usage_accounts.details_renews')}>
+          <span
+            title={renewing.renewal.estimated ? t('usage_accounts.renews_estimated') : undefined}
+          >
+            {renewing.date}
+          </span>
         </DetailFact>
       )}
       {file.lender && (
@@ -302,7 +362,7 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
   const details = (
     <>
       <DetailsSection title={t('usage_accounts.details_account')}>
-        <AccountFacts file={file} plan={label} />
+        <AccountFacts file={file} plan={label} quota={quota} />
         <SpendDetails summary={summary} spend={spend} />
       </DetailsSection>
 
@@ -345,7 +405,7 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
       {...rowName(file)}
       nameId={nameId}
       file={file}
-      plan={<PlanCell label={label} file={file} type={entry.type} />}
+      plan={<PlanCell label={label} file={file} type={entry.type} quota={quota} />}
       windows={windows}
       capPercent={{
         short: pooled ? planShareOf(file, 'five_hour').capPercent : null,
