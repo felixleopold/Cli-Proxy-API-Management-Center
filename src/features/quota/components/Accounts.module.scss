@@ -177,9 +177,11 @@
 /* ---------- List ---------- */
 
 .list {
-  /* icon · account · multiplier · 5-hour · weekly · spend · users · pace · controls */
-  --account-cols: 20px minmax(120px, 1fr) 40px minmax(140px, 1.15fr) minmax(140px, 1.15fr)
-    minmax(76px, 0.55fr) minmax(48px, 0.45fr) 104px 112px;
+  /* icon · account · multiplier · 5-hour · weekly · spend · users · pace · controls.
+     The account column fits the longest name, up to 240px. The outer columns carry the
+     rows' 12px inset, since subgrid rows cannot pad themselves. */
+  --account-cols: 32px fit-content(240px) 40px minmax(140px, 1.15fr) minmax(140px, 1.15fr)
+    minmax(76px, 0.55fr) minmax(48px, 0.45fr) 104px 124px;
   /* Routing status, one hue per state (see RoutingDot). */
   --routing-target: #059669;
   --routing-available: color-mix(in srgb, #059669 55%, transparent);
@@ -190,6 +192,10 @@
   --routing-stopped: var(--danger-color);
   --routing-disabled: var(--text-quaternary);
   container: accounts / inline-size;
+  /* Every row is a subgrid of the list, so columns line up and size to their widest cell. */
+  display: grid;
+  grid-template-columns: var(--account-cols);
+  column-gap: 14px;
   border: 1px solid var(--border-color);
   border-radius: 12px;
   background: var(--bg-primary);
@@ -204,12 +210,25 @@
 }
 
 .head,
+.rows,
+.item,
 .row {
   display: grid;
-  grid-template-columns: var(--account-cols);
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+
+.head,
+.row {
   align-items: center;
-  column-gap: 14px;
-  padding: 0 12px;
+
+  > :first-child {
+    justify-self: end;
+  }
+
+  > :last-child {
+    padding-right: 12px;
+  }
 }
 
 .head {
@@ -264,6 +283,7 @@
 }
 
 .skeletonRow {
+  grid-column: 1 / -1;
   height: 44px;
   border-bottom: 1px solid var(--border-color);
 
@@ -780,6 +800,7 @@ strong + .cardLine {
 /* ---------- Details ---------- */
 
 .details {
+  grid-column: 1 / -1;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 16px 40px;
@@ -908,6 +929,11 @@ strong + .cardLine {
     display: none;
   }
 
+  .rows,
+  .item {
+    display: block;
+  }
+
   .row {
     grid-template-columns: 20px minmax(0, 1fr) minmax(0, 1fr) auto;
     grid-template-areas:
@@ -949,6 +975,7 @@ strong + .cardLine {
     > :nth-child(9) {
       grid-area: controls;
       gap: 8px;
+      padding-right: 0;
     }
   }
 
