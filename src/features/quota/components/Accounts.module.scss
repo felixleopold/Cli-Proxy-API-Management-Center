@@ -179,12 +179,13 @@
 .list {
   /* icon · account · multiplier · 5-hour · weekly · spend · users · pace · controls */
   --account-cols: 20px minmax(120px, 1fr) 40px minmax(140px, 1.15fr) minmax(140px, 1.15fr)
-    minmax(76px, 0.55fr) minmax(48px, 0.45fr) 104px 112px;
+    minmax(76px, 0.55fr) minmax(48px, 0.45fr) 132px 112px;
   /* Routing status, one hue per state (see RoutingDot). */
   --routing-target: #059669;
   --routing-available: color-mix(in srgb, #059669 55%, transparent);
   --routing-flash: #ca8a04;
   --routing-shield: #2563eb;
+  --routing-paused: #7c3aed;
   --routing-hold: var(--amber-color);
   --routing-stopped: var(--danger-color);
   --routing-disabled: var(--text-quaternary);
@@ -199,6 +200,7 @@
   --routing-available: color-mix(in srgb, #34d399 60%, transparent);
   --routing-flash: #facc15;
   --routing-shield: #60a5fa;
+  --routing-paused: #a78bfa;
 }
 
 .head,
@@ -351,6 +353,9 @@
   &[data-state='shield'] {
     --routing-dot: var(--routing-shield);
   }
+  &[data-state='paused'] {
+    --routing-dot: var(--routing-paused);
+  }
   &[data-state='reserve_hold'] {
     --routing-dot: var(--routing-hold);
   }
@@ -434,6 +439,20 @@ strong + .cardLine {
   font-weight: 500;
   line-height: 1.4;
   color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* "Paused until Thu 07:00": like the retired badge, in the pause hue. */
+.pausedBadge {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--routing-paused) 45%, transparent);
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--routing-paused) 14%, transparent);
   white-space: nowrap;
 }
 
@@ -671,6 +690,11 @@ strong + .cardLine {
 .paceButton[data-pace='shield'],
 .paceMenuIcon[data-pace='shield'] {
   --pace-color: var(--routing-shield);
+}
+
+.paceButton[data-pace='pause'],
+.paceMenuIcon[data-pace='pause'] {
+  --pace-color: var(--routing-paused);
 }
 
 .paceMenuIcon {

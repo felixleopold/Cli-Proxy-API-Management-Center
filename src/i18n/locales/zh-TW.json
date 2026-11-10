@@ -2855,6 +2855,7 @@
     "state_available": "可用",
     "state_flash": "優先",
     "state_shield": "受保護",
+    "state_paused": "已暫停",
     "state_reserve_hold": "為出借人保留",
     "state_cooldown": "冷卻中",
     "state_exhausted": "已用盡",
@@ -2864,12 +2865,22 @@
     "explain_available": "符合條件；會先選擇其他帳號。",
     "explain_flash": "優先：在優先期間先於其他帳號被路由。",
     "explain_shield": "僅在沒有其他帳號符合條件時使用。",
+    "explain_paused": "暫停結束前不接收任何請求；仍計入池容量。",
     "explain_reserve_hold": "只剩出借人的預留，池不再使用此帳號。",
     "explain_cooldown": "因上游錯誤或限流而暫停。",
     "explain_exhausted": "某個額度視窗已用盡。",
     "explain_disabled": "已關閉；不加入任何池。",
     "explain_error": "閘道無法使用此憑證。",
     "until": "直到 {{time}} · 還有 {{left}}"
+  },
+  "pause": {
+    "open": "暫停 {{name}}：完全不接收請求",
+    "title": "暫停",
+    "description": "停止向此帳號傳送所有請求，即使沒有其他可用帳號。仍計入池容量。",
+    "paused_until": "暫停至 {{time}}",
+    "badge": "暫停至 {{time}}",
+    "resume": "恢復",
+    "failed": "無法變更暫停：{{message}}"
   },
   "pace": {
     "flash_open": "優先 {{name}}：先路由到這裡",

@@ -9,6 +9,7 @@ import { normalizeAuthFilesResponse } from '@/services/api/authFiles';
 import { normalizeUsagePoolReport, usagePoolApi } from '@/services/api/usagePool';
 import {
   activePace,
+  activePause,
   lenderReserves,
   parseKeepPercentText,
   resolveTimedChoice,
@@ -332,6 +333,20 @@ describe('pace and reserve release controls', () => {
     expect(unknown.routingStatus).toBeUndefined();
   });
 
+  test('reads a pause and its routing state from the listing, ending it with its time', () => {
+    const [paused, none] = listed(
+      {
+        paused_until: '2026-11-04T17:20:00Z',
+        routing_status: { state: 'paused', until: '2026-11-04T17:20:00Z' },
+      },
+      { paused_until: 'soon' }
+    );
+    expect(activePause(paused, nowMs)).toBe(nowMs + 3 * HOUR);
+    expect(activePause(paused, nowMs + 4 * HOUR)).toBeNull();
+    expect(paused.routingStatus?.state).toBe('paused');
+    expect(activePause(none, nowMs)).toBeNull();
+  });
+
   test('groups lenders with their reserve, accounts, release and soonest resets', () => {
     const files = listed(
       {
@@ -395,6 +410,30 @@ describe('release and pace requests', () => {
       expect(sent).toEqual([{ name: 'a.json', mode: 'flash', duration: '4h' }]);
     } finally {
       apiClient.post = post;
+    }
+  });
+
+  test('pauses an account with the gateway\'s `paused_until`, and resumes by name', async () => {
+    const { post, delete: del } = apiClient;
+    const sent: unknown[] = [];
+    apiClient.post = (async (url: string, data?: unknown) => {
+      sent.push([url, data]);
+      return { name: 'a.json', paused_until: '2026-11-04T17:20:00Z' };
+    }) as typeof apiClient.post;
+    apiClient.delete = (async (url: string, config?: unknown) => {
+      sent.push([url, config]);
+    }) as typeof apiClient.delete;
+    try {
+      const untilMs = await usagePoolApi.pauseAccount('a.json', { duration: '3h' });
+      await usagePoolApi.resumeAccount('a.json');
+      expect(untilMs).toBe(Date.parse('2026-11-04T17:20:00Z'));
+      expect(sent).toEqual([
+        ['/usage/pause', { name: 'a.json', duration: '3h' }],
+        ['/usage/pause', { params: { name: 'a.json' } }],
+      ]);
+    } finally {
+      apiClient.post = post;
+      apiClient.delete = del;
     }
   });
 });

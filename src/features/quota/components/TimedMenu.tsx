@@ -57,7 +57,7 @@ export interface TimedMenuProps {
   hours: TimedMenuHours;
   resets: NextResets;
   /** The running override: "Until 18:20 · 2h 59m" and its End button. */
-  active: { text: string; onEnd: () => void } | null;
+  active: { text: string; onEnd: () => void; endLabel?: string } | null;
   /** Extra fields above the choices, e.g. the share a release keeps. */
   extra?: ReactNode;
   busy: boolean;
@@ -133,7 +133,7 @@ export function TimedMenu({
         <div className={styles.active}>
           <span>{active.text}</span>
           <button type="button" className={styles.end} disabled={busy} onClick={active.onEnd}>
-            {t('timed_menu.end')}
+            {active.endLabel ?? t('timed_menu.end')}
           </button>
         </div>
       )}
