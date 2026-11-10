@@ -2829,6 +2829,7 @@
     "state_available": "可用",
     "state_flash": "优先",
     "state_shield": "受保护",
+    "state_paused": "已暂停",
     "state_reserve_hold": "为出借人保留",
     "state_cooldown": "冷却中",
     "state_exhausted": "已用尽",
@@ -2838,12 +2839,22 @@
     "explain_available": "符合条件；会先选择其他账号。",
     "explain_flash": "优先：在优先期间先于其他账号被路由。",
     "explain_shield": "仅在没有其他账号符合条件时使用。",
+    "explain_paused": "暂停结束前不接收任何请求；仍计入池容量。",
     "explain_reserve_hold": "只剩出借人的预留，池不再使用此账号。",
     "explain_cooldown": "因上游错误或限流而暂停。",
     "explain_exhausted": "某个额度窗口已用尽。",
     "explain_disabled": "已关闭；不加入任何池。",
     "explain_error": "网关无法使用此凭证。",
     "until": "直到 {{time}} · 还有 {{left}}"
+  },
+  "pause": {
+    "open": "暂停 {{name}}：完全不接收请求",
+    "title": "暂停",
+    "description": "停止向此账号发送所有请求，即使没有其他可用账号。仍计入池容量。",
+    "paused_until": "暂停至 {{time}}",
+    "badge": "暂停至 {{time}}",
+    "resume": "恢复",
+    "failed": "无法更改暂停：{{message}}"
   },
   "pace": {
     "flash_open": "优先 {{name}}：先路由到这里",

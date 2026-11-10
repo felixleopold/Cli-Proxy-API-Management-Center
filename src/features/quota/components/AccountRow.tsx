@@ -28,11 +28,13 @@ import { formatUsd, type SubscriptionSummary } from '@/features/usage/usageModel
 import { formatPercent } from '@/utils/format';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { DAY_MS } from '@/utils/time/durations';
+import { activePause } from '../accountControls';
 import { nextResetsOf, type AccountWindow, type AccountWindows } from '../accountCards';
 import { AccountSettingsPopover } from './AccountSettingsPopover';
 import { formatCountdown, formatWhen } from './countdown';
 import { HoverCard } from './HoverCard';
 import { PaceControl } from './PaceControl';
+import { PauseControl } from './PauseControl';
 import { useAccountStatusLock } from './accountStatusLock';
 import styles from './Accounts.module.scss';
 
@@ -432,6 +434,7 @@ export function AccountRow(props: AccountRowProps) {
     onSettingsSaved,
   } = props;
   const { t } = useTranslation();
+  const now = useNow();
   const [expanded, setExpanded] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Stable, so the popover's listeners and initial focus do not rerun on every render.
@@ -439,6 +442,7 @@ export function AccountRow(props: AccountRowProps) {
   const detailsId = `${nameId}-details`;
   const disabled = file?.disabled === true;
   const retiredAtMs = file?.disabled ? file.retiredAtMs : undefined;
+  const pausedUntilMs = file ? activePause(file, now) : null;
 
   return (
     <li
@@ -476,6 +480,7 @@ export function AccountRow(props: AccountRowProps) {
               />
             )}
             {retiredAtMs !== undefined && <RetiredBadge atMs={retiredAtMs} />}
+            {pausedUntilMs !== null && <PausedBadge untilMs={pausedUntilMs} />}
             <IconChevronRight size={12} aria-hidden="true" className={styles.chevron} />
           </button>
         </span>
@@ -494,12 +499,20 @@ export function AccountRow(props: AccountRowProps) {
         <SpendCell summary={summary} spend={spend} labelId={nameId} />
         <SplitCell summary={summary} spend={spend} />
         {file ? (
-          <PaceControl
-            file={file}
-            resets={nextResetsOf(windows)}
-            onChange={(patch) => onFileChange(getQuotaCacheKey(file), patch)}
-            onReload={onSettingsSaved}
-          />
+          <span className={styles.pace}>
+            <PaceControl
+              file={file}
+              resets={nextResetsOf(windows)}
+              onChange={(patch) => onFileChange(getQuotaCacheKey(file), patch)}
+              onReload={onSettingsSaved}
+            />
+            <PauseControl
+              file={file}
+              resets={nextResetsOf(windows)}
+              onChange={(patch) => onFileChange(getQuotaCacheKey(file), patch)}
+              onReload={onSettingsSaved}
+            />
+          </span>
         ) : (
           <span />
         )}
@@ -540,6 +553,17 @@ export function AccountRow(props: AccountRowProps) {
         </div>
       )}
     </li>
+  );
+}
+
+/** "Paused until Thu 07:00" beside the name: the account takes no traffic until then. */
+export function PausedBadge({ untilMs }: { untilMs: number }) {
+  const { t, i18n } = useTranslation();
+  const now = useNow();
+  return (
+    <span className={styles.pausedBadge}>
+      {t('pause.badge', { time: formatWhen(untilMs, now, i18n.resolvedLanguage) })}
+    </span>
   );
 }
 

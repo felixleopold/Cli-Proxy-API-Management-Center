@@ -331,6 +331,7 @@ const normalizeAuthFileEntry = (
   const privateUser = readTextField(entry, 'private_user');
   const paceMode = readTextField(entry, 'pace_mode');
   const paceUntil = Date.parse(readTextField(entry, 'pace_until'));
+  const pausedUntil = Date.parse(readTextField(entry, 'paused_until'));
   const routingStatus = normalizeRoutingStatus(entry['routing_status']);
   const retiredAt = Date.parse(readTextField(entry, 'retired_at'));
 
@@ -366,6 +367,7 @@ const normalizeAuthFileEntry = (
     ...((paceMode === 'flash' || paceMode === 'shield') && Number.isFinite(paceUntil)
       ? { paceMode, paceUntilMs: paceUntil }
       : {}),
+    ...(Number.isFinite(pausedUntil) ? { pausedUntilMs: pausedUntil } : {}),
     ...(routingStatus ? { routingStatus } : {}),
     ...(Number.isFinite(retiredAt) ? { retiredAtMs: retiredAt } : {}),
     ...(note ? { note } : {}),

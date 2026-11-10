@@ -2848,6 +2848,7 @@
     "state_available": "Available",
     "state_flash": "Flash",
     "state_shield": "Protected",
+    "state_paused": "Paused",
     "state_reserve_hold": "Held for the lender",
     "state_cooldown": "Cooling down",
     "state_exhausted": "Used up",
@@ -2857,12 +2858,22 @@
     "explain_available": "Eligible; another account is picked first.",
     "explain_flash": "Preferred: routed to before other accounts while flash lasts.",
     "explain_shield": "Used only when no other account is eligible.",
+    "explain_paused": "Takes no requests until the pause ends; it still counts toward pool capacity.",
     "explain_reserve_hold": "Only the lender's reserve is left, so the pool leaves this account alone.",
     "explain_cooldown": "Paused after an upstream error or rate limit.",
     "explain_exhausted": "A quota window is used up.",
     "explain_disabled": "Turned off; it joins no pool.",
     "explain_error": "The gateway cannot use this credential.",
     "until": "Until {{time}} · in {{left}}"
+  },
+  "pause": {
+    "open": "Pause {{name}}: no requests at all",
+    "title": "Pause",
+    "description": "Stops all requests to this account, even when nothing else is eligible. It still counts toward pool capacity.",
+    "paused_until": "Paused until {{time}}",
+    "badge": "Paused until {{time}}",
+    "resume": "Resume",
+    "failed": "Could not change the pause: {{message}}"
   },
   "pace": {
     "flash_open": "Flash {{name}}: route here first",

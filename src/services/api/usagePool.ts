@@ -172,4 +172,12 @@ export const usagePoolApi = {
   },
 
   clearPace: (name: string) => apiClient.delete('/usage/pace', { params: { name } }),
+
+  /** Pauses a credential: no traffic at all until the end; resolves to it when the gateway reports one. */
+  async pauseAccount(name: string, span: TimedSpan): Promise<number | null> {
+    const data = await apiClient.post<unknown>('/usage/pause', { name, ...span });
+    return time(isRecord(data) ? data.until : undefined);
+  },
+
+  resumeAccount: (name: string) => apiClient.delete('/usage/pause', { params: { name } }),
 };

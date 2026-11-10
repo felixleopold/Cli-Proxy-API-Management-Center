@@ -2854,6 +2854,7 @@
     "state_available": "Sẵn sàng",
     "state_flash": "Ưu tiên",
     "state_shield": "Được bảo vệ",
+    "state_paused": "Đã tạm dừng",
     "state_reserve_hold": "Giữ cho người cho mượn",
     "state_cooldown": "Đang tạm nghỉ",
     "state_exhausted": "Đã dùng hết",
@@ -2863,12 +2864,22 @@
     "explain_available": "Đủ điều kiện; một tài khoản khác được chọn trước.",
     "explain_flash": "Ưu tiên: được định tuyến trước các tài khoản khác khi còn hiệu lực.",
     "explain_shield": "Chỉ dùng khi không còn tài khoản nào khác đủ điều kiện.",
+    "explain_paused": "Không nhận yêu cầu nào cho đến khi hết thời gian tạm dừng; vẫn được tính vào dung lượng pool.",
     "explain_reserve_hold": "Chỉ còn phần giữ lại của người cho mượn nên pool không dùng tài khoản này.",
     "explain_cooldown": "Tạm dừng sau lỗi hoặc giới hạn tốc độ từ nhà cung cấp.",
     "explain_exhausted": "Một kỳ hạn mức đã dùng hết.",
     "explain_disabled": "Đã tắt; không tham gia pool nào.",
     "explain_error": "Gateway không thể dùng thông tin xác thực này.",
     "until": "Đến {{time}} · còn {{left}}"
+  },
+  "pause": {
+    "open": "Tạm dừng {{name}}: không nhận yêu cầu nào",
+    "title": "Tạm dừng",
+    "description": "Chặn mọi yêu cầu tới tài khoản này, kể cả khi không còn tài khoản nào khác phù hợp. Vẫn được tính vào dung lượng pool.",
+    "paused_until": "Tạm dừng đến {{time}}",
+    "badge": "Tạm dừng đến {{time}}",
+    "resume": "Tiếp tục",
+    "failed": "Không thể thay đổi việc tạm dừng: {{message}}"
   },
   "pace": {
     "flash_open": "Ưu tiên {{name}}: định tuyến đến đây trước",

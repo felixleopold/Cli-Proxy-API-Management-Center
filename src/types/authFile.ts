@@ -47,6 +47,7 @@ export const ROUTING_STATES = [
   'available',
   'flash',
   'shield',
+  'paused',
   'reserve_hold',
   'cooldown',
   'exhausted',
@@ -124,6 +125,8 @@ export interface AuthFileItem {
   paceMode?: AuthFilePaceMode;
   /** End of the pace override (ms). */
   paceUntilMs?: number;
+  /** End of a pause (ms): the account takes no traffic but still counts toward pool capacity. */
+  pausedUntilMs?: number;
   /** Why the gateway routes to this credential or not, right now; absent on older gateways. */
   routingStatus?: AuthFileRoutingStatus;
   /** When the credential was retired (ms): disabled and out of the pool, metadata kept. */

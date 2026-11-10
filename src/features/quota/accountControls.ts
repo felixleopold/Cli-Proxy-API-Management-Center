@@ -1,8 +1,9 @@
 /**
  * Timed controls of the Usage & quota page: a credential's pace override
  * (POST /usage/pace, ⚡ flash routes to it first, shield holds it back until
- * nothing else is eligible) and a lender's reserve release (POST
- * /usage/override). Both last a duration or until an instant; "until the next
+ * nothing else is eligible), its pause (POST /usage/pause, no traffic at all)
+ * and a lender's reserve release (POST
+ * /usage/override). All last a duration or until an instant; "until the next
  * 5-hour / weekly reset" resolves here, from the readings the rows show, to an
  * instant the gateway gets as `until`.
  */
@@ -68,6 +69,15 @@ export function activePace(
   return paceMode && paceUntilMs !== undefined && paceUntilMs > nowMs
     ? { mode: paceMode, untilMs: paceUntilMs }
     : null;
+}
+
+/** The end of the credential's pause while it lasts, else null. */
+export function activePause(
+  file: Pick<AuthFileItem, 'pausedUntilMs'>,
+  nowMs: number
+): number | null {
+  const { pausedUntilMs } = file;
+  return pausedUntilMs !== undefined && pausedUntilMs > nowMs ? pausedUntilMs : null;
 }
 
 /** One lender of the Reserves strip: what it keeps, over how many accounts, and its release. */
