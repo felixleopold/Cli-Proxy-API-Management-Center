@@ -192,10 +192,6 @@
   --routing-stopped: var(--danger-color);
   --routing-disabled: var(--text-quaternary);
   container: accounts / inline-size;
-  /* Every row is a subgrid of the list, so columns line up and size to their widest cell. */
-  display: grid;
-  grid-template-columns: var(--account-cols);
-  column-gap: 14px;
   border: 1px solid var(--border-color);
   border-radius: 12px;
   background: var(--bg-primary);
@@ -207,6 +203,13 @@
   --routing-flash: #facc15;
   --routing-shield: #60a5fa;
   --routing-paused: #a78bfa;
+}
+
+/* Every row is a subgrid of the table, so columns line up and size to their widest cell. */
+.table {
+  display: grid;
+  grid-template-columns: var(--account-cols);
+  column-gap: 14px;
 }
 
 .head,
@@ -283,7 +286,6 @@
 }
 
 .skeletonRow {
-  grid-column: 1 / -1;
   height: 44px;
   border-bottom: 1px solid var(--border-color);
 
@@ -929,6 +931,7 @@ strong + .cardLine {
     display: none;
   }
 
+  .table,
   .rows,
   .item {
     display: block;

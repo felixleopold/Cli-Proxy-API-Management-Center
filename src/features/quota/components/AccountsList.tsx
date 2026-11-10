@@ -206,57 +206,61 @@ export function AccountsList(props: AccountsListProps) {
       ) : (
         <AccountStatusLockContext.Provider value={statusLock}>
           <div className={styles.list}>
-            <div className={styles.head} aria-hidden="true">
-              <span />
-              <span>{t('usage_accounts.col_account')}</span>
-              <span title={t('usage_accounts.col_plan_hint')}>{t('usage_accounts.col_plan')}</span>
-              <span>{t('usage_accounts.col_five_hour')}</span>
-              <span>{t('usage_accounts.col_weekly')}</span>
-              <span>{t('usage_accounts.col_spend')}</span>
-              <span>{t('usage_accounts.col_users')}</span>
-              <span>{t('usage_accounts.col_pace')}</span>
-              <span />
+            <div className={styles.table}>
+              <div className={styles.head} aria-hidden="true">
+                <span />
+                <span>{t('usage_accounts.col_account')}</span>
+                <span title={t('usage_accounts.col_plan_hint')}>
+                  {t('usage_accounts.col_plan')}
+                </span>
+                <span>{t('usage_accounts.col_five_hour')}</span>
+                <span>{t('usage_accounts.col_weekly')}</span>
+                <span>{t('usage_accounts.col_spend')}</span>
+                <span>{t('usage_accounts.col_users')}</span>
+                <span>{t('usage_accounts.col_pace')}</span>
+                <span />
+              </div>
+              <ul className={styles.rows} aria-label={t('usage_accounts.list_label')}>
+                {pageItems.map((entry) => (
+                  <QuotaAccountRow
+                    key={`${entry.type}:${getQuotaCacheKey(entry.file)}`}
+                    entry={entry}
+                    quota={getQuota(entry)}
+                    windows={windowsFor(entry)}
+                    summary={spendFor(entry)}
+                    spend={spend}
+                    resolvedTheme={resolvedTheme}
+                    canRefresh={canUseActions && !entry.file.disabled}
+                    resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
+                    onRefresh={() => onRefreshQuota(entry)}
+                    onReset={() => onResetQuota(entry)}
+                    onFileChange={onFileChange}
+                    onSettingsSaved={onReload}
+                  />
+                ))}
+                {spendOnlyRows.map((summary) => (
+                  <SpendAccountRow
+                    key={`spend:${summary.subscription.id}`}
+                    summary={summary}
+                    file={fileFor(summary)}
+                    spend={spend}
+                    resolvedTheme={resolvedTheme}
+                    onFileChange={onFileChange}
+                    onSettingsSaved={onReload}
+                  />
+                ))}
+                {disabledRows.map((file) => (
+                  <DisabledAccountRow
+                    key={`disabled:${getQuotaCacheKey(file)}`}
+                    file={file}
+                    spend={spend}
+                    resolvedTheme={resolvedTheme}
+                    onFileChange={onFileChange}
+                    onSettingsSaved={onReload}
+                  />
+                ))}
+              </ul>
             </div>
-            <ul className={styles.rows} aria-label={t('usage_accounts.list_label')}>
-              {pageItems.map((entry) => (
-                <QuotaAccountRow
-                  key={`${entry.type}:${getQuotaCacheKey(entry.file)}`}
-                  entry={entry}
-                  quota={getQuota(entry)}
-                  windows={windowsFor(entry)}
-                  summary={spendFor(entry)}
-                  spend={spend}
-                  resolvedTheme={resolvedTheme}
-                  canRefresh={canUseActions && !entry.file.disabled}
-                  resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
-                  onRefresh={() => onRefreshQuota(entry)}
-                  onReset={() => onResetQuota(entry)}
-                  onFileChange={onFileChange}
-                  onSettingsSaved={onReload}
-                />
-              ))}
-              {spendOnlyRows.map((summary) => (
-                <SpendAccountRow
-                  key={`spend:${summary.subscription.id}`}
-                  summary={summary}
-                  file={fileFor(summary)}
-                  spend={spend}
-                  resolvedTheme={resolvedTheme}
-                  onFileChange={onFileChange}
-                  onSettingsSaved={onReload}
-                />
-              ))}
-              {disabledRows.map((file) => (
-                <DisabledAccountRow
-                  key={`disabled:${getQuotaCacheKey(file)}`}
-                  file={file}
-                  spend={spend}
-                  resolvedTheme={resolvedTheme}
-                  onFileChange={onFileChange}
-                  onSettingsSaved={onReload}
-                />
-              ))}
-            </ul>
           </div>
         </AccountStatusLockContext.Provider>
       )}
