@@ -114,6 +114,10 @@ export interface AuthFileItem {
   lenderReserveOverrideUntilMs?: number;
   /** The share of each window the release still keeps for the lender, 0..100. */
   lenderReserveOverrideKeepPercent?: number;
+  /** When a Claude subscription started (ms), as the gateway recorded it; absent until it has. */
+  subscriptionCreatedAtMs?: number;
+  /** Day of the month (1-31) the plan renews, as set on the gateway; overrides any estimate. */
+  renewalDay?: number;
   /** Display name set on the gateway; rows fall back to the email. */
   nickname?: string;
   /**

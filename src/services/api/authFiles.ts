@@ -46,6 +46,8 @@ export type AuthFileFieldsPatch = {
   weight?: number | null;
   usage_cap_percent?: number | null;
   plan_multiplier?: number | null;
+  /** Day of the month (1-31) the plan renews; null clears it. */
+  renewal_day?: number | null;
   plan?: string | null;
   nickname?: string | null;
   lender?: string | null;
@@ -334,6 +336,8 @@ const normalizeAuthFileEntry = (
   const pausedUntil = Date.parse(readTextField(entry, 'paused_until'));
   const routingStatus = normalizeRoutingStatus(entry['routing_status']);
   const retiredAt = Date.parse(readTextField(entry, 'retired_at'));
+  const subscriptionCreatedAt = Date.parse(readTextField(entry, 'subscription_created_at'));
+  const renewalDay = readIntegerField(entry['renewal_day']);
 
   return {
     ...entry,
@@ -370,6 +374,10 @@ const normalizeAuthFileEntry = (
     ...(Number.isFinite(pausedUntil) ? { pausedUntilMs: pausedUntil } : {}),
     ...(routingStatus ? { routingStatus } : {}),
     ...(Number.isFinite(retiredAt) ? { retiredAtMs: retiredAt } : {}),
+    ...(Number.isFinite(subscriptionCreatedAt)
+      ? { subscriptionCreatedAtMs: subscriptionCreatedAt }
+      : {}),
+    ...(renewalDay !== undefined && renewalDay >= 1 && renewalDay <= 31 ? { renewalDay } : {}),
     ...(note ? { note } : {}),
     ...(email ? { email } : {}),
     ...(projectId ? { projectId } : {}),

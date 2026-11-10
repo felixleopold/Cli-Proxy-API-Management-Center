@@ -1,0 +1,9 @@
+/* The quiet marker beside the plan chip when the plan renews within days. */
+
+.marker {
+  margin-left: 4px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-tertiary);
+  cursor: default;
+}

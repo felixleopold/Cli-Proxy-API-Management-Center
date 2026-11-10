@@ -182,6 +182,14 @@ export function AccountSettingsPopover({
         {input('weight', t('usage_accounts.settings_weight'), { placeholder: '1' })}
       </div>
 
+      {fields.renewal && (
+        <div className={styles.group}>
+          {input('renewalDay', t('usage_accounts.settings_renewal_day'), {
+            placeholder: t('usage_accounts.settings_renewal_day_placeholder'),
+          })}
+        </div>
+      )}
+
       {fields.pooled && (
         <div className={styles.group}>
           {fields.plan && (

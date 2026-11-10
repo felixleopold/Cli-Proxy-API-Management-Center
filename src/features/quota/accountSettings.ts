@@ -1,6 +1,6 @@
 /**
  * The usage settings of an account row (⚙): its display name, scheduling
- * priority and weight, and,
+ * priority and weight, the renewal day (Claude and Codex), and,
  * for providers whose windows the gateway pools, the plan, plan multiplier,
  * legacy usage cap, lender and lender reserves. The draft is seeded from the
  * credential listing and saved diff-only: a field whose text is untouched is
@@ -26,6 +26,8 @@ export interface AccountSettingsDraft {
   nickname: string;
   priority: string;
   weight: string;
+  /** Day of the month (1-31) the plan renews; empty keeps the gateway's own date or estimate. */
+  renewalDay: string;
   /** Claude only: '', 'pro', 'max' or 'ultra' (or a value the gateway reported as typed). */
   plan: string;
   planMultiplier: string;
@@ -36,13 +38,20 @@ export interface AccountSettingsDraft {
 }
 
 export type AccountSettingsError =
-  'priority' | 'weight_integer' | 'weight_max' | 'plan_multiplier' | 'usage_cap' | 'reserve';
+  | 'priority'
+  | 'weight_integer'
+  | 'weight_max'
+  | 'plan_multiplier'
+  | 'usage_cap'
+  | 'reserve'
+  | 'renewal_day';
 
 type SettingsSource = Pick<
   AuthFileItem,
   | 'nickname'
   | 'priority'
   | 'weight'
+  | 'renewalDay'
   | 'plan'
   | 'planMultiplier'
   | 'usageCapPercent'
@@ -62,6 +71,7 @@ export const accountSettingsDraft = (file: SettingsSource): AccountSettingsDraft
   nickname: file.nickname ?? '',
   priority: file.priority ? String(file.priority) : '',
   weight: text(file.weight),
+  renewalDay: text(file.renewalDay),
   plan: readAuthFilePlan({ plan: file.plan }),
   planMultiplier: text(file.planMultiplier),
   usageCap: text(file.usageCapPercent),
@@ -74,6 +84,7 @@ export const accountSettingsDraft = (file: SettingsSource): AccountSettingsDraft
 export const accountSettingsFields = (provider: string) => ({
   pooled: supportsAuthFileUsageCap(provider),
   plan: provider.trim().toLowerCase() === 'claude',
+  renewal: ['claude', 'codex'].includes(provider.trim().toLowerCase()),
 });
 
 /**
@@ -112,6 +123,14 @@ export function buildAccountSettingsPatch(
   }
 
   const fields = accountSettingsFields(provider);
+
+  if (fields.renewal && changed('renewalDay')) {
+    const value = draft.renewalDay.trim();
+    const day = /^\d{1,2}$/.test(value) ? Number(value) : NaN;
+    if (value && !(day >= 1 && day <= 31)) return { error: 'renewal_day' };
+    patch.renewal_day = value ? day : null;
+  }
+
   if (!fields.pooled) return { patch };
 
   if (fields.plan && draft.plan !== seed.plan) patch.plan = draft.plan || null;
