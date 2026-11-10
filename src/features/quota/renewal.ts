@@ -69,6 +69,7 @@ export function resolveRenewal(
   now: number,
   liveActiveUntil?: string | number | null
 ): Renewal | null {
+  if (provider !== 'claude' && provider !== 'codex') return null;
   if (file.renewalDay !== undefined) {
     return { atMs: nextOnDay(file.renewalDay, now), estimated: false };
   }

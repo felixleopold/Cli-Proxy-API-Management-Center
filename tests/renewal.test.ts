@@ -55,6 +55,11 @@ describe('resolveRenewal', () => {
     );
   });
 
+  test('other providers show no renewal even with a renewal day set', () => {
+    const file = { name: 'd.json', type: 'devin', renewalDay: 12 } as AuthFileItem;
+    expect(resolveRenewal('devin', file, NOW)).toBeNull();
+  });
+
   test('flags a renewal within five days, today included', () => {
     const today = { atMs: new Date(2026, 10, 10).getTime(), estimated: false };
     expect(daysUntil(today.atMs, NOW)).toBe(0);
