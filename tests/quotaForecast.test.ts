@@ -94,6 +94,43 @@ const sample = (overrides: Partial<QuotaHistorySample>): QuotaHistorySample => (
   ...overrides,
 });
 
+describe('buildPools with a refreshed card', () => {
+  const live = file('claude', {
+    'Anthropic-Ratelimit-Unified-7d-Utilization': '0.69',
+    'Anthropic-Ratelimit-Unified-7d-Reset': unix(NOW + DAY_MS),
+  });
+  const card = (periodMs: number, observedAtMs: number | null) =>
+    new Map([
+      [
+        'claude-1',
+        { usedPercent: 74, resetAtMs: NOW + DAY_MS, periodMs, short: null, observedAtMs },
+      ],
+    ]);
+  const pooled = (readings: ReturnType<typeof card>) =>
+    buildPools([live], [], readings)[0].credentials[0];
+
+  test('a card fetched after the live reading of the same window wins', () => {
+    expect(pooled(card(WEEK_MS, NOW))).toMatchObject({ window: 'weekly', usedPercent: 74 });
+    expect(pooled(card(WEEK_MS, NOW - 2 * HOUR_MS)).usedPercent).toBeCloseTo(69);
+    expect(pooled(card(WEEK_MS, null)).usedPercent).toBeCloseTo(69);
+  });
+
+  test('a newer card without the weekly window keeps the weekly reading', () => {
+    expect(pooled(card(5 * HOUR_MS, NOW))).toMatchObject({ window: 'weekly' });
+  });
+
+  test('a newer weekly card replaces a live 5-hour-only reading', () => {
+    const session = file('claude', {
+      'Anthropic-Ratelimit-Unified-5h-Utilization': '0.2',
+      'Anthropic-Ratelimit-Unified-5h-Reset': unix(NOW + HOUR_MS),
+    });
+    expect(buildPools([session], [], card(WEEK_MS, NOW))[0].credentials[0]).toMatchObject({
+      window: 'weekly',
+      usedPercent: 74,
+    });
+  });
+});
+
 describe('readPoolCredential', () => {
   test('Claude reads the 7-day window, converting the 0..1 utilization to percent', () => {
     const result = readPoolCredential(

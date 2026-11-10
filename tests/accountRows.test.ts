@@ -28,6 +28,7 @@ const card: CardReading = {
   resetAtMs: NOW + 2 * DAY_MS,
   periodMs: WEEK_MS,
   short: { usedPercent: 10, resetAtMs: NOW + HOUR_MS, periodMs: 5 * HOUR_MS },
+  observedAtMs: null,
 };
 
 describe('countdownParts', () => {
@@ -65,7 +66,12 @@ describe('accountWindows', () => {
     const windows = accountWindows({
       pooled: pooled('weekly', 95, NOW - HOUR_MS),
       card: null,
-      liveShort: { minutes: 300, usedPercent: 25, resetAtMs: NOW + 2 * HOUR_MS },
+      liveShort: {
+        minutes: 300,
+        usedPercent: 25,
+        resetAtMs: NOW + 2 * HOUR_MS,
+        observedAtMs: null,
+      },
       nowMs: NOW,
     });
     expect(windows.long).toEqual({
@@ -87,11 +93,30 @@ describe('accountWindows', () => {
     const stale = accountWindows({
       pooled: pooled('weekly', 40, NOW + DAY_MS),
       card: null,
-      liveShort: { minutes: 300, usedPercent: 60, resetAtMs: NOW - HOUR_MS },
+      liveShort: { minutes: 300, usedPercent: 60, resetAtMs: NOW - HOUR_MS, observedAtMs: null },
       nowMs: NOW,
     });
     expect(stale.short?.resetAtMs).toBe(NOW + 4 * HOUR_MS);
     expect(nextResetsOf(stale)).toEqual({ fiveHour: null, weekly: NOW + DAY_MS });
+  });
+
+  test('a card refreshed after the live reading replaces both bars until the gateway reports again', () => {
+    const live = {
+      pooled: { ...pooled('weekly', 69, NOW + DAY_MS), observedAtMs: NOW - HOUR_MS },
+      liveShort: {
+        minutes: 300,
+        usedPercent: 27,
+        resetAtMs: NOW + HOUR_MS,
+        observedAtMs: NOW - HOUR_MS,
+      },
+      nowMs: NOW,
+    };
+    const refreshed = accountWindows({ ...live, card: { ...card, observedAtMs: NOW } });
+    expect(refreshed.long?.leftPercent).toBe(60);
+    expect(refreshed.short?.leftPercent).toBe(90);
+    const stale = accountWindows({ ...live, card: { ...card, observedAtMs: NOW - 2 * HOUR_MS } });
+    expect(stale.long?.leftPercent).toBe(31);
+    expect(stale.short?.leftPercent).toBe(73);
   });
 
   test('leaves a window nothing reports unknown instead of guessing', () => {

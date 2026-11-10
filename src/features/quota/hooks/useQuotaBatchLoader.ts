@@ -95,7 +95,7 @@ export function useQuotaBatchLoader() {
                   () => {
                     nextState[result.cacheKey] =
                       result.status === 'success'
-                        ? adapter.buildSuccessState(result.data)
+                        ? { ...adapter.buildSuccessState(result.data), fetchedAtMs: Date.now() }
                         : adapter.buildErrorState(
                             result.error || t('common.unknown_error'),
                             result.errorStatus
