@@ -179,7 +179,7 @@
 .list {
   /* icon · account · multiplier · 5-hour · weekly · spend · users · pace · controls */
   --account-cols: 20px minmax(120px, 1fr) 40px minmax(140px, 1.15fr) minmax(140px, 1.15fr)
-    minmax(76px, 0.55fr) minmax(48px, 0.45fr) 132px 112px;
+    minmax(76px, 0.55fr) minmax(48px, 0.45fr) 104px 112px;
   /* Routing status, one hue per state (see RoutingDot). */
   --routing-target: #059669;
   --routing-available: color-mix(in srgb, #059669 55%, transparent);
@@ -661,15 +661,15 @@ strong + .cardLine {
 .pace {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 0;
   cursor: default;
 }
 
 .iconButton.paceButton {
   gap: 4px;
   width: auto;
-  min-width: 26px;
-  padding: 0 5px;
+  min-width: 24px;
+  padding: 0 4px;
 
   &[data-active] {
     color: var(--text-primary);
