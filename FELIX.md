@@ -92,6 +92,12 @@ Current base: upstream `v1.25.6`.
   chart and lists it by model. Agent tokens (`/client-key-managers`) are listed, created (shown once)
   and revoked there too. A 409 means `client-keys.enabled` (or, for spend, `usage-ledger.enabled`)
   is off, and the page says so. Logic: `clientKeysModel.ts`; tests: `tests/clientKeysModel.test.ts`.
+  The reveal dialog also lists the config's `client-keys.gateway-urls` (read through
+  `useConfigStore`, `Config.clientKeysGatewayUrls`) as "Use <url>" buttons under the gateway field,
+  for example an HTTPS address, and shows the OpenAI-compatible base `<gateway url>/v1` with Copy,
+  since OpenAI clients append `/models` themselves and 404 without `/v1`. Config saves are YAML
+  diffs (`buildConfigPatch`), so the `client-keys` block, `gateway-urls` included, is only sent
+  when edited in the YAML editor.
 - **Quota forecast** (`src/features/quota/quotaForecastModel.ts`, `components/QuotaForecast*`).
   Per-provider pool chart of remaining quota in plan multipliers (each credential contributes what
   is left of its share, refilling to its effective multiplier at reset; the pool is ΣE; values read

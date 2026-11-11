@@ -265,3 +265,16 @@ export function stackUsageByDay(
 /** Environment for Anthropic SDKs and Claude Code pointed at the gateway. */
 export const anthropicEnvSnippet = (gatewayOrigin: string, secret: string): string =>
   `ANTHROPIC_BASE_URL=${gatewayOrigin}\nANTHROPIC_API_KEY=${secret}`;
+
+/** OpenAI-compatible clients append `/models` and `/chat/completions` themselves, so they need `/v1`. */
+export const openAiBaseUrl = (gatewayOrigin: string): string =>
+  `${gatewayOrigin.trim().replace(/\/+$/, '')}/v1`;
+
+/** Configured gateway URLs other than the one in the field, ignoring a trailing slash. */
+export const alternativeGatewayUrls = (
+  configured: readonly string[],
+  current: string
+): string[] => {
+  const bare = (url: string) => url.trim().replace(/\/+$/, '');
+  return configured.filter((url) => bare(url) !== bare(current));
+};

@@ -33,6 +33,8 @@ export interface Config {
   vertexApiKeys?: ProviderKeyConfig[];
   openaiCompatibility?: OpenAIProviderConfig[];
   oauthExcludedModels?: Record<string, string[]>;
+  /** `client-keys.gateway-urls`: addresses apps can reach the gateway's model port at. */
+  clientKeysGatewayUrls?: string[];
   raw?: Record<string, unknown>;
 }
 

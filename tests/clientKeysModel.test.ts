@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  alternativeGatewayUrls,
   budgetState,
   filterKeys,
   groupKeys,
   isValidModelPattern,
   keyStatus,
+  openAiBaseUrl,
   summarizeKeys,
   unpricedBlocksKey,
 } from '../src/features/clientKeys/clientKeysModel';
@@ -125,5 +127,20 @@ describe('view prefs', () => {
     expect(prefs.grouping).toBe('flat');
     expect(prefs.columns).toEqual({ ...DEFAULT_VIEW_PREFS.columns, models: false });
     expect(parseViewPrefs('{not json')).toEqual(DEFAULT_VIEW_PREFS);
+  });
+});
+
+describe('gateway URLs', () => {
+  test('OpenAI base adds /v1 once, without a doubled slash', () => {
+    expect(openAiBaseUrl('http://127.0.0.1:8317')).toBe('http://127.0.0.1:8317/v1');
+    expect(openAiBaseUrl(' https://gw.example:8454/ ')).toBe('https://gw.example:8454/v1');
+  });
+
+  test('alternatives skip the URL already in the field', () => {
+    const configured = ['https://gw.example:8454', 'http://10.0.0.1:8317'];
+    expect(alternativeGatewayUrls(configured, 'https://gw.example:8454/')).toEqual([
+      'http://10.0.0.1:8317',
+    ]);
+    expect(alternativeGatewayUrls(configured, '')).toEqual(configured);
   });
 });

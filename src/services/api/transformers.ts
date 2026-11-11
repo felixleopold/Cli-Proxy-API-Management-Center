@@ -366,6 +366,12 @@ export const normalizeConfigResponse = (raw: unknown): Config => {
   config.apiKeys = Array.isArray(keys)
     ? keys.filter((key): key is string => typeof key === 'string')
     : [];
+  const gatewayUrls = at('client-keys.gateway-urls');
+  if (Array.isArray(gatewayUrls)) {
+    config.clientKeysGatewayUrls = gatewayUrls.filter(
+      (url): url is string => typeof url === 'string' && url.trim() !== ''
+    );
+  }
   const quota = at('quota-exceeded');
   config.quotaExceeded = {
     switchProject: isRecord(quota) ? normalizeBoolean(quota['switch-project']) : false,

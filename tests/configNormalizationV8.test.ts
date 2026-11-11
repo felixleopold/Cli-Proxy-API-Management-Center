@@ -17,6 +17,17 @@ describe('v8 persisted configuration normalization', () => {
     ).toBe(true);
   });
 
+  test('reads client-keys gateway URLs and leaves them unset when absent', () => {
+    expect(
+      normalizeConfigResponse({
+        'client-keys': { enabled: true, 'gateway-urls': ['https://gw.example:8454', '', 7] },
+      }).clientKeysGatewayUrls
+    ).toEqual(['https://gw.example:8454']);
+    expect(
+      normalizeConfigResponse({ 'client-keys': { enabled: true } }).clientKeysGatewayUrls
+    ).toBe(undefined);
+  });
+
   test('does not interpret legacy root settings as v8 values', () => {
     const config = normalizeConfigResponse({
       'api-keys': ['legacy-client'],
