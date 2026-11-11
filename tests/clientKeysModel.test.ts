@@ -134,6 +134,8 @@ describe('gateway URLs', () => {
   test('OpenAI base adds /v1 once, without a doubled slash', () => {
     expect(openAiBaseUrl('http://127.0.0.1:8317')).toBe('http://127.0.0.1:8317/v1');
     expect(openAiBaseUrl(' https://gw.example:8454/ ')).toBe('https://gw.example:8454/v1');
+    expect(openAiBaseUrl('https://gw.example/v1')).toBe('https://gw.example/v1');
+    expect(openAiBaseUrl('https://gw.example/v1/')).toBe('https://gw.example/v1');
   });
 
   test('alternatives skip the URL already in the field', () => {

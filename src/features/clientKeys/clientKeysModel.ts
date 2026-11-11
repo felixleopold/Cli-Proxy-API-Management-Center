@@ -267,8 +267,10 @@ export const anthropicEnvSnippet = (gatewayOrigin: string, secret: string): stri
   `ANTHROPIC_BASE_URL=${gatewayOrigin}\nANTHROPIC_API_KEY=${secret}`;
 
 /** OpenAI-compatible clients append `/models` and `/chat/completions` themselves, so they need `/v1`. */
-export const openAiBaseUrl = (gatewayOrigin: string): string =>
-  `${gatewayOrigin.trim().replace(/\/+$/, '')}/v1`;
+export const openAiBaseUrl = (gatewayOrigin: string): string => {
+  const base = gatewayOrigin.trim().replace(/\/+$/, '');
+  return base.endsWith('/v1') ? base : `${base}/v1`;
+};
 
 /** Configured gateway URLs other than the one in the field, ignoring a trailing slash. */
 export const alternativeGatewayUrls = (
