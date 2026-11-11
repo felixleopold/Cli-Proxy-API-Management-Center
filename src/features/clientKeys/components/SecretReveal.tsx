@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { IconAlertTriangle, IconCheck, IconCopy } from '@/components/ui/icons';
+import { useConfigStore } from '@/stores';
 import { copyToClipboard } from '@/utils/clipboard';
-import { anthropicEnvSnippet } from '../clientKeysModel';
+import { alternativeGatewayUrls, anthropicEnvSnippet, openAiBaseUrl } from '../clientKeysModel';
 import { readGatewayUrl, writeGatewayUrl } from '../viewPrefs';
 import styles from './SecretReveal.module.scss';
 
@@ -56,7 +57,15 @@ export function SecretReveal({ revealed, gatewayOrigin, onClose }: SecretRevealP
   const isKey = revealed.kind !== 'token';
   const gatewayId = useId();
   const [gatewayUrl, setGatewayUrl] = useState(() => readGatewayUrl() ?? gatewayOrigin);
+  const configuredUrls = useConfigStore((state) => state.config?.clientKeysGatewayUrls);
+  const fetchConfig = useConfigStore((state) => state.fetchConfig);
+  const alternatives = alternativeGatewayUrls(configuredUrls ?? [], gatewayUrl);
+  const openAiBase = openAiBaseUrl(gatewayUrl);
   const snippet = isKey ? anthropicEnvSnippet(gatewayUrl.trim(), revealed.secret) : '';
+
+  useEffect(() => {
+    if (isKey) void fetchConfig().catch(() => undefined);
+  }, [isKey, fetchConfig]);
 
   const changeGatewayUrl = (value: string) => {
     setGatewayUrl(value);
@@ -105,8 +114,23 @@ export function SecretReveal({ revealed, gatewayOrigin, onClose }: SecretRevealP
               autoComplete="off"
               aria-describedby={`${gatewayId}-hint`}
             />
+            {alternatives.length > 0 && (
+              <div className={styles.alternatives}>
+                {alternatives.map((url) => (
+                  <Button
+                    key={url}
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => changeGatewayUrl(url)}
+                  >
+                    {t('client_keys.reveal_gateway_use', { url })}
+                  </Button>
+                ))}
+              </div>
+            )}
             <p id={`${gatewayId}-hint`} className={styles.hint}>
               {t('client_keys.reveal_gateway_hint')}
+              {alternatives.length > 0 && ` ${t('client_keys.reveal_gateway_alternatives_hint')}`}
             </p>
           </div>
         )}
@@ -119,6 +143,17 @@ export function SecretReveal({ revealed, gatewayOrigin, onClose }: SecretRevealP
             </div>
             <pre className={styles.snippet}>{snippet}</pre>
             <p className={styles.hint}>{t('client_keys.reveal_env_hint')}</p>
+          </div>
+        )}
+
+        {isKey && (
+          <div className={styles.block}>
+            <div className={styles.blockHead}>
+              <span className={styles.blockLabel}>{t('client_keys.reveal_openai_label')}</span>
+              <CopyButton text={openAiBase} label={t('client_keys.copy_openai_base')} />
+            </div>
+            <code className={styles.secret}>{openAiBase}</code>
+            <p className={styles.hint}>{t('client_keys.reveal_openai_hint')}</p>
           </div>
         )}
       </div>
