@@ -2189,6 +2189,7 @@
         "headers": "Headers"
       },
       "websocketsTag": "WebSockets",
+      "clientKeysTag": "Client keys",
       "cloakTag": "Cloak",
       "cliProfileTag": "CLI Profile",
       "empty": "No resources yet, click \"New\" to add.",
@@ -2304,6 +2305,8 @@
       "priority": "Priority",
       "weight": "Scheduling weight",
       "weightHint": "Default 1 · ≤ 0 is excluded · maximum 1,000,000",
+      "serveClientKeys": "Client keys",
+      "serveClientKeysHint": "Let client keys (sk-cpa) use this API key. Off by default.",
       "disabled": "Disable this entry",
       "disabledHint": "Disabled entries won't be used by the gateway",
       "websockets": "Enable WebSockets",

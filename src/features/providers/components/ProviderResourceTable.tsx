@@ -137,6 +137,9 @@ export function ProviderResourceTable({
         items.push(renderFlagTag('cli-profile', t('providersPage.table.cliProfileTag')));
       }
     }
+    if (r.flags.serveClientKeys) {
+      items.push(renderFlagTag('client-keys', t('providersPage.table.clientKeysTag')));
+    }
     return <div className={styles.metricsCell}>{items}</div>;
   };
 

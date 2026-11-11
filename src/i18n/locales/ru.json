@@ -2195,6 +2195,7 @@
         "headers": "Заголовки"
       },
       "websocketsTag": "WebSockets",
+      "clientKeysTag": "Клиентские ключи",
       "cloakTag": "Cloak",
       "cliProfileTag": "CLI-профиль",
       "empty": "Нет ресурсов, нажмите \"Создать\".",
@@ -2310,6 +2311,8 @@
       "priority": "Приоритет",
       "weight": "Вес планирования",
       "weightHint": "По умолчанию 1 · ≤ 0 исключает запись · максимум 1 000 000",
+      "serveClientKeys": "Клиентские ключи",
+      "serveClientKeysHint": "Разрешить клиентским ключам (sk-cpa) использовать этот API-ключ. По умолчанию выключено.",
       "disabled": "Отключить эту запись",
       "disabledHint": "Отключённые записи не используются шлюзом",
       "websockets": "Включить WebSockets",

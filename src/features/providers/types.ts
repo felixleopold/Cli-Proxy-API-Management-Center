@@ -72,6 +72,7 @@ export interface ProviderResourceFlags {
   cloakEnabled?: boolean;
   claudeCodeCliProfile?: boolean;
   websockets?: boolean;
+  serveClientKeys?: boolean;
   protocols?: string[];
 }
 
@@ -193,6 +194,7 @@ export interface ProviderEntryFormInput extends ProviderBehaviorOptions {
   runtimePolicy?: RuntimePolicyDraft;
   priority?: number;
   weight?: number;
+  serveClientKeys?: boolean;
 
   /** 高级折叠区 */
   models: ModelEntryInput[];

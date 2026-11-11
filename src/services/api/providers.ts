@@ -85,6 +85,7 @@ const serializeProviderKey = (config: ProviderKeyConfig, family: ProviderFamily)
   };
   if (config.priority !== undefined) payload.priority = config.priority;
   if (config.weight !== undefined) payload.weight = config.weight;
+  if (config.serveClientKeys) payload['serve-client-keys'] = true;
   if (config.prefix?.trim()) payload.prefix = config.prefix.trim();
   if (config.baseUrl) payload['base-url'] = config.baseUrl;
   if (config.websockets !== undefined) payload.websockets = config.websockets;
@@ -151,6 +152,7 @@ const serializeVertexKey = (config: ProviderKeyConfig) => {
   if (config.disableCooling !== undefined) payload['disable-cooling'] = config.disableCooling;
   if (config.priority !== undefined) payload.priority = config.priority;
   if (config.weight !== undefined) payload.weight = config.weight;
+  if (config.serveClientKeys) payload['serve-client-keys'] = true;
   if (config.prefix?.trim()) payload.prefix = config.prefix.trim();
   if (config.baseUrl) payload['base-url'] = config.baseUrl;
   if (config.proxyUrl) payload['proxy-url'] = config.proxyUrl;
@@ -171,6 +173,7 @@ const serializeGeminiKey = (config: GeminiKeyConfig) => {
   };
   if (config.priority !== undefined) payload.priority = config.priority;
   if (config.weight !== undefined) payload.weight = config.weight;
+  if (config.serveClientKeys) payload['serve-client-keys'] = true;
   if (config.prefix?.trim()) payload.prefix = config.prefix.trim();
   if (config.baseUrl) payload['base-url'] = config.baseUrl;
   if (config.proxyUrl) payload['proxy-url'] = config.proxyUrl;
@@ -203,6 +206,7 @@ const serializeOpenAIProvider = (provider: OpenAIProviderConfig) => {
   const models = serializeModelAliases(provider.models, true);
   if (models && models.length) payload.models = models;
   if (provider.priority !== undefined) payload.priority = provider.priority;
+  if (provider.serveClientKeys) payload['serve-client-keys'] = true;
   if (provider.disableCooling !== undefined) payload['disable-cooling'] = provider.disableCooling;
   return payload;
 };
@@ -314,7 +318,8 @@ const emptyOverride = (field: string): unknown => {
   if (['models', 'excluded-models', 'request-scoped-errors'].includes(field)) return [];
   if (field === 'request-retry') return -1;
   if (['headers', 'cloak'].includes(field)) return {};
-  if (['disable-cooling', 'websockets', 'disabled'].includes(field)) return false;
+  if (['disable-cooling', 'websockets', 'disabled', 'serve-client-keys'].includes(field))
+    return false;
   if (['priority', 'weight'].includes(field)) return 0;
   return '';
 };

@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/icons';
 import { Collapsible } from '@/components/ui/Collapsible';
 import { Select } from '@/components/ui/Select';
+import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import {
   DISABLE_ALL_RULE,
   ExcludedModelsPicker,
@@ -93,6 +94,7 @@ function buildInitialForm(
       runtimePolicy: readRuntimePolicy(),
       priority: undefined,
       weight: undefined,
+      serveClientKeys: false,
       models: [emptyModel()],
       headers: [emptyHeader()],
       excludedModelsText: '',
@@ -129,6 +131,7 @@ function buildInitialForm(
       runtimePolicy: readRuntimePolicy(cfg),
       ...pickProviderBehavior(cfg, brand),
       priority: cfg.priority,
+      serveClientKeys: cfg.serveClientKeys === true,
       models: cfg.models?.length
         ? cfg.models.map((m) => ({
             sourceIndex: m.sourceIndex,
@@ -177,6 +180,7 @@ function buildInitialForm(
     ...pickProviderBehavior(cfg, brand),
     priority: cfg.priority,
     weight: cfg.weight,
+    serveClientKeys: cfg.serveClientKeys === true,
     models: cfg.models?.length
       ? cfg.models.map((m) => ({
           sourceIndex: m.sourceIndex,
@@ -656,6 +660,16 @@ export function BaseProviderForm({
             <span className={styles.labelHint}>{t('providersPage.form.weightHint')}</span>
           </div>
         ) : null}
+
+        <div className={styles.field}>
+          <ToggleSwitch
+            checked={form.serveClientKeys === true}
+            onChange={(value) => updateField('serveClientKeys', value)}
+            label={t('providersPage.form.serveClientKeys')}
+            disabled={mutating}
+          />
+          <span className={styles.labelHint}>{t('providersPage.form.serveClientKeysHint')}</span>
+        </div>
 
         {descriptor.supportsTestModel ? (
           <div className={styles.field}>
