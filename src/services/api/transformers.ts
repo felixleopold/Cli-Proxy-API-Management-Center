@@ -157,6 +157,8 @@ const normalizeProviderKeyConfig = (item: unknown): ProviderKeyConfig | null => 
   }
   const weight = readCredentialWeight(record?.weight);
   if (weight !== undefined) config.weight = weight;
+  const serveClientKeys = normalizeBoolean(record?.['serve-client-keys']);
+  if (serveClientKeys !== undefined) config.serveClientKeys = serveClientKeys;
   const priority = record?.priority;
   if (priority !== undefined && priority !== null && String(priority).trim() !== '') {
     const parsed = Number(priority);
@@ -227,6 +229,8 @@ const normalizeGeminiKeyConfig = (item: unknown): GeminiKeyConfig | null => {
   const config: GeminiKeyConfig = { apiKey: trimmed, ...normalizeRuntimePolicy(record) };
   const weight = readCredentialWeight(record?.weight);
   if (weight !== undefined) config.weight = weight;
+  const serveClientKeys = normalizeBoolean(record?.['serve-client-keys']);
+  if (serveClientKeys !== undefined) config.serveClientKeys = serveClientKeys;
   const priority = record?.priority;
   if (priority !== undefined && priority !== null && String(priority).trim() !== '') {
     const parsed = Number(priority);
@@ -293,6 +297,8 @@ const normalizeOpenAIProvider = (
   if (headers) result.headers = headers;
   if (models.length) result.models = models;
   if (priority !== undefined) result.priority = Number(priority);
+  const serveClientKeys = normalizeBoolean(provider['serve-client-keys']);
+  if (serveClientKeys !== undefined) result.serveClientKeys = serveClientKeys;
   const authIndex = normalizeAuthIndex(provider['auth-index']);
   if (authIndex) result.authIndex = authIndex;
   if (sourceIndex !== undefined) result.sourceIndex = sourceIndex;

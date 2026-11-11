@@ -2181,6 +2181,7 @@
         "headers": "请求头"
       },
       "websocketsTag": "WebSockets",
+      "clientKeysTag": "客户端密钥",
       "cloakTag": "Cloak",
       "cliProfileTag": "CLI 指纹",
       "empty": "尚未添加配置,点击右上角新建。",
@@ -2296,6 +2297,8 @@
       "priority": "优先级",
       "weight": "调度权重",
       "weightHint": "默认 1 · ≤ 0 时不参与 · 最大 1,000,000",
+      "serveClientKeys": "客户端密钥",
+      "serveClientKeysHint": "允许客户端密钥（sk-cpa）使用此 API 密钥。默认关闭。",
       "disabled": "停用此条目",
       "disabledHint": "停用后不会被网关使用",
       "websockets": "启用 WebSockets",

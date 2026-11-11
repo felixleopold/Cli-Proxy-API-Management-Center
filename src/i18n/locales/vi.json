@@ -2066,6 +2066,7 @@
         "headers": "Header"
       },
       "websocketsTag": "WebSocket",
+      "clientKeysTag": "Khóa máy khách",
       "cloakTag": "Cloak",
       "empty": "Chưa có tài nguyên nào, nhấn \"Mới\" để thêm.",
       "filterPlaceholder": "Tìm key, URL, tiền tố…",
@@ -2181,6 +2182,8 @@
       "priority": "Ưu tiên",
       "weight": "Trọng số điều phối",
       "weightHint": "Mặc định 1 · ≤ 0 bị loại trừ · tối đa 1.000.000",
+      "serveClientKeys": "Khóa máy khách",
+      "serveClientKeysHint": "Cho phép khóa máy khách (sk-cpa) dùng khóa API này. Mặc định tắt.",
       "disabled": "Tắt mục này",
       "disabledHint": "Gateway sẽ không dùng mục đã tắt",
       "websockets": "Bật WebSocket",

@@ -2189,6 +2189,7 @@
         "headers": "헤더"
       },
       "websocketsTag": "WebSockets",
+      "clientKeysTag": "클라이언트 키",
       "cloakTag": "Cloak",
       "cliProfileTag": "CLI 프로필",
       "empty": "아직 리소스가 없습니다. \"새로 만들기\"를 클릭하여 추가하세요.",
@@ -2304,6 +2305,8 @@
       "priority": "우선순위",
       "weight": "스케줄링 가중치",
       "weightHint": "기본값 1 · ≤ 0인 경우 제외 · 최대 1,000,000",
+      "serveClientKeys": "클라이언트 키",
+      "serveClientKeysHint": "클라이언트 키(sk-cpa)가 이 API 키를 사용하도록 허용합니다. 기본값은 꺼짐입니다.",
       "disabled": "이 항목 비활성화",
       "disabledHint": "비활성화된 항목은 게이트웨이에서 사용되지 않습니다.",
       "websockets": "WebSockets 활성화",

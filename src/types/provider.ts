@@ -72,6 +72,7 @@ export interface GeminiKeyConfig extends ProviderRuntimePolicy {
   apiKey: string;
   priority?: number;
   weight?: number;
+  serveClientKeys?: boolean;
   prefix?: string;
   baseUrl?: string;
   proxyUrl?: string;
@@ -87,6 +88,8 @@ export interface ProviderKeyConfig extends ProviderRuntimePolicy, ProviderBehavi
   apiKey: string;
   priority?: number;
   weight?: number;
+  /** Client keys (sk-cpa) may use this credential. Strict opt-in. */
+  serveClientKeys?: boolean;
   prefix?: string;
   baseUrl?: string;
   websockets?: boolean;
@@ -110,6 +113,7 @@ export interface OpenAIProviderConfig extends ProviderRuntimePolicy, ProviderBeh
   headers?: Record<string, string>;
   models?: ModelAlias[];
   priority?: number;
+  serveClientKeys?: boolean;
   disableCooling?: boolean;
   authIndex?: string;
   /** Original index in the backend openai-compatibility array. */
