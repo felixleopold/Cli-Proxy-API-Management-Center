@@ -303,6 +303,7 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
                     onChange={(value) => onChange('preferredModelsText', value)}
                     labelKey="auth_files.preferred_models_label"
                     hintKey="auth_files.preferred_models_hint"
+                    i18nPrefix="preferred_models"
                   />
                   <div className="form-group">
                     <label>{t('auth_files.headers_label')}</label>

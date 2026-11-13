@@ -18,6 +18,7 @@ interface AuthFileExcludedModelsFieldProps {
   /** i18n keys; default to the excluded-models label with no help text. */
   labelKey?: string;
   hintKey?: string;
+  i18nPrefix?: 'excluded_models' | 'preferred_models';
 }
 
 export function AuthFileExcludedModelsField({
@@ -27,6 +28,7 @@ export function AuthFileExcludedModelsField({
   onChange,
   labelKey = 'auth_files.excluded_models_label',
   hintKey,
+  i18nPrefix,
 }: AuthFileExcludedModelsFieldProps) {
   const { t } = useTranslation();
   // 凭证文件名可能含点/斜杠等字符，不适合直接当 HTML id。
@@ -100,6 +102,7 @@ export function AuthFileExcludedModelsField({
         catalogState={catalogState}
         disabled={disabled}
         labelledBy={labelId}
+        i18nPrefix={i18nPrefix}
       />
       {hintKey && <div className="hint">{t(hintKey)}</div>}
     </div>

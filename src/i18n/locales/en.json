@@ -749,6 +749,16 @@
     "rules_match_none": "matches no model in the list",
     "rules_reserved": "“*” disables the whole provider — use the Disabled switch instead"
   },
+  "preferred_models": {
+    "trigger_empty": "No preferred models",
+    "trigger_summary": "{{excluded}} preferred · {{available}} available",
+    "meter_aria": "{{excluded}} of {{total}} models preferred",
+    "chip_remove": "Stop preferring {{rule}}",
+    "search_aria": "Search models to prefer",
+    "footer_count": "{{excluded}} / {{total}} preferred",
+    "select_all": "Prefer all",
+    "clear_aria": "Clear selected models (wildcard rules are kept)"
+  },
   "oauth_model_alias": {
     "editor_description": "Give provider models consistent names for use in your clients.",
     "edit_title": "Edit model aliases for {{provider}}",

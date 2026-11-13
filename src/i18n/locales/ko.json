@@ -749,6 +749,16 @@
     "rules_match_none": "목록의 어떤 모델과도 일치하지 않음",
     "rules_reserved": "“*”은(는) 공급자 전체를 비활성화합니다. 대신 '비활성화됨' 스위치를 사용하세요"
   },
+  "preferred_models": {
+    "trigger_empty": "우선 모델 없음",
+    "trigger_summary": "우선 {{excluded}}개 · 사용 가능 {{available}}개",
+    "meter_aria": "모델 {{total}}개 중 {{excluded}}개 우선",
+    "chip_remove": "{{rule}} 우선 해제",
+    "search_aria": "우선할 모델 검색",
+    "footer_count": "{{excluded}} / {{total}} 우선",
+    "select_all": "모두 우선",
+    "clear_aria": "선택한 모델 지우기(와일드카드 규칙은 유지)"
+  },
   "oauth_model_alias": {
     "editor_description": "클라이언트에서 사용할 수 있도록 공급자 모델에 일관된 이름을 지정합니다.",
     "edit_title": "{{provider}}의 모델 별칭 편집",

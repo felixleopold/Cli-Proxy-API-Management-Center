@@ -747,6 +747,16 @@
     "rules_match_none": "未比對到清單中的任何模型",
     "rules_reserved": "「*」會停用整個 provider，請改用「已停用」開關"
   },
+  "preferred_models": {
+    "trigger_empty": "沒有優先模型",
+    "trigger_summary": "{{excluded}} 個優先 · {{available}} 個可用",
+    "meter_aria": "{{total}} 個模型中有 {{excluded}} 個優先",
+    "chip_remove": "不再優先 {{rule}}",
+    "search_aria": "搜尋要優先的模型",
+    "footer_count": "{{excluded}} / {{total}} 個優先",
+    "select_all": "全部優先",
+    "clear_aria": "清除已選模型（保留萬用規則）"
+  },
   "oauth_model_alias": {
     "editor_description": "為供應商的模型設定呼叫別名，統一用戶端使用的模型名稱。",
     "edit_title": "編輯 {{provider}} 的模型別名",

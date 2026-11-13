@@ -27,6 +27,7 @@ interface ExcludedModelsPanelProps {
   autoFocus: boolean;
   /** 收起面板并把焦点还给 trigger。 */
   onDismiss: () => void;
+  i18nPrefix: 'excluded_models' | 'preferred_models';
 }
 
 const matchesQuery = (candidate: ExcludedModelCandidate, query: string): boolean =>
@@ -44,8 +45,11 @@ export function ExcludedModelsPanel({
   listboxId,
   autoFocus,
   onDismiss,
+  i18nPrefix,
 }: ExcludedModelsPanelProps) {
   const { t } = useTranslation();
+  const tk = (name: string, options?: Record<string, unknown>) =>
+    t([`${i18nPrefix}.${name}`, `excluded_models.${name}`], options);
   const [query, setQuery] = useState('');
   const [highlight, setHighlight] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -137,7 +141,7 @@ export function ExcludedModelsPanel({
           }}
           onKeyDown={handleKeyDown}
           placeholder={t('excluded_models.search_placeholder')}
-          aria-label={t('excluded_models.search_aria')}
+          aria-label={tk('search_aria')}
           aria-controls={listboxId}
           aria-activedescendant={activeId}
           disabled={disabled}
@@ -176,7 +180,7 @@ export function ExcludedModelsPanel({
 
       <div className={styles.footer}>
         <span className={styles.footerCount}>
-          {t('excluded_models.footer_count', { excluded: stats.excluded, total: stats.total })}
+          {tk('footer_count', { excluded: stats.excluded, total: stats.total })}
         </span>
         <span className={styles.footerActions}>
           <button
@@ -185,14 +189,14 @@ export function ExcludedModelsPanel({
             onClick={onSelectAll}
             disabled={disabled || candidates.length === 0}
           >
-            {t('excluded_models.select_all')}
+            {tk('select_all')}
           </button>
           <button
             type="button"
             className={styles.footerButton}
             onClick={onClear}
             disabled={disabled}
-            aria-label={t('excluded_models.clear_aria')}
+            aria-label={tk('clear_aria')}
           >
             {t('excluded_models.clear')}
           </button>

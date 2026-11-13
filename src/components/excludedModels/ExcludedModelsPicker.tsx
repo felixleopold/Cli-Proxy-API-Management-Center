@@ -43,6 +43,9 @@ export interface ExcludedModelsPickerProps {
 
   labelledBy?: string;
   className?: string;
+
+  /** Namespace of the wording that depends on what the selection means; neutral strings stay in `excluded_models`. */
+  i18nPrefix?: 'excluded_models' | 'preferred_models';
 }
 
 export function ExcludedModelsPicker({
@@ -57,8 +60,11 @@ export function ExcludedModelsPicker({
   showRuleEditor = true,
   labelledBy,
   className,
+  i18nPrefix = 'excluded_models',
 }: ExcludedModelsPickerProps) {
   const { t } = useTranslation();
+  const tk = (name: string, options?: Record<string, unknown>) =>
+    t([`${i18nPrefix}.${name}`, `excluded_models.${name}`], options);
   const baseId = useId();
   const panelId = `${baseId}-panel`;
   const listboxId = `${baseId}-listbox`;
@@ -138,14 +144,14 @@ export function ExcludedModelsPicker({
   const summaryText = () => {
     if (catalogState === 'loading') return t('excluded_models.catalog_loading');
     if (hasCatalog) {
-      if (stats.excluded === 0 && rules.length === 0) return t('excluded_models.trigger_empty');
-      return t('excluded_models.trigger_summary', {
+      if (stats.excluded === 0 && rules.length === 0) return tk('trigger_empty');
+      return tk('trigger_summary', {
         excluded: stats.excluded,
         available: stats.available,
       });
     }
     // 无目录：只能诚实地报规则条数，不能假装知道「还剩几个可用」。
-    if (rules.length === 0) return t('excluded_models.trigger_empty');
+    if (rules.length === 0) return tk('trigger_empty');
     return t('excluded_models.trigger_summary_rules', { n: rules.length });
   };
 
@@ -182,7 +188,7 @@ export function ExcludedModelsPicker({
           <span
             className={styles.meter}
             role="img"
-            aria-label={t('excluded_models.meter_aria', {
+            aria-label={tk('meter_aria', {
               excluded: stats.excluded,
               total: stats.total,
             })}
@@ -212,6 +218,7 @@ export function ExcludedModelsPicker({
               listboxId={listboxId}
               autoFocus={open}
               onDismiss={dismissPanel}
+              i18nPrefix={i18nPrefix}
             />
           ) : (
             <div className={styles.catalogNotice}>
@@ -240,7 +247,7 @@ export function ExcludedModelsPicker({
               label={rule}
               variant="exact"
               onRemove={() => commit(toggleExcludedRule(rules, rule, false))}
-              removeAriaLabel={t('excluded_models.chip_remove', { rule })}
+              removeAriaLabel={tk('chip_remove', { rule })}
               disabled={disabled}
             />
           ))}
@@ -265,7 +272,7 @@ export function ExcludedModelsPicker({
               variant="unknown"
               detail={t('excluded_models.badge_unknown')}
               onRemove={() => commit(toggleExcludedRule(rules, rule, false))}
-              removeAriaLabel={t('excluded_models.chip_remove', { rule })}
+              removeAriaLabel={tk('chip_remove', { rule })}
               disabled={disabled}
             />
           ))}

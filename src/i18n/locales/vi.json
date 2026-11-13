@@ -706,6 +706,16 @@
     "rules_match_none": "không khớp model nào trong danh sách",
     "rules_reserved": "“*” vô hiệu hóa toàn bộ provider — hãy dùng công tắc Đã tắt thay thế"
   },
+  "preferred_models": {
+    "trigger_empty": "Không có model ưu tiên",
+    "trigger_summary": "{{excluded}} ưu tiên · {{available}} khả dụng",
+    "meter_aria": "{{excluded}} trên {{total}} model được ưu tiên",
+    "chip_remove": "Bỏ ưu tiên {{rule}}",
+    "search_aria": "Tìm model để ưu tiên",
+    "footer_count": "{{excluded}} / {{total}} ưu tiên",
+    "select_all": "Ưu tiên tất cả",
+    "clear_aria": "Xóa các model đã chọn (giữ quy tắc ký tự đại diện)"
+  },
   "oauth_model_alias": {
     "title": "Bí danh Model OAuth",
     "add": "Thêm bí danh",
