@@ -364,6 +364,8 @@
     "note_placeholder": "Nhập ghi chú, ví dụ: Tài khoản của John",
     "note_hint": "Tùy chọn. Dùng để mô tả mục đích hoặc chủ sở hữu của credential này; để trống nếu không cần.",
     "excluded_models_label": "Model bị loại trừ (excluded_models)",
+    "preferred_models_label": "Model ưu tiên (preferred_models)",
+    "preferred_models_hint": "Yêu cầu cho các model này được gửi đến tài khoản này trước; các tài khoản khác chỉ được dùng khi tài khoản này không khả dụng.",
     "headers_label": "Header tùy chỉnh (headers)",
     "headers_placeholder": "{\n  \"Header-Name\": \"value\"\n}",
     "headers_hint": "Nhập header HTTP tùy chỉnh dưới dạng đối tượng JSON, ví dụ {\"X-My-Header\": \"value\"}",

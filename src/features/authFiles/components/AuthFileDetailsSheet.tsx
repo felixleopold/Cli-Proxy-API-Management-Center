@@ -296,6 +296,14 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
                     disabled={disableControls || editor.saving || !editor.json}
                     onChange={(value) => onChange('excludedModelsText', value)}
                   />
+                  <AuthFileExcludedModelsField
+                    fileName={editor.fileName}
+                    value={editor.preferredModelsText}
+                    disabled={disableControls || editor.saving || !editor.json}
+                    onChange={(value) => onChange('preferredModelsText', value)}
+                    labelKey="auth_files.preferred_models_label"
+                    hintKey="auth_files.preferred_models_hint"
+                  />
                   <div className="form-group">
                     <label>{t('auth_files.headers_label')}</label>
                     <textarea

@@ -42,6 +42,8 @@ const makeEditor = (json: Record<string, unknown>, weight: string): PrefixProxyE
   noteTouched: false,
   excludedModelsText: '',
   excludedModelsTouched: false,
+  preferredModelsText: '',
+  preferredModelsTouched: false,
   headersText: '',
   headersTouched: false,
   headersError: null,
@@ -254,5 +256,29 @@ describe('auth-file excluded models patch', () => {
         resolveError
       )
     ).toEqual({ excluded_models: [] });
+  });
+});
+
+describe('auth-file preferred models patch', () => {
+  test('writes normalized models, uses null to clear and ignores untouched values', () => {
+    const editor = (original: Record<string, unknown>, text: string) => ({
+      ...makeEditor(original, ''),
+      preferredModelsText: text,
+      preferredModelsTouched: true,
+    });
+
+    expect(
+      buildAuthFileFieldsPatch(editor({}, ' claude-opus-4\nCLAUDE-OPUS-4\nglm-5 '), resolveError)
+    ).toEqual({
+      preferred_models: ['claude-opus-4', 'glm-5'],
+    });
+    expect(
+      buildAuthFileFieldsPatch(editor({ preferred_models: ['glm-5'] }, ''), resolveError)
+    ).toEqual({
+      preferred_models: null,
+    });
+    expect(
+      buildAuthFileFieldsPatch(makeEditor({ preferred_models: ['glm-5'] }, ''), resolveError)
+    ).toEqual({});
   });
 });

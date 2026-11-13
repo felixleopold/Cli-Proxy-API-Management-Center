@@ -431,6 +431,8 @@
     "note_placeholder": "메모를 입력하세요(예: John의 계정)",
     "note_hint": "선택 사항입니다. 이 자격 증명의 용도나 소유자를 설명하는 데 사용되며, 생략하려면 비워 두세요.",
     "excluded_models_label": "제외 모델 (excluded_models)",
+    "preferred_models_label": "우선 모델 (preferred_models)",
+    "preferred_models_hint": "이 모델에 대한 요청은 먼저 이 계정으로 전달되며, 이 계정을 사용할 수 없을 때만 다른 계정을 사용합니다.",
     "headers_label": "사용자 정의 헤더 (headers)",
     "headers_placeholder": "{\n  \"Header-Name\": \"value\"\n}",
     "headers_hint": "사용자 정의 HTTP 헤더를 JSON 객체로 입력하세요(예: {\"X-My-Header\": \"value\"}).",

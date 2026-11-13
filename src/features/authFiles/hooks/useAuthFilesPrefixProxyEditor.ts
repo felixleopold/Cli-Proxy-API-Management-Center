@@ -73,6 +73,7 @@ export type PrefixProxyEditorField =
   | 'usingApi'
   | 'note'
   | 'excludedModelsText'
+  | 'preferredModelsText'
   | 'headersText';
 
 export type PrefixProxyEditorFieldValue = string | boolean | CredentialPolicyValue;
@@ -117,6 +118,8 @@ export type PrefixProxyEditorState = {
   noteTouched: boolean;
   excludedModelsText: string;
   excludedModelsTouched: boolean;
+  preferredModelsText: string;
+  preferredModelsTouched: boolean;
   headersText: string;
   headersTouched: boolean;
   headersError: string | null;
@@ -204,6 +207,9 @@ const readExcludedModels = (value: Record<string, unknown>): string[] =>
   normalizeExcludedModels(
     value.excluded_models !== undefined ? value.excluded_models : value['excluded-models']
   );
+
+const readPreferredModels = (value: Record<string, unknown>): string[] =>
+  normalizeExcludedModels(value.preferred_models);
 
 const getExcludedModelsField = (
   value: Record<string, unknown>
@@ -446,6 +452,14 @@ export const buildAuthFileFieldsPatch = (
     }
   }
 
+  if (editor.preferredModelsTouched) {
+    const originalPreferredModels = readPreferredModels(original);
+    const nextPreferredModels = parseExcludedModelsText(editor.preferredModelsText);
+    if (JSON.stringify(nextPreferredModels) !== JSON.stringify(originalPreferredModels)) {
+      patch.preferred_models = nextPreferredModels.length > 0 ? nextPreferredModels : null;
+    }
+  }
+
   if (supportsAuthFileWebsockets(editor.providerKey) && editor.websocketsTouched) {
     const originalWebsockets = readAuthFileWebsockets(original);
     const nextWebsockets = Boolean(editor.websockets);
@@ -560,6 +574,14 @@ const buildPrefixProxyUpdatedText = (
     next['excluded-models'] = patch['excluded-models'];
   }
 
+  if (patch.preferred_models !== undefined) {
+    if (patch.preferred_models === null) {
+      delete next.preferred_models;
+    } else {
+      next.preferred_models = patch.preferred_models;
+    }
+  }
+
   applyCredentialPolicyPatch(next, patch);
   applyHeadersPatch(next, patch.headers);
 
@@ -664,6 +686,8 @@ export function useAuthFilesPrefixProxyEditor(
       noteTouched: false,
       excludedModelsText: '',
       excludedModelsTouched: false,
+      preferredModelsText: '',
+      preferredModelsTouched: false,
       headersText: '',
       headersTouched: false,
       headersError: null,
@@ -719,6 +743,7 @@ export function useAuthFilesPrefixProxyEditor(
       const usingApi = supportsAuthFileUsingApi(providerKey) ? readAuthFileUsingApi(json) : false;
       const note = typeof json.note === 'string' ? json.note : '';
       const excludedModelsText = readExcludedModels(json).join('\n');
+      const preferredModelsText = readPreferredModels(json).join('\n');
       const headers = json.headers;
       let headersText = '';
       let headersError: string | null = null;
@@ -765,6 +790,8 @@ export function useAuthFilesPrefixProxyEditor(
           noteTouched: false,
           excludedModelsText,
           excludedModelsTouched: false,
+          preferredModelsText,
+          preferredModelsTouched: false,
           headersText,
           headersTouched: false,
           headersError,
@@ -864,6 +891,13 @@ export function useAuthFilesPrefixProxyEditor(
           ...prev,
           excludedModelsText: String(value),
           excludedModelsTouched: true,
+        };
+      }
+      if (field === 'preferredModelsText') {
+        return {
+          ...prev,
+          preferredModelsText: String(value),
+          preferredModelsTouched: true,
         };
       }
       if (field === 'headersText') {

@@ -429,6 +429,8 @@
     "note_placeholder": "输入备注信息，例如：张三的账号",
     "note_hint": "可选，用于标记凭证用途或归属；留空则不写入。",
     "excluded_models_label": "排除模型（excluded_models）",
+    "preferred_models_label": "优先模型（preferred_models）",
+    "preferred_models_hint": "这些模型的请求会优先发往此账号；仅当此账号不可用时才使用其他账号。",
     "headers_label": "自定义请求头（headers）",
     "headers_placeholder": "{\n  \"Header-Name\": \"value\"\n}",
     "headers_hint": "以 JSON 对象格式输入自定义 HTTP 请求头，例如：{\"X-My-Header\": \"value\"}",
