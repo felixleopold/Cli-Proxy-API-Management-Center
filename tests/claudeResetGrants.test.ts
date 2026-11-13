@@ -9,6 +9,7 @@ import {
   readClaudeResetGrants,
   AnthropicResetGrantUnknownOutcome,
   ANTHROPIC_RESET_RESULTS,
+  ANTHROPIC_RESET_REQUEST_ID_RE,
   type AnthropicResetClaimAnswer,
   type AnthropicResetSettledCode,
 } from '../src/services/api/claudeResetGrants';
@@ -19,6 +20,7 @@ import {
 } from '../src/features/quota/providers/claude/resetGrantInfo';
 import { apiCallApi, type ApiCallRequest } from '../src/services/api/apiCall';
 import {
+  createRequestId,
   createResetGrantOperations,
   RETRY_WINDOW_MS,
 } from '../src/features/quota/providers/claude/resetGrantOperations';
@@ -513,4 +515,16 @@ describe('full grant shape', () => {
       cooldownUntil: null,
     });
   });
+});
+
+test('request ids do not need crypto.randomUUID, which plain-HTTP panels lack', () => {
+  const original = crypto.randomUUID;
+  Object.defineProperty(crypto, 'randomUUID', { value: undefined, configurable: true });
+  try {
+    const id = createRequestId();
+    expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(ANTHROPIC_RESET_REQUEST_ID_RE.test(id)).toBe(true);
+  } finally {
+    Object.defineProperty(crypto, 'randomUUID', { value: original, configurable: true });
+  }
 });
