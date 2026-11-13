@@ -161,12 +161,14 @@ export function useClaudeResetGrants(
               ? 'success'
               : 'error'
           );
-        } catch {
+        } catch (error) {
+          console.error('[claude-reset] claim failed before an answer', error);
           if (!current()) return;
           const unresolved = resetGrantOperations.inspect(key);
-          const summary = t(
+          const detail = error instanceof Error ? error.message : String(error);
+          const summary = `${t(
             `claude_reset.${unresolved && !unresolved.code ? 'unknown' : 'blocked'}`
-          );
+          )} (${detail})`;
           setResult(summary);
           showNotification(summary, 'error');
         } finally {
