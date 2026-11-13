@@ -9,8 +9,14 @@ import {
   readClaudeResetGrants,
   AnthropicResetGrantUnknownOutcome,
   ANTHROPIC_RESET_RESULTS,
+  type AnthropicResetClaimAnswer,
   type AnthropicResetSettledCode,
 } from '../src/services/api/claudeResetGrants';
+import {
+  resetGrantBlock,
+  resetGrantGivesBack,
+  resetGrantKind,
+} from '../src/features/quota/providers/claude/resetGrantInfo';
 import { apiCallApi, type ApiCallRequest } from '../src/services/api/apiCall';
 import {
   createResetGrantOperations,
@@ -83,7 +89,9 @@ test('exact proxied GET/profile/claim contract, no provider token in frontend', 
   };
   await readClaudeResetGrants('index');
   expect(await readClaudeOrganization('index')).toBe(organization);
-  expect(await claimClaudeResetGrant('index', organization, grant.id, 'request-1')).toBe('reset');
+  expect((await claimClaudeResetGrant('index', organization, grant.id, 'request-1')).code).toBe(
+    'reset'
+  );
   expect(calls[0].url).toBe('https://api.anthropic.com/api/oauth/usage?cedar_ember=1&skip_spend=1');
   expect(calls[1].url).toBe('https://api.anthropic.com/api/oauth/profile');
   expect(calls[2].url).toBe(
@@ -110,7 +118,7 @@ test('claim terminal mappings and ambiguous outcomes', async () => {
       bodyText: '',
       header: {},
     });
-    expect(await claimClaudeResetGrant('a', organization, grant.id, 'r')).toBe(result);
+    expect((await claimClaudeResetGrant('a', organization, grant.id, 'r')).code).toBe(result);
   }
   for (const [statusCode, code] of [
     [401, 'auth_error'],
@@ -118,7 +126,7 @@ test('claim terminal mappings and ambiguous outcomes', async () => {
     [429, 'rate_limited'],
   ] as const) {
     apiCallApi.request = async () => ({ statusCode, body: null, bodyText: '', header: {} });
-    expect(await claimClaudeResetGrant('a', organization, grant.id, 'r')).toBe(code);
+    expect((await claimClaudeResetGrant('a', organization, grant.id, 'r')).code).toBe(code);
   }
   for (const statusCode of [200, 400, 500]) {
     apiCallApi.request = async () => ({
@@ -139,6 +147,15 @@ test('claim terminal mappings and ambiguous outcomes', async () => {
   );
 });
 
+const answer = (code: AnthropicResetSettledCode): AnthropicResetClaimAnswer => ({
+  code,
+  reason: null,
+  resetsLeft: null,
+  cleared: [],
+  weeklyResetsAt: null,
+  cooldownUntil: null,
+});
+
 function setup() {
   let revision = 1;
   let now = 100;
@@ -155,7 +172,7 @@ function setup() {
       _org: string,
       _grant: string,
       id: string
-    ): Promise<AnthropicResetSettledCode> => {
+    ): Promise<AnthropicResetClaimAnswer> => {
       ids.push(id);
       throw new AnthropicResetGrantUnknownOutcome();
     },
@@ -223,19 +240,19 @@ test('a retry refusal keeps the ambiguous original operation open', async () => 
   await expect(operations.run('account', 'a', grant.id)).rejects.toThrow();
   h.deps.claim = async (_auth, _org, _grant, id) => {
     h.ids.push(id);
-    return 'rate_limited';
+    return answer('rate_limited');
   };
   expect(await operations.run('account', 'a', grant.id)).toEqual({
-    code: 'rate_limited',
+    ...answer('rate_limited'),
     unresolved: true,
   });
   expect(operations.inspect('account')?.code).toBeUndefined();
   h.deps.claim = async (_auth, _org, _grant, id) => {
     h.ids.push(id);
-    return 'already_used';
+    return answer('already_used');
   };
   expect(await operations.run('account', 'a', grant.id)).toEqual({
-    code: 'already_used',
+    ...answer('already_used'),
     unresolved: false,
   });
   expect(h.ids).toEqual(['request-1', 'request-1', 'request-1']);
@@ -287,20 +304,28 @@ test('a stale claim answer cannot settle the replacement session operation', asy
   h.deps.claim = async () => {
     h.nextSession();
     expect(operations.inspect('account')).toBeUndefined();
-    return 'reset';
+    return answer('reset');
   };
   await expect(operations.run('account', 'a', grant.id)).rejects.toThrow('session');
   expect(operations.inspect('account')).toBeUndefined();
 });
 
-test('all grant messages and confirmation are translated in four locales', async () => {
+test('all grant messages and confirmation are translated in every locale', async () => {
   const locales = await Promise.all(
-    ['en', 'zh-CN', 'zh-TW', 'ru'].map(
+    ['en', 'zh-CN', 'zh-TW', 'ru', 'ko', 'vi'].map(
       async (locale) => (await Bun.file(`src/i18n/locales/${locale}.json`).json()).claude_reset
     )
   );
+  const keys = (value: Record<string, unknown>, prefix = ''): string[] =>
+    Object.entries(value)
+      .flatMap(([key, child]) =>
+        typeof child === 'object' && child !== null
+          ? keys(child as Record<string, unknown>, `${prefix}${key}.`)
+          : [`${prefix}${key}`]
+      )
+      .sort();
   for (const locale of locales) {
-    expect(Object.keys(locale).sort()).toEqual(Object.keys(locales[0]).sort());
+    expect(keys(locale)).toEqual(keys(locales[0]));
     expect(locale.confirm_text).toContain('{{name}}');
     expect(locale.retry_confirm).toContain('{{name}}');
     expect(typeof locale.remaining).toBe('string');
@@ -345,11 +370,147 @@ test('Claude row shows the count and grant details and uses the shared confirmat
   const card = await Bun.file('src/features/quota/components/QuotaAccountRow.tsx').text();
   const hook = await Bun.file('src/features/quota/providers/claude/ClaudeResetGrants.tsx').text();
   expect(card).toContain("{claudeReset.count ?? '—'}");
-  expect(card).toContain('<ClaudeResetGrantDetails grants={claudeGrants}');
+  expect(card).toContain('grants={claudeGrants}');
+  expect(card).toContain('onRedeem={claudeReset.confirm}');
   expect(card).toContain('disabled={claudeReset.blocked}');
-  expect(card).toContain('onClick={claudeReset.confirm}');
+  expect(card).toContain('onClick={() => claudeReset.confirm()}');
   expect(hook).toContain('showConfirmation({');
   expect(hook).toContain("pending ? 'claude_reset.retry_confirm'");
   expect(hook).not.toContain('<Modal');
   expect(hook).not.toContain('status.grants.map');
+});
+
+describe('full grant shape', () => {
+  const full = {
+    ...grant,
+    clears: ['five_hour', 'seven_day', 'seven_day_future', 7],
+    blocking: ['seven_day_opus', 'brand_new'],
+    percent_used: { five_hour: 80, seven_day: 40, brand_new: 10 },
+    type: 'full',
+    gives_back_weekly: false,
+    unavailable_reason: 'blocked_opus',
+  };
+  test('parses new fields and drops unknown windows without rejecting the block', () => {
+    const parsed = parseAnthropicResetGrantStatus({
+      ...block,
+      exhausted: ['seven_day_sonnet', 'later_window'],
+      grants: [full],
+    })!;
+    expect(parsed.exhausted).toEqual(['seven_day_sonnet']);
+    expect(parsed.grants[0]).toMatchObject({
+      clears: ['five_hour', 'seven_day'],
+      blocking: ['seven_day_opus'],
+      percentUsed: { five_hour: 80, seven_day: 40 },
+      type: 'full',
+      givesBackWeekly: false,
+      unavailableReason: 'blocked_opus',
+    });
+    const odd = parseAnthropicResetGrantStatus({
+      ...block,
+      grants: [{ ...full, type: 'mystery', unavailable_reason: 'new_reason' }],
+    })!.grants[0];
+    expect(odd.type).toBeNull();
+    expect(odd.unavailableReason).toBe('unavailable');
+    for (const fields of [{ gives_back_weekly: 'yes' }, { blocking: 'five_hour' }]) {
+      expect(
+        parseAnthropicResetGrantStatus({ ...block, grants: [{ ...grant, ...fields }] })
+      ).toBeNull();
+    }
+  });
+
+  test('kind follows the CLI rule', () => {
+    const base = status().grants[0];
+    expect(resetGrantKind({ ...base, givesBackWeekly: true, type: 'session' })).toBe('fable');
+    expect(resetGrantKind({ ...base, type: 'weekly', clears: ['five_hour'] })).toBe('weekly');
+    expect(resetGrantKind({ ...base, clears: ['five_hour'] })).toBe('session');
+    expect(resetGrantKind({ ...base, clears: ['seven_day'] })).toBe('weekly');
+    expect(resetGrantKind({ ...base, clears: ['five_hour', 'seven_day'] })).toBe('full');
+  });
+
+  test('give-back lists cleared windows largest first, Fable returns its own window', () => {
+    const base = status().grants[0];
+    expect(
+      resetGrantGivesBack({
+        ...base,
+        clears: ['five_hour', 'seven_day', 'seven_day_opus'],
+        percentUsed: { five_hour: 30, seven_day: 70 },
+      })
+    ).toEqual([
+      { window: 'seven_day', percent: 70 },
+      { window: 'five_hour', percent: 30 },
+      { window: 'seven_day_opus', percent: null },
+    ]);
+    expect(
+      resetGrantGivesBack({
+        ...base,
+        givesBackWeekly: true,
+        clears: ['seven_day'],
+        percentUsed: { seven_day: 90, seven_day_overage_included: 55 },
+      })
+    ).toEqual([{ window: 'seven_day_overage_included', percent: 55 }]);
+  });
+
+  test('blocker reasons name the gate the panel refuses on', () => {
+    const s = status();
+    const g = s.grants[0];
+    const block = (st: Partial<typeof s>, gr: Partial<typeof g> = {}) =>
+      resetGrantBlock({ ...s, ...st }, { ...g, ...gr }, 0);
+    expect(block({})).toBeNull();
+    expect(block({ eligible: false, ineligibleReason: 'tier' })).toEqual({
+      code: 'ineligible',
+      reason: 'tier',
+    });
+    expect(block({}, { paused: true })).toEqual({ code: 'paused' });
+    expect(block({}, { startsAt: new Date(1000).toISOString() })).toEqual({
+      code: 'not_started',
+      at: new Date(1000).toISOString(),
+    });
+    expect(block({ cooldownUntil: new Date(1000).toISOString() })).toEqual({
+      code: 'cooldown',
+      until: new Date(1000).toISOString(),
+    });
+    expect(block({ atLimit: false })).toEqual({ code: 'needs_limit' });
+    expect(block({}, { usableNow: false, unavailableReason: 'needs_limit' })).toEqual({
+      code: 'needs_limit',
+    });
+    expect(block({}, { usableNow: false, unavailableReason: 'blocked_sonnet' })).toEqual({
+      code: 'blocked',
+      windows: ['seven_day_sonnet'],
+    });
+    expect(
+      block({}, { usableNow: false, unavailableReason: 'blocked_other', blocking: ['seven_day'] })
+    ).toEqual({ code: 'blocked', windows: ['seven_day'] });
+    expect(block({}, { usableNow: false, unavailableReason: null })).toEqual({
+      code: 'unavailable',
+    });
+    // The fresh-spend gate and the panel agree.
+    for (const changed of [{ usableNow: false }, { paused: true }, { resetsLeft: 0 }]) {
+      const st = { ...s, grants: [{ ...g, ...changed }] };
+      expect(Boolean(anthropicResetGrantBlocker(st, g.id))).toBe(true);
+      expect(resetGrantBlock(st, st.grants[0], 0)).not.toBeNull();
+    }
+  });
+
+  test('claim answer carries reason, cleared windows and balance; bad details are dropped', async () => {
+    apiCallApi.request = async () => ({
+      statusCode: 200,
+      body: {
+        result: 'reset',
+        reason: 'ok\u0007 done',
+        resets_left: 1,
+        cleared: ['five_hour', 'unknown_window'],
+        cooldown_until: 'bad',
+      },
+      bodyText: '',
+      header: {},
+    });
+    expect(await claimClaudeResetGrant('a', organization, grant.id, 'r')).toEqual({
+      code: 'reset',
+      reason: 'ok done',
+      resetsLeft: 1,
+      cleared: ['five_hour'],
+      weeklyResetsAt: null,
+      cooldownUntil: null,
+    });
+  });
 });

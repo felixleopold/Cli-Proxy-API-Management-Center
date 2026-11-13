@@ -2461,7 +2461,6 @@
   },
   "claude_reset": {
     "expiry_title": "主動重置過期時間（{{timezone}}）",
-    "grant_number": "第 {{index}} 批",
     "expiry_unknown": "到期時間未知",
     "retry_confirm": "使用原請求 ID 重試「{{name}}」結果未知的重置？可能已消耗一次重置。請在 10 分鐘內重試；請勿重新載入頁面或在其他分頁發起新請求。",
     "remaining": "剩餘重置次數",
@@ -2486,7 +2485,53 @@
     "ineligible": "此帳戶不符合資格。",
     "unavailable": "重置暫不可用。",
     "rate_limited": "請求過於頻繁。",
-    "auth_error": "授權遭拒。"
+    "auth_error": "授權遭拒。",
+    "redeem_title": "使用一次重設",
+    "redeem": "使用",
+    "retry_short": "重試",
+    "use_blocked": "無法重設額度：{{reason}}",
+    "confirm_account": "帳號：{{name}}",
+    "confirm_kind": "重設類型：{{kind}}",
+    "confirm_left": "剩餘重設次數：{{before}} → {{after}}",
+    "gives_fable": "將 Fable 已用的 {{percent}}% 返還到每週額度",
+    "gives_fable_unknown": "將 Fable 已用部分返還到每週額度（數量未知）",
+    "gives_frees": "釋放 {{items}}",
+    "gives_item": "{{window}}的 {{percent}}%",
+    "gives_item_unknown": "{{window}}（數量未知）",
+    "gives_unknown": "返還額度：未知",
+    "result_cleared": "已清除：{{windows}}。",
+    "result_left": "剩餘重設次數：{{count}}。",
+    "result_reason": "原因：{{reason}}",
+    "last_result": "上次請求：{{text}}",
+    "kind": {
+      "fable": "Fable 重設",
+      "session": "工作階段重設",
+      "weekly": "每週重設",
+      "full": "完整重設"
+    },
+    "window": {
+      "five_hour": "5 小時額度",
+      "seven_day": "每週額度",
+      "seven_day_opus": "每週 Opus 額度",
+      "seven_day_sonnet": "每週 Sonnet 額度",
+      "seven_day_overage_included": "Fable 額度"
+    },
+    "block": {
+      "ineligible": "帳號不符合資格",
+      "ineligible_reason": "帳號不符合資格（{{reason}}）",
+      "exhausted": "沒有剩餘重設次數",
+      "paused": "已暫停",
+      "not_started": "{{time}} 之前無法使用",
+      "expired": "已過期",
+      "cooldown": "冷卻中",
+      "cooldown_until": "冷卻至 {{time}}",
+      "blocked": "被{{windows}}阻擋",
+      "blocked_other": "被其他額度阻擋",
+      "needs_limit": "需先達到額度上限才能使用",
+      "cannot_clear": "目前沒有可由此重設清除的額度",
+      "unavailable": "目前無法使用",
+      "pending": "此帳號有另一個結果未知的請求"
+    }
   },
   "usage": {
     "page_title": "用量與配額",

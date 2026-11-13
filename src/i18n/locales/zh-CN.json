@@ -2435,7 +2435,6 @@
   },
   "claude_reset": {
     "expiry_title": "主动重置过期时间（{{timezone}}）",
-    "grant_number": "第 {{index}} 批",
     "expiry_unknown": "到期时间未知",
     "retry_confirm": "使用原请求 ID 重试“{{name}}”结果未知的重置？可能已消耗一次重置。请在 10 分钟内重试；请勿重新加载页面或在其他标签页发起新请求。",
     "remaining": "剩余重置次数",
@@ -2460,7 +2459,53 @@
     "ineligible": "此账户不符合资格。",
     "unavailable": "重置暂不可用。",
     "rate_limited": "请求过于频繁。",
-    "auth_error": "授权被拒绝。"
+    "auth_error": "授权被拒绝。",
+    "redeem_title": "使用一次重置",
+    "redeem": "使用",
+    "retry_short": "重试",
+    "use_blocked": "无法重置额度：{{reason}}",
+    "confirm_account": "账号：{{name}}",
+    "confirm_kind": "重置类型：{{kind}}",
+    "confirm_left": "剩余重置次数：{{before}} → {{after}}",
+    "gives_fable": "将 Fable 已用的 {{percent}}% 返还到每周额度",
+    "gives_fable_unknown": "将 Fable 已用部分返还到每周额度（数量未知）",
+    "gives_frees": "释放 {{items}}",
+    "gives_item": "{{window}}的 {{percent}}%",
+    "gives_item_unknown": "{{window}}（数量未知）",
+    "gives_unknown": "返还额度：未知",
+    "result_cleared": "已清除：{{windows}}。",
+    "result_left": "剩余重置次数：{{count}}。",
+    "result_reason": "原因：{{reason}}",
+    "last_result": "上次请求：{{text}}",
+    "kind": {
+      "fable": "Fable 重置",
+      "session": "会话重置",
+      "weekly": "每周重置",
+      "full": "完整重置"
+    },
+    "window": {
+      "five_hour": "5 小时额度",
+      "seven_day": "每周额度",
+      "seven_day_opus": "每周 Opus 额度",
+      "seven_day_sonnet": "每周 Sonnet 额度",
+      "seven_day_overage_included": "Fable 额度"
+    },
+    "block": {
+      "ineligible": "账号不符合条件",
+      "ineligible_reason": "账号不符合条件（{{reason}}）",
+      "exhausted": "没有剩余重置次数",
+      "paused": "已暂停",
+      "not_started": "{{time}} 之前不可用",
+      "expired": "已过期",
+      "cooldown": "冷却中",
+      "cooldown_until": "冷却至 {{time}}",
+      "blocked": "被{{windows}}阻止",
+      "blocked_other": "被其他额度阻止",
+      "needs_limit": "需先达到额度上限才能使用",
+      "cannot_clear": "当前没有可由此重置清除的额度",
+      "unavailable": "当前不可用",
+      "pending": "此账号有另一个结果未知的请求"
+    }
   },
   "usage": {
     "page_title": "用量与配额",

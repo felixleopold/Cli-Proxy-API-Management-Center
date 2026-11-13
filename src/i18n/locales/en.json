@@ -2443,7 +2443,6 @@
   },
   "claude_reset": {
     "expiry_title": "Manual reset expiry ({{timezone}})",
-    "grant_number": "Grant {{index}}",
     "expiry_unknown": "Expiry unknown",
     "retry_confirm": "Retry the unknown reset for “{{name}}” with its original request ID? A reset may already have been spent. Retry within 10 minutes; do not reload or start another claim in another tab.",
     "remaining": "Resets remaining",
@@ -2468,7 +2467,53 @@
     "ineligible": "This account is not eligible.",
     "unavailable": "Resets are currently unavailable.",
     "rate_limited": "Request rate limited.",
-    "auth_error": "Authorization was refused."
+    "auth_error": "Authorization was refused.",
+    "redeem_title": "Redeem a reset",
+    "redeem": "Redeem",
+    "retry_short": "Retry",
+    "use_blocked": "Reset limits unavailable: {{reason}}",
+    "confirm_account": "Account: {{name}}",
+    "confirm_kind": "Reset: {{kind}}",
+    "confirm_left": "Resets left: {{before}} → {{after}}",
+    "gives_fable": "Returns the {{percent}}% Fable used to your weekly limit",
+    "gives_fable_unknown": "Returns what Fable used to your weekly limit (amount unknown)",
+    "gives_frees": "Frees {{items}}",
+    "gives_item": "{{percent}}% of your {{window}}",
+    "gives_item_unknown": "your {{window}} (amount unknown)",
+    "gives_unknown": "Gives back: unknown",
+    "result_cleared": "Cleared: {{windows}}.",
+    "result_left": "Resets left: {{count}}.",
+    "result_reason": "Reason: {{reason}}",
+    "last_result": "Last claim: {{text}}",
+    "kind": {
+      "fable": "Fable reset",
+      "session": "Session reset",
+      "weekly": "Weekly reset",
+      "full": "Full reset"
+    },
+    "window": {
+      "five_hour": "5-hour limit",
+      "seven_day": "weekly limit",
+      "seven_day_opus": "weekly Opus limit",
+      "seven_day_sonnet": "weekly Sonnet limit",
+      "seven_day_overage_included": "Fable limit"
+    },
+    "block": {
+      "ineligible": "Account not eligible",
+      "ineligible_reason": "Account not eligible ({{reason}})",
+      "exhausted": "No resets left",
+      "paused": "Paused",
+      "not_started": "Not usable until {{time}}",
+      "expired": "Expired",
+      "cooldown": "Cooling down",
+      "cooldown_until": "Cooldown until {{time}}",
+      "blocked": "Blocked by your {{windows}}",
+      "blocked_other": "Blocked by another limit",
+      "needs_limit": "Needs a limit first: usable once a limit is hit",
+      "cannot_clear": "Nothing this reset can clear right now",
+      "unavailable": "Not usable right now",
+      "pending": "Another claim on this account is unresolved"
+    }
   },
   "usage": {
     "page_title": "Usage & quota",

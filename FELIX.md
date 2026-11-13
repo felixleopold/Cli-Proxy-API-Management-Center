@@ -216,6 +216,16 @@ Current base: upstream `v1.25.6`.
   cards in ×. Readings come from the same pools as the forecast (live signals, else latest
   history, else the loaded quota card, for a credential the gateway has not routed to yet). Tests:
   `tests/planMultipliers.test.ts`, `tests/quotaForecast.test.ts`.
+- **Claude reset grants, per grant** (`src/features/quota/providers/claude/`). The `cedar_ember`
+  parser reads the Claude Code CLI 2.1.322 shape (`blocking`, `type`, `gives_back_weekly`,
+  `unavailable_reason`, `exhausted`, Opus/Sonnet/Fable windows; unknown windows are dropped). The
+  expanded account lists each grant with resets left: kind by the CLI's rule (Fable, session,
+  weekly, full), N/M left, expiry, what it frees per cleared window (Fable: what Fable used returns
+  to weekly), and either Redeem or the plain reason it is blocked (`resetGrantInfo.ts`). The row's
+  Reset button names the reason on hover when disabled. Redeem confirms account, kind, give-back
+  and resets before → after; the result shows upstream `reason`, `cleared` and `resets_left`. The
+  per-account request-id journal and unknown-outcome retry are unchanged. Tests:
+  `tests/claudeResetGrants.test.ts`, `tests/claudeResetGrantDetails.test.ts`.
 
 ## Sync from upstream
 

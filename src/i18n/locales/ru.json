@@ -2449,7 +2449,6 @@
   },
   "claude_reset": {
     "expiry_title": "Срок действия ручных сбросов ({{timezone}})",
-    "grant_number": "Пакет {{index}}",
     "expiry_unknown": "Срок действия неизвестен",
     "retry_confirm": "Повторить сброс «{{name}}» с неизвестным результатом и исходным ID запроса? Сброс мог быть потрачен. Повторите в течение 10 минут; не перезагружайте страницу и не создавайте запрос в другой вкладке.",
     "remaining": "Осталось сбросов",
@@ -2474,7 +2473,53 @@
     "ineligible": "Эта учётная запись не соответствует условиям.",
     "unavailable": "Сбросы временно недоступны.",
     "rate_limited": "Слишком много запросов.",
-    "auth_error": "Авторизация отклонена."
+    "auth_error": "Авторизация отклонена.",
+    "redeem_title": "Использовать сброс",
+    "redeem": "Использовать",
+    "retry_short": "Повторить",
+    "use_blocked": "Сброс лимитов недоступен: {{reason}}",
+    "confirm_account": "Аккаунт: {{name}}",
+    "confirm_kind": "Сброс: {{kind}}",
+    "confirm_left": "Осталось сбросов: {{before}} → {{after}}",
+    "gives_fable": "Возвращает использованные Fable {{percent}}% в недельный лимит",
+    "gives_fable_unknown": "Возвращает использованное Fable в недельный лимит (объём неизвестен)",
+    "gives_frees": "Освобождает {{items}}",
+    "gives_item": "{{percent}}% лимита «{{window}}»",
+    "gives_item_unknown": "лимит «{{window}}» (объём неизвестен)",
+    "gives_unknown": "Возврат: неизвестно",
+    "result_cleared": "Сброшено: {{windows}}.",
+    "result_left": "Осталось сбросов: {{count}}.",
+    "result_reason": "Причина: {{reason}}",
+    "last_result": "Последний запрос: {{text}}",
+    "kind": {
+      "fable": "Сброс Fable",
+      "session": "Сброс сессии",
+      "weekly": "Недельный сброс",
+      "full": "Полный сброс"
+    },
+    "window": {
+      "five_hour": "5-часовой лимит",
+      "seven_day": "недельный лимит",
+      "seven_day_opus": "недельный лимит Opus",
+      "seven_day_sonnet": "недельный лимит Sonnet",
+      "seven_day_overage_included": "лимит Fable"
+    },
+    "block": {
+      "ineligible": "Аккаунт не подходит",
+      "ineligible_reason": "Аккаунт не подходит ({{reason}})",
+      "exhausted": "Сбросов не осталось",
+      "paused": "Приостановлено",
+      "not_started": "Недоступно до {{time}}",
+      "expired": "Истёк срок",
+      "cooldown": "Период ожидания",
+      "cooldown_until": "Ожидание до {{time}}",
+      "blocked": "Заблокировано: {{windows}}",
+      "blocked_other": "Заблокировано другим лимитом",
+      "needs_limit": "Сначала нужно упереться в лимит",
+      "cannot_clear": "Сейчас этому сбросу нечего очищать",
+      "unavailable": "Сейчас недоступно",
+      "pending": "По этому аккаунту есть запрос с неизвестным результатом"
+    }
   },
   "usage": {
     "page_title": "Расход и квоты",

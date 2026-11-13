@@ -311,9 +311,13 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
     <>
       {entry.type === 'claude' && status !== 'idle' && (
         <RowIconButton
-          label={t(`claude_reset.${claudeReset.buttonLabel}`)}
+          label={
+            claudeReset.buttonReason
+              ? t('claude_reset.use_blocked', { reason: claudeReset.buttonReason })
+              : t(`claude_reset.${claudeReset.buttonLabel}`)
+          }
           disabled={claudeReset.blocked}
-          onClick={claudeReset.confirm}
+          onClick={() => claudeReset.confirm()}
         >
           <IconTimer size={14} aria-hidden="true" />
         </RowIconButton>
@@ -377,11 +381,23 @@ export function QuotaAccountRow(props: QuotaAccountRowProps) {
               </DetailFact>
             )}
             {claudeGrants.length > 0 && (
-              <ClaudeResetGrantDetails grants={claudeGrants} classes={quotaClasses} />
+              <ClaudeResetGrantDetails
+                grants={claudeGrants}
+                classes={quotaClasses}
+                blocker={claudeReset.grantBlocker}
+                locked={claudeReset.locked}
+                pendingGrantId={claudeReset.pendingGrantId}
+                onRedeem={claudeReset.confirm}
+              />
             )}
             {entry.type === 'claude' && claudeReset.message && (
               <p role="status" className={styles.muted}>
                 {t(`claude_reset.${claudeReset.message}`)}
+              </p>
+            )}
+            {entry.type === 'claude' && claudeReset.result && (
+              <p role="status" className={styles.muted}>
+                {t('claude_reset.last_result', { text: claudeReset.result })}
               </p>
             )}
             {codexQuota && !hasCodexDetails(codexQuota) && (
