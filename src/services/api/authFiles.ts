@@ -62,6 +62,8 @@ export type AuthFileFieldsPatch = {
   note?: string;
   excluded_models?: string[];
   'excluded-models'?: string[];
+  /** Models this account serves first; null clears the list. */
+  preferred_models?: string[] | null;
   expired?: string;
 };
 type AuthFileBatchFailure = { name: string; error: string };

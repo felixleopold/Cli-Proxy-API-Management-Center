@@ -429,6 +429,8 @@
     "note_placeholder": "输入备注信息，例如：张三的账号",
     "note_hint": "可选，用于标记凭证用途或归属；留空则不写入。",
     "excluded_models_label": "排除模型（excluded_models）",
+    "preferred_models_label": "优先模型（preferred_models）",
+    "preferred_models_hint": "这些模型的请求会优先发往此账号；仅当此账号不可用时才使用其他账号。",
     "headers_label": "自定义请求头（headers）",
     "headers_placeholder": "{\n  \"Header-Name\": \"value\"\n}",
     "headers_hint": "以 JSON 对象格式输入自定义 HTTP 请求头，例如：{\"X-My-Header\": \"value\"}",
@@ -744,6 +746,16 @@
     "rules_match_count": "匹配 {{n}} 个模型",
     "rules_match_none": "未匹配到列表中的任何模型",
     "rules_reserved": "“*” 会停用整个 provider，请改用「已停用」开关"
+  },
+  "preferred_models": {
+    "trigger_empty": "没有优先模型",
+    "trigger_summary": "{{excluded}} 个优先 · {{available}} 个其他",
+    "meter_aria": "{{total}} 个模型中有 {{excluded}} 个优先",
+    "chip_remove": "不再优先 {{rule}}",
+    "search_aria": "搜索要优先的模型",
+    "footer_count": "{{excluded}} / {{total}} 个优先",
+    "select_all": "全部优先",
+    "clear_aria": "清除已选模型（保留通配规则）"
   },
   "oauth_model_alias": {
     "editor_description": "为提供商的模型设置调用别名，统一客户端使用的模型名称。",

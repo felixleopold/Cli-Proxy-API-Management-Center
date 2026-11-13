@@ -431,6 +431,8 @@
     "note_placeholder": "Enter a note, e.g.: John's account",
     "note_hint": "Optional. Used to describe the purpose or owner of this credential; leave empty to omit.",
     "excluded_models_label": "Excluded models (excluded_models)",
+    "preferred_models_label": "Preferred models (preferred_models)",
+    "preferred_models_hint": "Requests for these models go to this account first; other accounts are used only when it is unavailable.",
     "headers_label": "Custom Headers (headers)",
     "headers_placeholder": "{\n  \"Header-Name\": \"value\"\n}",
     "headers_hint": "Enter custom HTTP headers as a JSON object, e.g., {\"X-My-Header\": \"value\"}",
@@ -746,6 +748,16 @@
     "rules_match_count": "matches {{n}} models",
     "rules_match_none": "matches no model in the list",
     "rules_reserved": "“*” disables the whole provider — use the Disabled switch instead"
+  },
+  "preferred_models": {
+    "trigger_empty": "No preferred models",
+    "trigger_summary": "{{excluded}} preferred · {{available}} others",
+    "meter_aria": "{{excluded}} of {{total}} models preferred",
+    "chip_remove": "Stop preferring {{rule}}",
+    "search_aria": "Search models to prefer",
+    "footer_count": "{{excluded}} / {{total}} preferred",
+    "select_all": "Prefer all",
+    "clear_aria": "Clear selected models (wildcard rules are kept)"
   },
   "oauth_model_alias": {
     "editor_description": "Give provider models consistent names for use in your clients.",

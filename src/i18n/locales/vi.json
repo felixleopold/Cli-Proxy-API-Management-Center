@@ -364,6 +364,8 @@
     "note_placeholder": "Nhập ghi chú, ví dụ: Tài khoản của John",
     "note_hint": "Tùy chọn. Dùng để mô tả mục đích hoặc chủ sở hữu của credential này; để trống nếu không cần.",
     "excluded_models_label": "Model bị loại trừ (excluded_models)",
+    "preferred_models_label": "Model ưu tiên (preferred_models)",
+    "preferred_models_hint": "Yêu cầu cho các model này được gửi đến tài khoản này trước; các tài khoản khác chỉ được dùng khi tài khoản này không khả dụng.",
     "headers_label": "Header tùy chỉnh (headers)",
     "headers_placeholder": "{\n  \"Header-Name\": \"value\"\n}",
     "headers_hint": "Nhập header HTTP tùy chỉnh dưới dạng đối tượng JSON, ví dụ {\"X-My-Header\": \"value\"}",
@@ -703,6 +705,16 @@
     "rules_match_count": "khớp {{n}} model",
     "rules_match_none": "không khớp model nào trong danh sách",
     "rules_reserved": "“*” vô hiệu hóa toàn bộ provider — hãy dùng công tắc Đã tắt thay thế"
+  },
+  "preferred_models": {
+    "trigger_empty": "Không có model ưu tiên",
+    "trigger_summary": "{{excluded}} ưu tiên · {{available}} khác",
+    "meter_aria": "{{excluded}} trên {{total}} model được ưu tiên",
+    "chip_remove": "Bỏ ưu tiên {{rule}}",
+    "search_aria": "Tìm model để ưu tiên",
+    "footer_count": "{{excluded}} / {{total}} ưu tiên",
+    "select_all": "Ưu tiên tất cả",
+    "clear_aria": "Xóa các model đã chọn (giữ quy tắc ký tự đại diện)"
   },
   "oauth_model_alias": {
     "title": "Bí danh Model OAuth",

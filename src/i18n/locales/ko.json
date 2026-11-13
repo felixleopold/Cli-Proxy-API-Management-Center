@@ -431,6 +431,8 @@
     "note_placeholder": "메모를 입력하세요(예: John의 계정)",
     "note_hint": "선택 사항입니다. 이 자격 증명의 용도나 소유자를 설명하는 데 사용되며, 생략하려면 비워 두세요.",
     "excluded_models_label": "제외 모델 (excluded_models)",
+    "preferred_models_label": "우선 모델 (preferred_models)",
+    "preferred_models_hint": "이 모델에 대한 요청은 먼저 이 계정으로 전달되며, 이 계정을 사용할 수 없을 때만 다른 계정을 사용합니다.",
     "headers_label": "사용자 정의 헤더 (headers)",
     "headers_placeholder": "{\n  \"Header-Name\": \"value\"\n}",
     "headers_hint": "사용자 정의 HTTP 헤더를 JSON 객체로 입력하세요(예: {\"X-My-Header\": \"value\"}).",
@@ -746,6 +748,16 @@
     "rules_match_count": "{{n}}개 모델과 일치",
     "rules_match_none": "목록의 어떤 모델과도 일치하지 않음",
     "rules_reserved": "“*”은(는) 공급자 전체를 비활성화합니다. 대신 '비활성화됨' 스위치를 사용하세요"
+  },
+  "preferred_models": {
+    "trigger_empty": "우선 모델 없음",
+    "trigger_summary": "우선 {{excluded}}개 · 기타 {{available}}개",
+    "meter_aria": "모델 {{total}}개 중 {{excluded}}개 우선",
+    "chip_remove": "{{rule}} 우선 해제",
+    "search_aria": "우선할 모델 검색",
+    "footer_count": "{{excluded}} / {{total}} 우선",
+    "select_all": "모두 우선",
+    "clear_aria": "선택한 모델 지우기(와일드카드 규칙은 유지)"
   },
   "oauth_model_alias": {
     "editor_description": "클라이언트에서 사용할 수 있도록 공급자 모델에 일관된 이름을 지정합니다.",
