@@ -86,11 +86,12 @@ export function createResetGrantOperations(deps = defaultDependencies) {
         if (wasRetry && deps.now() - operation.createdAt >= RETRY_WINDOW_MS) {
           throw new Error('expired');
         }
-        const code = await deps.claim(authIndex, organization, grantId, operation.requestId);
+        const answer = await deps.claim(authIndex, organization, grantId, operation.requestId);
         assertSession();
+        const { code } = answer;
         // A refusal on a retry cannot prove that the earlier ambiguous POST did not spend.
         if (!wasRetry || code === 'reset' || code === 'already_used') operation.code = code;
-        return { code, unresolved: !operation.code };
+        return { ...answer, unresolved: !operation.code };
       } finally {
         if (deps.revision() === session) busy.delete(key);
       }

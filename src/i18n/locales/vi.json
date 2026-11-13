@@ -2449,7 +2449,6 @@
   },
   "claude_reset": {
     "expiry_title": "Hết hạn đặt lại thủ công ({{timezone}})",
-    "grant_number": "Gói {{index}}",
     "expiry_unknown": "Chưa rõ thời gian hết hạn",
     "retry_confirm": "Thử lại lượt đặt lại chưa rõ kết quả cho “{{name}}” với ID yêu cầu ban đầu? Một lượt đặt lại có thể đã được tiêu tốn. Hãy thử lại trong vòng 10 phút; không tải lại trang hoặc bắt đầu nhận ở tab khác.",
     "remaining": "Lượt đặt lại còn lại",
@@ -2474,7 +2473,53 @@
     "ineligible": "Tài khoản này không đủ điều kiện.",
     "unavailable": "Tính năng đặt lại hiện không khả dụng.",
     "rate_limited": "Yêu cầu bị giới hạn tốc độ.",
-    "auth_error": "Ủy quyền đã bị từ chối."
+    "auth_error": "Ủy quyền đã bị từ chối.",
+    "redeem_title": "Dùng một lượt đặt lại",
+    "redeem": "Dùng",
+    "retry_short": "Thử lại",
+    "use_blocked": "Không thể đặt lại giới hạn: {{reason}}",
+    "confirm_account": "Tài khoản: {{name}}",
+    "confirm_kind": "Loại: {{kind}}",
+    "confirm_left": "Lượt đặt lại còn lại: {{before}} → {{after}}",
+    "gives_fable": "Trả {{percent}}% Fable đã dùng về giới hạn hằng tuần",
+    "gives_fable_unknown": "Trả phần Fable đã dùng về giới hạn hằng tuần (chưa rõ lượng)",
+    "gives_frees": "Giải phóng {{items}}",
+    "gives_item": "{{percent}}% {{window}}",
+    "gives_item_unknown": "{{window}} (chưa rõ lượng)",
+    "gives_unknown": "Hoàn lại: chưa rõ",
+    "result_cleared": "Đã xóa: {{windows}}.",
+    "result_left": "Lượt đặt lại còn lại: {{count}}.",
+    "result_reason": "Lý do: {{reason}}",
+    "last_result": "Lần nhận gần nhất: {{text}}",
+    "kind": {
+      "fable": "Đặt lại Fable",
+      "session": "Đặt lại phiên",
+      "weekly": "Đặt lại hằng tuần",
+      "full": "Đặt lại toàn bộ"
+    },
+    "window": {
+      "five_hour": "giới hạn 5 giờ",
+      "seven_day": "giới hạn hằng tuần",
+      "seven_day_opus": "giới hạn Opus hằng tuần",
+      "seven_day_sonnet": "giới hạn Sonnet hằng tuần",
+      "seven_day_overage_included": "giới hạn Fable"
+    },
+    "block": {
+      "ineligible": "Tài khoản không đủ điều kiện",
+      "ineligible_reason": "Tài khoản không đủ điều kiện ({{reason}})",
+      "exhausted": "Hết lượt đặt lại",
+      "paused": "Tạm dừng",
+      "not_started": "Chưa dùng được đến {{time}}",
+      "expired": "Đã hết hạn",
+      "cooldown": "Đang chờ",
+      "cooldown_until": "Chờ đến {{time}}",
+      "blocked": "Bị chặn bởi {{windows}}",
+      "blocked_other": "Bị chặn bởi giới hạn khác",
+      "needs_limit": "Cần chạm giới hạn trước khi dùng",
+      "cannot_clear": "Hiện không có gì để lượt này xóa",
+      "unavailable": "Hiện không dùng được",
+      "pending": "Tài khoản này có một yêu cầu chưa rõ kết quả"
+    }
   },
   "usage": {
     "page_title": "Mức dùng & quota",

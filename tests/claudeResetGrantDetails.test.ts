@@ -25,10 +25,25 @@ const grant = (overrides: Partial<AnthropicResetGrant> = {}): AnthropicResetGran
   usableNow: true,
   useRequiresLimit: true,
   percentUsed: {},
+  blocking: [],
+  type: null,
+  givesBackWeekly: false,
+  unavailableReason: null,
   ...overrides,
 });
-const render = (grants: AnthropicResetGrant[]) =>
-  renderToStaticMarkup(createElement(ClaudeResetGrantDetails, { grants, classes }));
+type Props = Parameters<typeof ClaudeResetGrantDetails>[0];
+const render = (grants: AnthropicResetGrant[], props: Partial<Props> = {}) =>
+  renderToStaticMarkup(
+    createElement(ClaudeResetGrantDetails, {
+      grants,
+      classes,
+      blocker: () => null,
+      locked: false,
+      pendingGrantId: null,
+      onRedeem: () => {},
+      ...props,
+    })
+  );
 
 beforeAll(async () => {
   await i18n.changeLanguage('en');
@@ -40,7 +55,7 @@ describe('Claude reset grant details', () => {
     expect(markup).toContain('class="codexResetCredits"');
     expect(markup).toContain('class="codexResetCreditRow"');
     expect(markup).toContain(resolveTimeZoneLabel());
-    expect(markup).toContain('Launch · 2 / 3 resets remaining');
+    expect(markup).toContain('Session reset (Launch) · 2 / 3 resets remaining');
     expect(markup).toContain(formatInstantShort(expiry));
     expect(markup).toContain('class="quotaResetRelative"');
     expect(markup).toContain('in 11 days');
@@ -68,11 +83,26 @@ describe('Claude reset grant details', () => {
   });
 
   test('keeps paused and expired unspent grants visible without implying usability', () => {
-    const markup = render([
-      grant({ paused: true, usableNow: false, endsAt: '2020-01-01T00:00:00Z' }),
-    ]);
+    const markup = render(
+      [grant({ paused: true, usableNow: false, endsAt: '2020-01-01T00:00:00Z' })],
+      { blocker: () => 'Paused' }
+    );
     expect(markup).toContain(formatInstantShort(Date.parse('2020-01-01T00:00:00Z')));
+    expect(markup).toContain('Paused');
     expect(markup).not.toContain('<button');
+  });
+
+  test('usable grants get a Redeem button, the pending one Retry; give-back is stated', () => {
+    const markup = render([
+      grant({ clears: ['five_hour', 'seven_day'], percentUsed: { five_hour: 80 } }),
+    ]);
+    expect(markup).toContain('Frees 80% of your 5-hour limit, your weekly limit (amount unknown)');
+    expect(markup).toMatch(/<button[^>]*><span>Redeem<\/span><\/button>/);
+    expect(render([grant()], { locked: true })).toContain('disabled=""');
+    expect(render([grant()], { pendingGrantId: 'launch' })).toContain('<span>Retry</span>');
+    expect(
+      render([grant({ givesBackWeekly: true, percentUsed: { seven_day_overage_included: 35 } })])
+    ).toContain('Fable reset (Launch)');
   });
 
   test.each(['en', 'zh-CN', 'zh-TW', 'ru', 'vi'])(
@@ -81,7 +111,8 @@ describe('Claude reset grant details', () => {
       await i18n.changeLanguage(lng);
       try {
         const markup = render([grant({ label: '', endsAt: null })]);
-        expect(markup).toContain(i18n.t('claude_reset.grant_number', { index: 1 }));
+        expect(markup).toContain(i18n.t('claude_reset.kind.session'));
+        expect(markup).toContain(i18n.t('claude_reset.redeem'));
         expect(markup).toContain(i18n.t('claude_reset.expiry_unknown'));
         expect(markup).not.toContain('claude_reset.');
       } finally {

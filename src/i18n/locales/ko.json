@@ -2443,7 +2443,6 @@
   },
   "claude_reset": {
     "expiry_title": "수동 초기화 만료 시각 ({{timezone}})",
-    "grant_number": "초기화 권한 {{index}}",
     "expiry_unknown": "만료 시각 알 수 없음",
     "retry_confirm": "“{{name}}”의 상태를 알 수 없는 초기화를 원래 요청 ID로 재시도하시겠습니까? 이미 초기화가 소진되었을 수 있습니다. 10분 이내에 재시도하세요. 페이지를 새로 고치거나 다른 탭에서 새 요청을 시작하지 마세요.",
     "remaining": "남은 초기화 횟수",
@@ -2468,7 +2467,53 @@
     "ineligible": "이 계정은 자격 요건을 충족하지 않습니다.",
     "unavailable": "현재 초기화를 사용할 수 없습니다.",
     "rate_limited": "요청 속도가 제한되었습니다.",
-    "auth_error": "인증이 거부되었습니다."
+    "auth_error": "인증이 거부되었습니다.",
+    "redeem_title": "초기화 사용",
+    "redeem": "사용",
+    "retry_short": "재시도",
+    "use_blocked": "한도 초기화 불가: {{reason}}",
+    "confirm_account": "계정: {{name}}",
+    "confirm_kind": "초기화: {{kind}}",
+    "confirm_left": "남은 초기화: {{before}} → {{after}}",
+    "gives_fable": "Fable이 사용한 {{percent}}%를 주간 한도로 돌려줍니다",
+    "gives_fable_unknown": "Fable이 사용한 양을 주간 한도로 돌려줍니다(양 알 수 없음)",
+    "gives_frees": "{{items}} 확보",
+    "gives_item": "{{window}}의 {{percent}}%",
+    "gives_item_unknown": "{{window}}(양 알 수 없음)",
+    "gives_unknown": "돌려받는 양: 알 수 없음",
+    "result_cleared": "초기화됨: {{windows}}.",
+    "result_left": "남은 초기화: {{count}}.",
+    "result_reason": "사유: {{reason}}",
+    "last_result": "마지막 요청: {{text}}",
+    "kind": {
+      "fable": "Fable 초기화",
+      "session": "세션 초기화",
+      "weekly": "주간 초기화",
+      "full": "전체 초기화"
+    },
+    "window": {
+      "five_hour": "5시간 한도",
+      "seven_day": "주간 한도",
+      "seven_day_opus": "주간 Opus 한도",
+      "seven_day_sonnet": "주간 Sonnet 한도",
+      "seven_day_overage_included": "Fable 한도"
+    },
+    "block": {
+      "ineligible": "계정이 대상이 아님",
+      "ineligible_reason": "계정이 대상이 아님({{reason}})",
+      "exhausted": "남은 초기화 없음",
+      "paused": "일시 중지됨",
+      "not_started": "{{time}}까지 사용 불가",
+      "expired": "만료됨",
+      "cooldown": "대기 중",
+      "cooldown_until": "{{time}}까지 대기",
+      "blocked": "{{windows}}에 의해 차단됨",
+      "blocked_other": "다른 한도에 의해 차단됨",
+      "needs_limit": "먼저 한도에 도달해야 사용 가능",
+      "cannot_clear": "지금은 이 초기화로 비울 한도가 없음",
+      "unavailable": "지금은 사용 불가",
+      "pending": "이 계정에 결과를 알 수 없는 요청이 있음"
+    }
   },
   "usage": {
     "page_title": "사용량 및 할당량",
