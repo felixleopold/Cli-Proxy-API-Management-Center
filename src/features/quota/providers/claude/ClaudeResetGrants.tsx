@@ -125,13 +125,19 @@ export function useClaudeResetGrants(
             {grant && (
               <>
                 <li>{t('claude_reset.confirm_kind', { kind: text.kind(grant) })}</li>
-                <li>{text.givesBack(grant)}</li>
-                <li>
-                  {t('claude_reset.confirm_left', {
-                    before: grant.resetsLeft,
-                    after: Math.max(grant.resetsLeft - 1, 0),
-                  })}
-                </li>
+                {/* A retry replays the original request ID: the live status may already reflect
+                    that claim, so its give-back and count would mislead. */}
+                {!pending && (
+                  <>
+                    <li>{text.givesBack(grant)}</li>
+                    <li>
+                      {t('claude_reset.confirm_left', {
+                        before: grant.resetsLeft,
+                        after: Math.max(grant.resetsLeft - 1, 0),
+                      })}
+                    </li>
+                  </>
+                )}
               </>
             )}
           </ul>
