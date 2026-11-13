@@ -751,7 +751,7 @@
   },
   "preferred_models": {
     "trigger_empty": "우선 모델 없음",
-    "trigger_summary": "우선 {{excluded}}개 · 사용 가능 {{available}}개",
+    "trigger_summary": "우선 {{excluded}}개 · 기타 {{available}}개",
     "meter_aria": "모델 {{total}}개 중 {{excluded}}개 우선",
     "chip_remove": "{{rule}} 우선 해제",
     "search_aria": "우선할 모델 검색",

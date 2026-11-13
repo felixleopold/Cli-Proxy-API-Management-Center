@@ -708,7 +708,7 @@
   },
   "preferred_models": {
     "trigger_empty": "Không có model ưu tiên",
-    "trigger_summary": "{{excluded}} ưu tiên · {{available}} khả dụng",
+    "trigger_summary": "{{excluded}} ưu tiên · {{available}} khác",
     "meter_aria": "{{excluded}} trên {{total}} model được ưu tiên",
     "chip_remove": "Bỏ ưu tiên {{rule}}",
     "search_aria": "Tìm model để ưu tiên",

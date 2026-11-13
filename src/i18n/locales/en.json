@@ -751,7 +751,7 @@
   },
   "preferred_models": {
     "trigger_empty": "No preferred models",
-    "trigger_summary": "{{excluded}} preferred · {{available}} available",
+    "trigger_summary": "{{excluded}} preferred · {{available}} others",
     "meter_aria": "{{excluded}} of {{total}} models preferred",
     "chip_remove": "Stop preferring {{rule}}",
     "search_aria": "Search models to prefer",

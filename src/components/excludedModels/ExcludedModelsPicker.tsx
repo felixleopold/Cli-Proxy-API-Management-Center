@@ -5,6 +5,7 @@ import { ExcludedModelChipRow, ExcludedModelRuleChip } from './ExcludedModelRule
 import { ExcludedModelsPanel, type ExcludedModelCandidate } from './ExcludedModelsPanel';
 import {
   formatExcludedRulesText,
+  isWildcardRule,
   getModelExclusionState,
   matchedModelsByRule,
   normalizeExcludedRules,
@@ -65,6 +66,8 @@ export function ExcludedModelsPicker({
   const { t } = useTranslation();
   const tk = (name: string, options?: Record<string, unknown>) =>
     t([`${i18nPrefix}.${name}`, `excluded_models.${name}`], options);
+  // Preferred models are exact IDs on the gateway, so globs are never shown, matched or saved.
+  const exactOnly = i18nPrefix === 'preferred_models';
   const baseId = useId();
   const panelId = `${baseId}-panel`;
   const listboxId = `${baseId}-listbox`;
@@ -83,8 +86,11 @@ export function ExcludedModelsPicker({
    */
   const rules = useMemo(
     () =>
-      normalizeExcludedRules(value).filter((rule) => !reservedKeys.has(rule.trim().toLowerCase())),
-    [reservedKeys, value]
+      normalizeExcludedRules(value).filter(
+        (rule) =>
+          !reservedKeys.has(rule.trim().toLowerCase()) && !(exactOnly && isWildcardRule(rule))
+      ),
+    [exactOnly, reservedKeys, value]
   );
 
   const candidateIds = useMemo(() => candidates.map((c) => c.id), [candidates]);
@@ -279,7 +285,7 @@ export function ExcludedModelsPicker({
         </ExcludedModelChipRow>
       ) : null}
 
-      {showRuleEditor ? (
+      {showRuleEditor && !exactOnly ? (
         <div className={styles.ruleEditor}>
           <label className={styles.ruleLabel} htmlFor={`${baseId}-rules`}>
             {t('excluded_models.rules_label')}

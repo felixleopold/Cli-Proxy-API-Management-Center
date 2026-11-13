@@ -749,7 +749,7 @@
   },
   "preferred_models": {
     "trigger_empty": "没有优先模型",
-    "trigger_summary": "{{excluded}} 个优先 · {{available}} 个可用",
+    "trigger_summary": "{{excluded}} 个优先 · {{available}} 个其他",
     "meter_aria": "{{total}} 个模型中有 {{excluded}} 个优先",
     "chip_remove": "不再优先 {{rule}}",
     "search_aria": "搜索要优先的模型",

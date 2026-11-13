@@ -754,7 +754,7 @@
   },
   "preferred_models": {
     "trigger_empty": "Предпочтительных моделей нет",
-    "trigger_summary": "предпочтительных: {{excluded}} · доступно: {{available}}",
+    "trigger_summary": "предпочтительных: {{excluded}} · других: {{available}}",
     "meter_aria": "предпочтительных моделей: {{excluded}} из {{total}}",
     "chip_remove": "Больше не предпочитать {{rule}}",
     "search_aria": "Поиск моделей для предпочтения",
