@@ -2617,6 +2617,7 @@
     "any": "任意账号",
     "several": "多个账号",
     "hint": "Fable 优先由该 Claude 账号处理；选择“任意账号”则由网关决定。",
+    "inactive_holder": "{{label}}（已停用）",
     "save_failed": "无法更新 Fable 的路由：{{message}}"
   },
   "claude_credit": {

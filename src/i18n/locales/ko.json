@@ -2631,6 +2631,7 @@
     "any": "모든 계정",
     "several": "여러 계정",
     "hint": "Fable은 이 Claude 계정이 먼저 처리합니다. 모든 계정을 선택하면 게이트웨이가 정합니다.",
+    "inactive_holder": "{{label}} (비활성화됨)",
     "save_failed": "Fable 라우팅을 업데이트하지 못했습니다: {{message}}"
   },
   "claude_credit": {

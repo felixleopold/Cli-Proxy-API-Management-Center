@@ -49,6 +49,18 @@ export function FableRouteControl({
 
   if (claudeFiles.length === 0) return null;
 
+  // A sole holder that is disabled or retired has no option: show it, not selectable.
+  const inactiveHolder = options.some((option) => option.value === value)
+    ? undefined
+    : claudeFiles.find((file) => file.name === value);
+  let placeholder: string | undefined;
+  if (value === FABLE_ROUTE_SEVERAL) placeholder = t('fable_route.several');
+  else if (inactiveHolder) {
+    placeholder = t('fable_route.inactive_holder', {
+      label: inactiveHolder.nickname || inactiveHolder.email || inactiveHolder.name,
+    });
+  }
+
   const choose = async (target: string) => {
     if (target === value) return;
     setSaving(true);
@@ -79,7 +91,7 @@ export function FableRouteControl({
         value={value}
         options={options}
         onChange={(next) => void choose(next)}
-        placeholder={value === FABLE_ROUTE_SEVERAL ? t('fable_route.several') : undefined}
+        placeholder={placeholder}
         ariaLabelledBy={titleId}
         disabled={disabled || saving}
         fullWidth={false}

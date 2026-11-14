@@ -2631,6 +2631,7 @@
     "any": "Any account",
     "several": "Several accounts",
     "hint": "Fable is served first by this Claude account; Any account lets the gateway choose.",
+    "inactive_holder": "{{label}} (disabled)",
     "save_failed": "Could not update where Fable goes: {{message}}"
   },
   "claude_credit": {
