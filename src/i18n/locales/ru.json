@@ -2644,6 +2644,14 @@
     "users_title": "Пользователи",
     "retired_credential": "Выведен: {{name}}"
   },
+  "fable_route": {
+    "title": "Fable идёт на",
+    "any": "Любой аккаунт",
+    "several": "Несколько аккаунтов",
+    "hint": "Fable сначала обслуживает этот аккаунт Claude; «Любой аккаунт» оставляет выбор шлюзу.",
+    "inactive_holder": "{{label}} (отключён)",
+    "save_failed": "Не удалось изменить аккаунт для Fable: {{message}}"
+  },
   "claude_credit": {
     "title": "Кредиты Claude API",
     "toggle_label": "Использовать платные кредиты Claude API после исчерпания подписок",

@@ -332,6 +332,11 @@ const normalizeAuthFileEntry = (
   const lenderOverrideUntil = Date.parse(readTextField(entry, 'lender_reserve_override_until'));
   const lenderOverrideKeep = reserve('lender_reserve_override_keep_percent');
   const nickname = readTextField(entry, 'nickname');
+  const preferredModels = Array.isArray(entry['preferred_models'])
+    ? entry['preferred_models'].filter(
+        (model): model is string => typeof model === 'string' && model.trim() !== ''
+      )
+    : [];
   const privateUser = readTextField(entry, 'private_user');
   const paceMode = readTextField(entry, 'pace_mode');
   const paceUntil = Date.parse(readTextField(entry, 'pace_until'));
@@ -369,6 +374,7 @@ const normalizeAuthFileEntry = (
       ? { lenderReserveOverrideKeepPercent: lenderOverrideKeep }
       : {}),
     ...(nickname ? { nickname } : {}),
+    ...(preferredModels.length > 0 ? { preferredModels } : {}),
     ...(privateUser ? { privateUser } : {}),
     ...((paceMode === 'flash' || paceMode === 'shield') && Number.isFinite(paceUntil)
       ? { paceMode, paceUntilMs: paceUntil }

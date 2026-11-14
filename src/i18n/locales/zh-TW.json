@@ -2638,6 +2638,14 @@
     "users_title": "使用者",
     "retired_credential": "已退役：{{name}}"
   },
+  "fable_route": {
+    "title": "Fable 路由到",
+    "any": "任意帳號",
+    "several": "多個帳號",
+    "hint": "Fable 優先由該 Claude 帳號處理；選擇「任意帳號」則由閘道決定。",
+    "inactive_holder": "{{label}}（已停用）",
+    "save_failed": "無法更新 Fable 的路由：{{message}}"
+  },
   "claude_credit": {
     "title": "Claude API 額度",
     "toggle_label": "訂閱用盡後使用付費 Claude API 額度",

@@ -2626,6 +2626,14 @@
     "users_title": "Users",
     "retired_credential": "Retired: {{name}}"
   },
+  "fable_route": {
+    "title": "Fable goes to",
+    "any": "Any account",
+    "several": "Several accounts",
+    "hint": "Fable is served first by this Claude account; Any account lets the gateway choose.",
+    "inactive_holder": "{{label}} (disabled)",
+    "save_failed": "Could not update where Fable goes: {{message}}"
+  },
   "claude_credit": {
     "title": "Claude API credits",
     "toggle_label": "Use paid Claude API credits after subscriptions run out",
