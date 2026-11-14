@@ -35,6 +35,7 @@ import {
   seriesJumps,
   steadyActivity,
   stretchActivity,
+  withPooledPace,
   summarizePool,
   valueAt,
 } from '../src/features/quota/quotaForecastModel';
@@ -48,6 +49,7 @@ import type {
   ProviderPool,
 } from '../src/features/quota/quotaForecastModel';
 import { planShareOf } from '../src/features/quota/planMultipliers';
+import { normalizeUsagePoolReport } from '../src/services/api/usagePool';
 import {
   normalizeQuotaHistorySamples,
   type QuotaHistorySample,
@@ -1453,5 +1455,44 @@ describe('selected stretch', () => {
       NOW - 3 * HOUR_MS
     );
     expect(perHour).toBeCloseTo(0.1);
+  });
+});
+
+describe('withPooledPace', () => {
+  const report = (burnPerHour: number | null) =>
+    normalizeUsagePoolReport({
+      provider: 'claude',
+      windows: [
+        {
+          kind: 'weekly',
+          burn_per_hour: burnPerHour,
+          accounts: [
+            { id: 'a', weight: 1 },
+            { id: 'b', weight: 5 },
+          ],
+        },
+      ],
+    });
+  const learned = {
+    ...FLAT_ACTIVITY,
+    rates: new Map([
+      ['a', 0.5 / HOUR_MS],
+      ['b', 0.01 / HOUR_MS],
+    ]),
+    ranges: new Map([['a', { busy: 1 / HOUR_MS, quiet: 0.1 / HOUR_MS }]]),
+  };
+  const both = pool(credential({ authId: 'a' }), credential({ authId: 'b' }));
+
+  test('every account drains the same share of its window from the pooled burn', () => {
+    // 1.2 units/h over 6 units of plan weight: 20% of each window per hour.
+    const { rates, ranges } = withPooledPace(learned, [both], [report(1.2)]);
+    expect(rates.get('a')! * HOUR_MS).toBeCloseTo(20);
+    expect(rates.get('b')! * HOUR_MS).toBeCloseTo(20);
+    expect(ranges.has('a')).toBe(false);
+  });
+
+  test('keeps the learned pace without a pooled burn', () => {
+    const { rates } = withPooledPace(learned, [both], [report(null)]);
+    expect(rates.get('a')! * HOUR_MS).toBeCloseTo(0.5);
   });
 });

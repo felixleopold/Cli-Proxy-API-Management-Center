@@ -181,13 +181,14 @@
      The account column fits the longest name, up to 240px. The outer columns carry the
      rows' 12px inset, since subgrid rows cannot pad themselves. */
   --account-cols: 32px fit-content(240px) 40px minmax(140px, 1.15fr) minmax(140px, 1.15fr)
-    minmax(76px, 0.55fr) minmax(48px, 0.45fr) 104px 124px;
+    minmax(76px, 0.55fr) minmax(48px, 0.45fr) 128px 124px;
   /* Routing status, one hue per state (see RoutingDot). */
   --routing-target: #059669;
   --routing-available: color-mix(in srgb, #059669 55%, transparent);
   --routing-flash: #ca8a04;
   --routing-shield: #2563eb;
   --routing-paused: #7c3aed;
+  --routing-fable: #c2410c;
   --routing-hold: var(--amber-color);
   --routing-stopped: var(--danger-color);
   --routing-disabled: var(--text-quaternary);
@@ -203,6 +204,7 @@
   --routing-flash: #facc15;
   --routing-shield: #60a5fa;
   --routing-paused: #a78bfa;
+  --routing-fable: #fb923c;
 }
 
 /* Every row is a subgrid of the table, so columns line up and size to their widest cell. */
@@ -478,6 +480,20 @@ strong + .cardLine {
   white-space: nowrap;
 }
 
+/* "Fable locked": every Fable request goes to this account. */
+.fableBadge {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--routing-fable) 50%, transparent);
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--routing-fable) 16%, transparent);
+  white-space: nowrap;
+}
+
 .errorIcon {
   flex: none;
   color: var(--danger-color);
@@ -717,6 +733,10 @@ strong + .cardLine {
 .paceButton[data-pace='pause'],
 .paceMenuIcon[data-pace='pause'] {
   --pace-color: var(--routing-paused);
+}
+
+.paceButton[data-pace='fable'] {
+  --pace-color: var(--routing-fable);
 }
 
 .paceMenuIcon {
@@ -984,6 +1004,88 @@ strong + .cardLine {
 
   .details {
     padding-left: 44px;
+  }
+}
+
+/* ---------- Phone: one stacked card per account ---------- */
+
+@container accounts (max-width: 560px) {
+  .row {
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    grid-template-areas:
+      'icon  account  plan'
+      '.     short    short'
+      '.     long     long'
+      '.     spend    split'
+      'pace  pace     controls';
+    row-gap: 10px;
+    padding: 12px 12px 10px;
+
+    > :nth-child(7) {
+      width: 72px;
+    }
+    > :nth-child(8) {
+      justify-self: start;
+      /* Line the pace buttons up with the icon column. */
+      margin-left: -5px;
+    }
+    > :nth-child(9) {
+      gap: 4px;
+    }
+  }
+
+  /* Badges wrap under the name instead of squeezing it. */
+  .account {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .name {
+    font-size: 14px;
+  }
+
+  /* One window per line, so its reset reads in full. */
+  .window {
+    grid-template-columns: 4.5ch minmax(0, 1fr) 17ch;
+  }
+
+  .resetLine {
+    grid-column: 3;
+    grid-row: 1;
+    text-align: right;
+  }
+
+  /* Touch targets. */
+  .iconButton {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+  }
+
+  .iconButton.paceButton {
+    min-width: 36px;
+    padding: 0 8px;
+  }
+
+  .toggle {
+    width: 44px;
+    height: 36px;
+
+    > label {
+      transform: none;
+    }
+  }
+
+  .details {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 4px 12px 16px;
+  }
+}
+
+/* Without hover, the chevron always says the row opens. */
+@media (hover: none) {
+  .chevron {
+    opacity: 1;
   }
 }
 

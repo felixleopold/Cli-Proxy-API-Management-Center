@@ -13,6 +13,7 @@
 
 import type { AuthFileItem, UsageLedgerBucket } from '@/types';
 import type { CapacityEntry } from '@/services/api/capacityHistory';
+import type { UsagePoolReport } from '@/services/api/usagePool';
 import type { QuotaHistorySample, QuotaHistoryWindow } from '@/services/api/quotaHistory';
 import { isRecord } from '@/utils/helpers';
 import type { QuotaProviderType } from './providers/types';
@@ -1603,6 +1604,39 @@ export function stretchActivity(
     })
   );
   return { perHour: perMs * HOUR_MS, activity: { ...FLAT_ACTIVITY, rates } };
+}
+
+/**
+ * The gateway's pooled pace in place of each credential's own history: a pool
+ * window's burn (GET /usage/pool, plan-weighted units per hour) is split by
+ * plan weight, so every account drains the same share of its window per hour.
+ * History rates mostly say which account routing picked, not how fast the pool
+ * goes, which drew a lightly used account flat and a busy one steep. Pools or
+ * accounts the report gives no burn or weight for keep their learned rate;
+ * overridden accounts drop their learned range, so the fixed spread applies.
+ */
+export function withPooledPace(
+  activity: PoolActivity,
+  pools: readonly ProviderPool[],
+  reports: readonly UsagePoolReport[]
+): PoolActivity {
+  const rates = new Map(activity.rates);
+  const ranges = new Map(activity.ranges);
+  pools.forEach((pool) => {
+    const report = reports.find((candidate) => candidate.provider === pool.provider);
+    pool.credentials.forEach((credential) => {
+      const kind = credential.window === 'weekly' ? 'weekly' : 'five_hour';
+      const window = report?.windows.find((candidate) => candidate.kind === kind);
+      const weight = window?.accounts.find((account) => account.id === credential.authId)?.weight;
+      const totalWeight = window?.accounts.reduce((sum, account) => sum + account.weight, 0) ?? 0;
+      if (window?.burnPerHour == null || !weight || totalWeight <= 0) return;
+      // Its part of the burn is burn × weight / total units; over its own weight
+      // that is burn / total of its window per hour, whatever its plan.
+      rates.set(credential.authId, ((window.burnPerHour / totalWeight) * 100) / HOUR_MS);
+      ranges.delete(credential.authId);
+    });
+  });
+  return { ...activity, rates, ranges };
 }
 
 /* ---------- Activity: when in the day quota gets used ---------- */

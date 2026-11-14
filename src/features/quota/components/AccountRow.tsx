@@ -1,8 +1,8 @@
 /**
  * One account row on the Usage & quota page, shared by quota and spend-only
  * credentials: icon · routing dot and name · multiplier · 5-hour and weekly
- * bars, each with its reset · spend in the window · user split · pace · enabled
- * toggle · actions. Clicking the row opens its details below it. The
+ * bars, each with its reset · spend in the window · user split · pace and, for
+ * Claude, the Fable lock · enabled toggle · actions. Clicking the row opens its details below it. The
  * quota-specific parts (plan chip, actions, details) come from QuotaAccountRow;
  * this file is layout and the shared cells.
  */
@@ -27,6 +27,7 @@ import { slotClassName } from '@/features/usage/components/slotClass';
 import { formatUsd, type SubscriptionSummary } from '@/features/usage/usageModel';
 import { formatPercent } from '@/utils/format';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
+import { isClaudeFile } from '@/utils/quota/validators';
 import { DAY_MS } from '@/utils/time/durations';
 import { activePause } from '../accountControls';
 import { nextResetsOf, type AccountWindow, type AccountWindows } from '../accountCards';
@@ -35,6 +36,7 @@ import { formatCountdown, formatWhen } from './countdown';
 import { HoverCard } from './HoverCard';
 import { PaceControl } from './PaceControl';
 import { PauseControl } from './PauseControl';
+import { FableLockControl } from './FableLockControl';
 import { useAccountStatusLock } from './accountStatusLock';
 import styles from './Accounts.module.scss';
 
@@ -481,6 +483,9 @@ export function AccountRow(props: AccountRowProps) {
             )}
             {retiredAtMs !== undefined && <RetiredBadge atMs={retiredAtMs} />}
             {pausedUntilMs !== null && <PausedBadge untilMs={pausedUntilMs} />}
+            {file?.fableLocked && (
+              <span className={styles.fableBadge}>{t('fable_lock.badge')}</span>
+            )}
             <IconChevronRight size={12} aria-hidden="true" className={styles.chevron} />
           </button>
         </span>
@@ -512,6 +517,13 @@ export function AccountRow(props: AccountRowProps) {
               onChange={(patch) => onFileChange(getQuotaCacheKey(file), patch)}
               onReload={onSettingsSaved}
             />
+            {isClaudeFile(file) && (
+              <FableLockControl
+                file={file}
+                onChange={(patch) => onFileChange(getQuotaCacheKey(file), patch)}
+                onReload={onSettingsSaved}
+              />
+            )}
           </span>
         ) : (
           <span />

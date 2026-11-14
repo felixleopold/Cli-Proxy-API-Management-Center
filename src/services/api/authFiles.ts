@@ -380,6 +380,7 @@ const normalizeAuthFileEntry = (
       ? { paceMode, paceUntilMs: paceUntil }
       : {}),
     ...(Number.isFinite(pausedUntil) ? { pausedUntilMs: pausedUntil } : {}),
+    ...(entry['fable_locked'] === true ? { fableLocked: true } : {}),
     ...(routingStatus ? { routingStatus } : {}),
     ...(Number.isFinite(retiredAt) ? { retiredAtMs: retiredAt } : {}),
     ...(Number.isFinite(subscriptionCreatedAt)

@@ -26,6 +26,18 @@ Current base: upstream `v1.25.6`.
   selectable). Choosing one `PATCH /credentials/fields` adds the id to that credential (keeping its
   other entries) and removes it from every other holder (`null` when emptied). Test:
   `tests/fableRoute.test.ts`.
+- **Fable lock** (`src/features/quota/components/FableLockControl.tsx`). A lock button after the pace
+  buttons on Claude rows: `PUT /usage/fable {name}` sends every Fable request to that account only
+  (one at a time, so locking one moves it), `DELETE /usage/fable` clears. The listing's
+  `fable_locked` shows it as the highlighted button and a "Fable locked" badge beside the name. The
+  header "Fable goes to" control (preferred_models) stays: it prefers an account, the lock pins one.
+- **Projections use the pooled pace** (`withPooledPace` in `quotaForecastModel.ts`). The gateway's
+  pool burn (`burn_per_hour` on `GET /usage/pool`, plan-weighted units/hour, per window) replaces each
+  account's learned rate, split by plan weight, so every account drains the same share of its window;
+  without a burn the learned rate stays. The forecast always loads the pool report for this.
+- **Phone layout for Accounts** (`Accounts.module.scss`, container ≤ 560px): one stacked card per
+  account (name and plan, one line per window with its reset, spend and users, then pace and row
+  controls), 36px touch targets, the chevron always shown without hover.
 - **Usage & quota page** (`/usage-quota`, OBSERVE; `/usage` and `/quota` redirect there). Near-black,
   one provider filter, in order: header (counts, the Claude credit switch as an inline toggle, Refresh
   all), the *Reserves* strip (see Usage reserves), the *pool cards* (see Quota forecast), *Accounts*,

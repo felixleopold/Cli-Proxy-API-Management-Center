@@ -1813,7 +1813,7 @@
     "forecast_sleep_start": "Sleep starts",
     "forecast_sleep_end": "Sleep ends",
     "forecast_sleep_hint": "Until enough history is learned, the forecast assumes no quota use during these hours.",
-    "forecast_pace_hint": "Pace is each credential's average daily use over the last 14 days, with recent days weighing more (a day 3 days ago counts half as much as today). With under 3 hours of active history it is the current window's average. Use while a credential had less than 15% left is ignored: that is rationing, not demand. The shaded range runs from a busy day's pace to a quiet day's pace.",
+    "forecast_pace_hint": "When the gateway reports the pool's burn, every account takes it shared by plan weight, so each drains the same share of its window. Otherwise, pace is each credential's average daily use over the last 14 days, with recent days weighing more (a day 3 days ago counts half as much as today). With under 3 hours of active history it is the current window's average. Use while a credential had less than 15% left is ignored: that is rationing, not demand. The shaded range runs from a busy day's pace to a quiet day's pace.",
     "details_title": "Accounts",
     "details_hint": "Each account's live quota and its spend in the current window. Click a row for every window and its manual resets; ⚙ edits its usage settings.",
     "details_more": "Details",
@@ -2965,6 +2965,14 @@
     "active_until": "{{mode}} until {{time}}",
     "until": "Until {{time}} · {{left}} left",
     "failed": "Could not change the pace: {{message}}"
+  },
+  "fable_lock": {
+    "lock": "Lock Fable to {{name}}",
+    "unlock": "Unlock Fable from {{name}}",
+    "title": "Lock Fable here: every Fable request goes to this account only",
+    "locked_title": "Fable locked here: every Fable request goes to this account. Click to unlock.",
+    "badge": "Fable locked",
+    "failed": "Could not change the Fable lock: {{message}}"
   },
   "timed_menu": {
     "how_long": "How long",

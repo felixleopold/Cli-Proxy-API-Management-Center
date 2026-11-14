@@ -64,8 +64,11 @@ export interface ScopedPoolReports {
  * The reports fetched for user, else none, so a previous person's reports are
  * never shown (or acted on) while the next person's are loading or failed.
  */
+// One empty list, so memos keyed on the reports do not rerun every render.
+const NO_REPORTS: UsagePoolReport[] = [];
+
 export const reportsFor = (loaded: ScopedPoolReports | null, user: string): UsagePoolReport[] =>
-  loaded !== null && loaded.user === user ? loaded.reports : [];
+  loaded !== null && loaded.user === user ? loaded.reports : NO_REPORTS;
 
 /**
  * Whose override the switch may change: the selected user, only once the shown

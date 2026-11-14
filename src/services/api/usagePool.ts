@@ -180,4 +180,9 @@ export const usagePoolApi = {
   },
 
   resumeAccount: (name: string) => apiClient.delete('/usage/pause', { params: { name } }),
+
+  /** Locks Fable requests to one credential, replacing any other lock. */
+  lockFable: (name: string) => apiClient.put('/usage/fable', { name }),
+
+  clearFableLock: () => apiClient.delete('/usage/fable'),
 };

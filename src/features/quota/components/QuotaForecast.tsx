@@ -46,6 +46,7 @@ import {
   poolResetCredits,
   poolResetEvents,
   projectPool,
+  withPooledPace,
   recentBurn,
   steadyActivity,
   stretchActivity,
@@ -193,8 +194,8 @@ export function QuotaForecast({
   } | null>(null);
   const users = useLedgerUsers();
   const [person, setPerson] = useState('');
-  // Only a chosen person needs the gateway's pool report; everyone is the cards' own view.
-  const personPools = useUsagePool(person ? poolProviders(files, tab) : [], person);
+  // The gateway's pool report: its burn paces every projection; a chosen person also gets their view.
+  const personPools = useUsagePool(poolProviders(files, tab), person);
   const showNotification = useNotificationStore((store) => store.showNotification);
 
   // The drawn history; before the first quota sample only capacity steps show.
@@ -246,8 +247,13 @@ export function QuotaForecast({
 
   // Learned from every pool, not just the visible ones: one person sleeps once.
   const activity = useMemo(
-    () => learnActivity(pools, recent ?? [], nowMs, sleep, ledger ?? []),
-    [pools, recent, nowMs, sleep, ledger]
+    () =>
+      withPooledPace(
+        learnActivity(pools, recent ?? [], nowMs, sleep, ledger ?? []),
+        pools,
+        personPools.reports
+      ),
+    [pools, recent, nowMs, sleep, ledger, personPools.reports]
   );
   // "Same as now" needs history to measure the burn; without it the usual pattern stands in.
   const future = prefs.future === 'same' && !samples ? 'usual' : prefs.future;
