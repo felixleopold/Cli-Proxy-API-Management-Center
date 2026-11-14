@@ -2632,6 +2632,13 @@
     "users_title": "Người dùng",
     "retired_credential": "Đã ngừng: {{name}}"
   },
+  "fable_route": {
+    "title": "Fable chuyển đến",
+    "any": "Bất kỳ tài khoản nào",
+    "several": "Nhiều tài khoản",
+    "hint": "Fable được tài khoản Claude này phục vụ trước; Bất kỳ tài khoản nào để cổng tự chọn.",
+    "save_failed": "Không thể cập nhật nơi Fable được chuyển đến: {{message}}"
+  },
   "claude_credit": {
     "title": "Tín dụng Claude API",
     "toggle_label": "Dùng tín dụng Claude API trả phí khi gói đăng ký hết",

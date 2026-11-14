@@ -2612,6 +2612,13 @@
     "users_title": "用户",
     "retired_credential": "已退役：{{name}}"
   },
+  "fable_route": {
+    "title": "Fable 路由到",
+    "any": "任意账号",
+    "several": "多个账号",
+    "hint": "Fable 优先由该 Claude 账号处理；选择“任意账号”则由网关决定。",
+    "save_failed": "无法更新 Fable 的路由：{{message}}"
+  },
   "claude_credit": {
     "title": "Claude API 额度",
     "toggle_label": "订阅用尽后使用付费 Claude API 额度",

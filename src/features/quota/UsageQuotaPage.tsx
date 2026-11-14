@@ -26,6 +26,7 @@ import { getQuotaCacheKey } from '@/utils/quota/identity';
 import type { AccountSpendContext } from '@/features/usage/components/AccountSpend';
 import { UsageSections } from '@/features/usage/UsageSections';
 import { ClaudeCreditCard } from './components/ClaudeCreditCard';
+import { FableRouteControl } from './components/FableRouteControl';
 import { QuotaHeader } from './components/QuotaHeader';
 import { AccountsList } from './components/AccountsList';
 import { QuotaForecast } from './components/QuotaForecast';
@@ -412,8 +413,17 @@ export function UsageQuotaPage() {
         refreshing={loading || batchLoading}
         disableControls={disableControls}
         onRefreshAll={handleRefreshAll}
-        // Global, so in the header above the provider tabs; hidden without the switch.
-        extra={<ClaudeCreditCard />}
+        // Global Claude controls, in the header above the provider tabs; each hides without its subject.
+        extra={
+          <>
+            <FableRouteControl
+              files={files}
+              disabled={!canUseActions}
+              onReload={() => void loadFiles()}
+            />
+            <ClaudeCreditCard />
+          </>
+        }
       />
 
       <UsageSections

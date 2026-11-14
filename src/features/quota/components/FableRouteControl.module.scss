@@ -1,0 +1,43 @@
+@use '../../../styles/mixins' as *;
+
+/* "Fable goes to": a label · select group in the page header, the same quiet
+ * chip as the Claude API credit switch. */
+
+.group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 3px 4px 3px 14px;
+  border-radius: $radius-full;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.title {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.select {
+  min-width: 140px;
+  max-width: 220px;
+
+  button[aria-haspopup='listbox'] {
+    border-color: transparent;
+    border-radius: $radius-full;
+    background: transparent;
+    box-shadow: none;
+    color: var(--text-secondary);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .select button[aria-haspopup='listbox']:not(:disabled):hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+}

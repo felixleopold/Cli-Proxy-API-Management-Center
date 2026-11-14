@@ -20,6 +20,12 @@ Current base: upstream `v1.25.6`.
 - **Timeline legend explains the fill.** The current window's fill deliberately shows *used*
   quota, so its edge can be compared with the now line (past it means usage is ahead of pace),
   while the label shows remaining. A legend entry (`quota_management.windows_legend_used`) says so.
+- **"Fable goes to" control** (`src/features/quota/components/FableRouteControl.tsx`, model in
+  `fableRoute.ts`). A header select beside the Claude credit switch: the Claude credential whose
+  `preferred_models` holds `claude-fable-5-2`, "Any account", or "Several accounts" (shown, not
+  selectable). Choosing one `PATCH /credentials/fields` adds the id to that credential (keeping its
+  other entries) and removes it from every other holder (`null` when emptied). Test:
+  `tests/fableRoute.test.ts`.
 - **Usage & quota page** (`/usage-quota`, OBSERVE; `/usage` and `/quota` redirect there). Near-black,
   one provider filter, in order: header (counts, the Claude credit switch as an inline toggle, Refresh
   all), the *Reserves* strip (see Usage reserves), the *pool cards* (see Quota forecast), *Accounts*,

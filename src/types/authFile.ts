@@ -120,6 +120,8 @@ export interface AuthFileItem {
   renewalDay?: number;
   /** Display name set on the gateway; rows fall back to the email. */
   nickname?: string;
+  /** Models this account serves ahead of every priority tier; absent when none. */
+  preferredModels?: string[];
   /**
    * The ledger user a private credential is reserved for: it serves only their
    * requests, records no usage, and Usage & quota leaves it out entirely.
