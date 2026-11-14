@@ -1485,14 +1485,48 @@ describe('withPooledPace', () => {
 
   test('every account drains the same share of its window from the pooled burn', () => {
     // 1.2 units/h over 6 units of plan weight: 20% of each window per hour.
-    const { rates, ranges } = withPooledPace(learned, [both], [report(1.2)]);
+    const { rates, ranges } = withPooledPace(learned, [both], [report(1.2)], NOW);
     expect(rates.get('a')! * HOUR_MS).toBeCloseTo(20);
     expect(rates.get('b')! * HOUR_MS).toBeCloseTo(20);
     expect(ranges.has('a')).toBe(false);
   });
 
+  test('projects exactly the gateway burn in wall-clock time, however busy the hour', () => {
+    withTimeZone('UTC', () => {
+      // Noon weighs 1.5 in the profile; 0.1 units/h over 1 unit is 10% of the window an hour.
+      const profile = FLAT_ACTIVITY.profile.map((weight, hour) => (hour === 12 ? 1.5 : weight));
+      const only = pool(credential({ authId: 'a' }));
+      const gateway = normalizeUsagePoolReport({
+        provider: 'claude',
+        windows: [{ kind: 'weekly', burn_per_hour: 0.1, accounts: [{ id: 'a', weight: 1 }] }],
+      });
+      const paced = withPooledPace({ ...FLAT_ACTIVITY, profile }, [only], [gateway], NOW);
+      const series = projectPool(only, NOW, NOW + 30 * 60_000, paced);
+      // Half an hour at 0.1/h uses 0.05 of the 1× pool, not 0.075.
+      expect(valueAt(series, NOW + 30 * 60_000)).toBeCloseTo(0.95);
+    });
+  });
+
+  test('"same as now" keeps the pooled rate instead of the account\'s own burn', () => {
+    withTimeZone('UTC', () => {
+      const idle = credential({ authId: 'a' });
+      // The account drained nothing in the last 3 hours, so its own burn is 0.
+      const samples = [sample({ atMs: NOW - 4 * HOUR_MS }), sample({ atMs: NOW })];
+      const learned = { ...FLAT_ACTIVITY, sleep: DEFAULT_SLEEP_HOURS };
+      const steady = steadyActivity([pool(idle)], samples, NOW, 3, learned);
+      expect(steady.rates.get('a')).toBe(0);
+      const gateway = normalizeUsagePoolReport({
+        provider: 'claude',
+        windows: [{ kind: 'weekly', burn_per_hour: 0.1, accounts: [{ id: 'a', weight: 1 }] }],
+      });
+      const paced = withPooledPace(steady, [pool(idle)], [gateway], NOW);
+      const series = projectPool(pool(idle), NOW, NOW + HOUR_MS, paced);
+      expect(valueAt(series, NOW + HOUR_MS)).toBeCloseTo(0.9);
+    });
+  });
+
   test('keeps the learned pace without a pooled burn', () => {
-    const { rates } = withPooledPace(learned, [both], [report(null)]);
+    const { rates } = withPooledPace(learned, [both], [report(null)], NOW);
     expect(rates.get('a')! * HOUR_MS).toBeCloseTo(0.5);
   });
 });

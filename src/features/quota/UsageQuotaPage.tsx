@@ -58,6 +58,7 @@ import { useDevinQuotaAutoLoad } from './providers/devin/useDevinQuotaAutoLoad';
 import { useQuotaActions } from './hooks/useQuotaActions';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
 import { useQuotaHistory } from './hooks/useQuotaHistory';
+import { applyFilePatch } from './fableRoute';
 import { splitPrivateCredentials, withoutPrivateHistory } from './privateCredentials';
 import { isQuotaTabId, readQuotaUiState, writeQuotaUiState } from './uiState';
 import styles from './UsageQuotaPage.module.scss';
@@ -141,9 +142,7 @@ export function UsageQuotaPage() {
 
   // One credential changed in place, e.g. by its row's enabled toggle.
   const handleFileChange = useCallback((key: string, patch: Partial<AuthFileItem>) => {
-    setFiles((current) =>
-      current.map((file) => (getQuotaCacheKey(file) === key ? { ...file, ...patch } : file))
-    );
+    setFiles((current) => applyFilePatch(current, key, patch));
   }, []);
 
   useEffect(() => {
@@ -399,7 +398,7 @@ export function UsageQuotaPage() {
       onRefreshQuota={(entry) => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
       onResetQuota={(entry) => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
       onFileChange={handleFileChange}
-      onReload={() => void loadFiles()}
+      onReload={loadFiles}
       resolvedTheme={resolvedTheme}
     />
   );
@@ -416,11 +415,7 @@ export function UsageQuotaPage() {
         // Global Claude controls, in the header above the provider tabs; each hides without its subject.
         extra={
           <>
-            <FableRouteControl
-              files={files}
-              disabled={!canUseActions}
-              onReload={() => void loadFiles()}
-            />
+            <FableRouteControl files={files} disabled={!canUseActions} onReload={loadFiles} />
             <ClaudeCreditCard />
           </>
         }
@@ -443,7 +438,7 @@ export function UsageQuotaPage() {
               pools={pools}
               cardReadings={cardReadings}
               onChange={handleLenderRelease}
-              onReload={() => void loadFiles()}
+              onReload={loadFiles}
             />
             {/* Pooled across every credential of the provider, independent of search and paging. */}
             <QuotaForecast

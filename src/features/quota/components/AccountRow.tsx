@@ -406,7 +406,7 @@ export interface AccountRowProps {
   actions?: ReactNode;
   details: ReactNode;
   onFileChange: (key: string, patch: Partial<AuthFileItem>) => void;
-  onSettingsSaved: () => void;
+  onSettingsSaved: () => Promise<void>;
 }
 
 /** Clicks on the row's own controls do not toggle its details. */

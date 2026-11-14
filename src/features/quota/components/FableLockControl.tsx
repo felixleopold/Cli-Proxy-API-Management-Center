@@ -2,8 +2,9 @@
  * A Claude row's Fable lock: while on, the gateway sends every Fable request to
  * this account and no other. One account holds it at a time, so locking one
  * moves the lock. PUT /usage/fable {name} locks, DELETE /usage/fable clears;
- * the listing's `fable_locked` shows it. The row follows optimistically, then
- * the listing reloads so the account that lost the lock updates too.
+ * the listing's `fable_locked` shows it. A success patches the list as the
+ * gateway does (one holder, see applyFilePatch); after any attempt the listing
+ * reloads, and the button stays busy until it has.
  */
 
 import { useState } from 'react';
@@ -20,8 +21,10 @@ export function FableLockControl({
   onReload,
 }: {
   file: AuthFileItem;
+  /** Patches the listed credentials; a lock change also clears every other holder. */
   onChange: (patch: Pick<AuthFileItem, 'fableLocked'>) => void;
-  onReload: () => void;
+  /** Refetches the listing, the source of truth for who holds the lock. */
+  onReload: () => Promise<void>;
 }) {
   const { t } = useTranslation();
   const showNotification = useNotificationStore((state) => state.showNotification);
@@ -35,11 +38,11 @@ export function FableLockControl({
       if (locked) await usagePoolApi.clearFableLock();
       else await usagePoolApi.lockFable(file.name);
       onChange({ fableLocked: !locked || undefined });
-      onReload();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('common.unknown_error');
       showNotification(t('fable_lock.failed', { message }), 'error');
     } finally {
+      await onReload();
       setBusy(false);
     }
   };

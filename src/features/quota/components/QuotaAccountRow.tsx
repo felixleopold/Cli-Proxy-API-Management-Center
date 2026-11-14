@@ -256,7 +256,7 @@ export interface QuotaAccountRowProps {
   onRefresh: () => void;
   onReset: () => void;
   onFileChange: (key: string, patch: Partial<AuthFileItem>) => void;
-  onSettingsSaved: () => void;
+  onSettingsSaved: () => Promise<void>;
 }
 
 export function QuotaAccountRow(props: QuotaAccountRowProps) {
@@ -453,7 +453,7 @@ export function SpendAccountRow({
   spend: AccountSpendContext;
   resolvedTheme: ResolvedTheme;
   onFileChange: (key: string, patch: Partial<AuthFileItem>) => void;
-  onSettingsSaved: () => void;
+  onSettingsSaved: () => Promise<void>;
 }) {
   const { t } = useTranslation();
   const nameId = useId();
@@ -501,7 +501,7 @@ export function DisabledAccountRow({
   spend: AccountSpendContext;
   resolvedTheme: ResolvedTheme;
   onFileChange: (key: string, patch: Partial<AuthFileItem>) => void;
-  onSettingsSaved: () => void;
+  onSettingsSaved: () => Promise<void>;
 }) {
   const { t } = useTranslation();
   const nameId = useId();

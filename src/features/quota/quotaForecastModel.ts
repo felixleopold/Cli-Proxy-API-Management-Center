@@ -1608,18 +1608,26 @@ export function stretchActivity(
 
 /**
  * The gateway's pooled pace in place of each credential's own history: a pool
- * window's burn (GET /usage/pool, plan-weighted units per hour) is split by
- * plan weight, so every account drains the same share of its window per hour.
- * History rates mostly say which account routing picked, not how fast the pool
- * goes, which drew a lightly used account flat and a busy one steep. Pools or
- * accounts the report gives no burn or weight for keep their learned rate;
+ * window's burn (GET /usage/pool, plan-weighted units per wall-clock hour over
+ * the last half hour) is split by plan weight, so every account drains the same
+ * share of its window. History rates mostly say which account routing picked,
+ * not how fast the pool goes, which drew a lightly used account flat and a busy
+ * one steep. Apply it last, to whichever activity projects (the learned one or
+ * "Same as now"), so its rates are converted for that activity's profile.
+ * Pools or accounts the report gives no burn or weight for keep their rate;
  * overridden accounts drop their learned range, so the fixed spread applies.
  */
 export function withPooledPace(
   activity: PoolActivity,
   pools: readonly ProviderPool[],
-  reports: readonly UsagePoolReport[]
+  reports: readonly UsagePoolReport[],
+  nowMs: number
 ): PoolActivity {
+  // Rates count activity-weighted time, so the burn measured now divides by
+  // now's weight to project exactly the gateway's burn this hour. A burn in an
+  // hour the profile calls asleep counts as an awake hour's.
+  const weightNow = activity.profile[new Date(nowMs).getHours()];
+  const clockWeight = weightNow > 0 ? weightNow : Math.max(...activity.profile);
   const rates = new Map(activity.rates);
   const ranges = new Map(activity.ranges);
   pools.forEach((pool) => {
@@ -1629,10 +1637,11 @@ export function withPooledPace(
       const window = report?.windows.find((candidate) => candidate.kind === kind);
       const weight = window?.accounts.find((account) => account.id === credential.authId)?.weight;
       const totalWeight = window?.accounts.reduce((sum, account) => sum + account.weight, 0) ?? 0;
-      if (window?.burnPerHour == null || !weight || totalWeight <= 0) return;
+      if (window?.burnPerHour == null || !weight || totalWeight <= 0 || !(clockWeight > 0)) return;
       // Its part of the burn is burn × weight / total units; over its own weight
       // that is burn / total of its window per hour, whatever its plan.
-      rates.set(credential.authId, ((window.burnPerHour / totalWeight) * 100) / HOUR_MS);
+      const percentPerHour = (window.burnPerHour / totalWeight) * 100;
+      rates.set(credential.authId, percentPerHour / HOUR_MS / clockWeight);
       ranges.delete(credential.authId);
     });
   });

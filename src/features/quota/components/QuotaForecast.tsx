@@ -246,23 +246,28 @@ export function QuotaForecast({
   );
 
   // Learned from every pool, not just the visible ones: one person sleeps once.
+  const learned = useMemo(
+    () => learnActivity(pools, recent ?? [], nowMs, sleep, ledger ?? []),
+    [pools, recent, nowMs, sleep, ledger]
+  );
+  // The gateway's pooled burn paces both the usual pattern and "Same as now".
   const activity = useMemo(
-    () =>
-      withPooledPace(
-        learnActivity(pools, recent ?? [], nowMs, sleep, ledger ?? []),
-        pools,
-        personPools.reports
-      ),
-    [pools, recent, nowMs, sleep, ledger, personPools.reports]
+    () => withPooledPace(learned, pools, personPools.reports, nowMs),
+    [learned, pools, personPools.reports, nowMs]
   );
   // "Same as now" needs history to measure the burn; without it the usual pattern stands in.
   const future = prefs.future === 'same' && !samples ? 'usual' : prefs.future;
   const projected = useMemo(
     () =>
       future === 'same' && recent
-        ? steadyActivity(pools, recent, nowMs, prefs.burnHours, activity)
+        ? withPooledPace(
+            steadyActivity(pools, recent, nowMs, prefs.burnHours, learned),
+            pools,
+            personPools.reports,
+            nowMs
+          )
         : activity,
-    [future, recent, pools, nowMs, prefs.burnHours, activity]
+    [future, recent, pools, nowMs, prefs.burnHours, learned, activity, personPools.reports]
   );
   const scenario = futureScenario(future);
   const night = useMemo(() => nightHours(activity.sleep), [activity]);
