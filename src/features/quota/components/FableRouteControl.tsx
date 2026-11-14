@@ -10,6 +10,7 @@ import {
   claudeRouteFiles,
   fableRoutePatches,
   fableRouteValue,
+  isFableDestination,
 } from '../fableRoute';
 import styles from './FableRouteControl.module.scss';
 
@@ -38,7 +39,7 @@ export function FableRouteControl({
   const options = useMemo<SelectOption[]>(
     () => [
       { value: FABLE_ROUTE_ANY, label: t('fable_route.any') },
-      ...claudeFiles.map((file) => ({
+      ...claudeFiles.filter(isFableDestination).map((file) => ({
         value: file.name,
         label: file.nickname || file.email || file.name,
       })),

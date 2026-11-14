@@ -16,9 +16,10 @@ const files = [
 describe('Fable route patches', () => {
   test('adds to the target keeping its entries and removes from every other holder', () => {
     expect(fableRoutePatches(files, 'c.json')).toEqual([
+      // The target's addition comes first, so a failed save never leaves Fable on no account.
+      { name: 'c.json', fields: { preferred_models: [FABLE_MODEL_ID] } },
       { name: 'a.json', fields: { preferred_models: ['claude-opus-5-5'] } },
       { name: 'b.json', fields: { preferred_models: null } },
-      { name: 'c.json', fields: { preferred_models: [FABLE_MODEL_ID] } },
     ]);
   });
 

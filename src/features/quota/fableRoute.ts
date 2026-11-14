@@ -6,7 +6,7 @@
 
 import type { AuthFileFieldsPatch } from '@/services/api';
 import type { AuthFileItem } from '@/types';
-import { isClaudeFile } from '@/utils/quota/validators';
+import { isClaudeFile, isDisabledAuthFile } from '@/utils/quota/validators';
 
 export const FABLE_MODEL_ID = 'claude-fable-5-2';
 
@@ -24,6 +24,10 @@ export interface FableRoutePatch {
 export const claudeRouteFiles = (files: AuthFileItem[]): AuthFileItem[] =>
   files.filter(isClaudeFile);
 
+/** Disabled and retired credentials never take traffic, so they are not destinations. */
+export const isFableDestination = (file: AuthFileItem): boolean =>
+  !isDisabledAuthFile(file) && file.retiredAtMs === undefined;
+
 const holdsFable = (file: PreferredModelsFile) =>
   file.preferredModels?.includes(FABLE_MODEL_ID) === true;
 
@@ -38,20 +42,23 @@ export const fableRouteValue = (files: PreferredModelsFile[]): string => {
  * Patches for routing Fable to `target` (a credential name, or "" for any account):
  * the target gains it (keeping its other entries), every other holder loses it,
  * and an emptied list is sent as null. Credentials already right get no patch.
+ * The target's addition comes first so a failure never leaves Fable on no account.
  */
 export const fableRoutePatches = (
   files: PreferredModelsFile[],
   target: string
 ): FableRoutePatch[] =>
-  files.flatMap((file): FableRoutePatch[] => {
-    const current = file.preferredModels ?? [];
-    const has = current.includes(FABLE_MODEL_ID);
-    if (file.name === target) {
-      return has
-        ? []
-        : [{ name: file.name, fields: { preferred_models: [...current, FABLE_MODEL_ID] } }];
-    }
-    if (!has) return [];
-    const rest = current.filter((model) => model !== FABLE_MODEL_ID);
-    return [{ name: file.name, fields: { preferred_models: rest.length > 0 ? rest : null } }];
-  });
+  files
+    .flatMap((file): FableRoutePatch[] => {
+      const current = file.preferredModels ?? [];
+      const has = current.includes(FABLE_MODEL_ID);
+      if (file.name === target) {
+        return has
+          ? []
+          : [{ name: file.name, fields: { preferred_models: [...current, FABLE_MODEL_ID] } }];
+      }
+      if (!has) return [];
+      const rest = current.filter((model) => model !== FABLE_MODEL_ID);
+      return [{ name: file.name, fields: { preferred_models: rest.length > 0 ? rest : null } }];
+    })
+    .sort((a, b) => Number(b.name === target) - Number(a.name === target));
