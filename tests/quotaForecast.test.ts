@@ -1491,19 +1491,20 @@ describe('withPooledPace', () => {
     expect(ranges.has('a')).toBe(false);
   });
 
-  test('projects exactly the gateway burn in wall-clock time, however busy the hour', () => {
+  test('spreads the gateway burn over its 3-hour span by the profile weight', () => {
     withTimeZone('UTC', () => {
-      // Noon weighs 1.5 in the profile; 0.1 units/h over 1 unit is 10% of the window an hour.
-      const profile = FLAT_ACTIVITY.profile.map((weight, hour) => (hour === 12 ? 1.5 : weight));
+      // At 09:00 with the default sleep the 3-hour span weighs [0, 0, 1.5], 0.5 on average:
+      // 0.1 units/h measured then is 0.3 units in the next awake hour, weighing 1.5.
+      const nineAm = Date.UTC(2026, 9, 17, 9);
+      const activity = { ...FLAT_ACTIVITY, profile: baselineProfile(DEFAULT_SLEEP_HOURS) };
       const only = pool(credential({ authId: 'a' }));
       const gateway = normalizeUsagePoolReport({
         provider: 'claude',
         windows: [{ kind: 'weekly', burn_per_hour: 0.1, accounts: [{ id: 'a', weight: 1 }] }],
       });
-      const paced = withPooledPace({ ...FLAT_ACTIVITY, profile }, [only], [gateway], NOW);
-      const series = projectPool(only, NOW, NOW + 30 * 60_000, paced);
-      // Half an hour at 0.1/h uses 0.05 of the 1× pool, not 0.075.
-      expect(valueAt(series, NOW + 30 * 60_000)).toBeCloseTo(0.95);
+      const paced = withPooledPace(activity, [only], [gateway], nineAm);
+      const series = projectPool(only, nineAm, nineAm + HOUR_MS, paced);
+      expect(valueAt(series, nineAm + HOUR_MS)).toBeCloseTo(0.7);
     });
   });
 

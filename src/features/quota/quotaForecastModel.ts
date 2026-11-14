@@ -1609,7 +1609,7 @@ export function stretchActivity(
 /**
  * The gateway's pooled pace in place of each credential's own history: a pool
  * window's burn (GET /usage/pool, plan-weighted units per wall-clock hour over
- * the last half hour) is split by plan weight, so every account drains the same
+ * the last BURN_SPAN_MS) is split by plan weight, so every account drains the same
  * share of its window. History rates mostly say which account routing picked,
  * not how fast the pool goes, which drew a lightly used account flat and a busy
  * one steep. Apply it last, to whichever activity projects (the learned one or
@@ -1617,17 +1617,22 @@ export function stretchActivity(
  * Pools or accounts the report gives no burn or weight for keep their rate;
  * overridden accounts drop their learned range, so the fixed spread applies.
  */
+/** How far back the gateway's pool burn looks (quotahistory.BurnSpan). */
+const BURN_SPAN_MS = 3 * HOUR_MS;
+
 export function withPooledPace(
   activity: PoolActivity,
   pools: readonly ProviderPool[],
   reports: readonly UsagePoolReport[],
   nowMs: number
 ): PoolActivity {
-  // Rates count activity-weighted time, so the burn measured now divides by
-  // now's weight to project exactly the gateway's burn this hour. A burn in an
-  // hour the profile calls asleep counts as an awake hour's.
-  const weightNow = activity.profile[new Date(nowMs).getHours()];
-  const clockWeight = weightNow > 0 ? weightNow : Math.max(...activity.profile);
+  // Rates count activity-weighted time, so the burn divides by the profile's
+  // mean weight over the span it was measured in; the projection then repeats
+  // that span's use (assuming the gateway sampled all of it). A burn measured
+  // only while the profile says asleep counts as an awake hour's.
+  const meanWeight =
+    activityClock(activity.profile, nowMs - BURN_SPAN_MS, nowMs).at(nowMs) / BURN_SPAN_MS;
+  const clockWeight = meanWeight > 0 ? meanWeight : Math.max(...activity.profile);
   const rates = new Map(activity.rates);
   const ranges = new Map(activity.ranges);
   pools.forEach((pool) => {
