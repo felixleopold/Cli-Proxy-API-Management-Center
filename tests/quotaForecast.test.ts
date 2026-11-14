@@ -35,6 +35,7 @@ import {
   seriesJumps,
   steadyActivity,
   stretchActivity,
+  withPooledPace,
   summarizePool,
   valueAt,
 } from '../src/features/quota/quotaForecastModel';
@@ -48,6 +49,7 @@ import type {
   ProviderPool,
 } from '../src/features/quota/quotaForecastModel';
 import { planShareOf } from '../src/features/quota/planMultipliers';
+import { normalizeUsagePoolReport } from '../src/services/api/usagePool';
 import {
   normalizeQuotaHistorySamples,
   type QuotaHistorySample,
@@ -1453,5 +1455,79 @@ describe('selected stretch', () => {
       NOW - 3 * HOUR_MS
     );
     expect(perHour).toBeCloseTo(0.1);
+  });
+});
+
+describe('withPooledPace', () => {
+  const report = (burnPerHour: number | null) =>
+    normalizeUsagePoolReport({
+      provider: 'claude',
+      windows: [
+        {
+          kind: 'weekly',
+          burn_per_hour: burnPerHour,
+          accounts: [
+            { id: 'a', weight: 1 },
+            { id: 'b', weight: 5 },
+          ],
+        },
+      ],
+    });
+  const learned = {
+    ...FLAT_ACTIVITY,
+    rates: new Map([
+      ['a', 0.5 / HOUR_MS],
+      ['b', 0.01 / HOUR_MS],
+    ]),
+    ranges: new Map([['a', { busy: 1 / HOUR_MS, quiet: 0.1 / HOUR_MS }]]),
+  };
+  const both = pool(credential({ authId: 'a' }), credential({ authId: 'b' }));
+
+  test('every account drains the same share of its window from the pooled burn', () => {
+    // 1.2 units/h over 6 units of plan weight: 20% of each window per hour.
+    const { rates, ranges } = withPooledPace(learned, [both], [report(1.2)], NOW);
+    expect(rates.get('a')! * HOUR_MS).toBeCloseTo(20);
+    expect(rates.get('b')! * HOUR_MS).toBeCloseTo(20);
+    expect(ranges.has('a')).toBe(false);
+  });
+
+  test('spreads the gateway burn over its 3-hour span by the profile weight', () => {
+    withTimeZone('UTC', () => {
+      // At 09:00 with the default sleep the 3-hour span weighs [0, 0, 1.5], 0.5 on average:
+      // 0.1 units/h measured then is 0.3 units in the next awake hour, weighing 1.5.
+      const nineAm = Date.UTC(2026, 9, 17, 9);
+      const activity = { ...FLAT_ACTIVITY, profile: baselineProfile(DEFAULT_SLEEP_HOURS) };
+      const only = pool(credential({ authId: 'a' }));
+      const gateway = normalizeUsagePoolReport({
+        provider: 'claude',
+        windows: [{ kind: 'weekly', burn_per_hour: 0.1, accounts: [{ id: 'a', weight: 1 }] }],
+      });
+      const paced = withPooledPace(activity, [only], [gateway], nineAm);
+      const series = projectPool(only, nineAm, nineAm + HOUR_MS, paced);
+      expect(valueAt(series, nineAm + HOUR_MS)).toBeCloseTo(0.7);
+    });
+  });
+
+  test('"same as now" keeps the pooled rate instead of the account\'s own burn', () => {
+    withTimeZone('UTC', () => {
+      const idle = credential({ authId: 'a' });
+      // The account drained nothing in the last 3 hours, so its own burn is 0.
+      const samples = [sample({ atMs: NOW - 4 * HOUR_MS }), sample({ atMs: NOW })];
+      const learned = { ...FLAT_ACTIVITY, sleep: DEFAULT_SLEEP_HOURS };
+      const steady = steadyActivity([pool(idle)], samples, NOW, 3, learned);
+      expect(steady.rates.get('a')).toBe(0);
+      const gateway = normalizeUsagePoolReport({
+        provider: 'claude',
+        windows: [{ kind: 'weekly', burn_per_hour: 0.1, accounts: [{ id: 'a', weight: 1 }] }],
+      });
+      const paced = withPooledPace(steady, [pool(idle)], [gateway], NOW);
+      const series = projectPool(pool(idle), NOW, NOW + HOUR_MS, paced);
+      expect(valueAt(series, NOW + HOUR_MS)).toBeCloseTo(0.9);
+    });
+  });
+
+  test('keeps the learned pace without a pooled burn', () => {
+    const { rates } = withPooledPace(learned, [both], [report(null)], NOW);
+    expect(rates.get('a')! * HOUR_MS).toBeCloseTo(0.5);
   });
 });

@@ -6,6 +6,7 @@
 
 import type { AuthFileFieldsPatch } from '@/services/api';
 import type { AuthFileItem } from '@/types';
+import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { isClaudeFile, isDisabledAuthFile } from '@/utils/quota/validators';
 
 export const FABLE_MODEL_ID = 'claude-fable-5-2';
@@ -62,3 +63,18 @@ export const fableRoutePatches = (
       return [{ name: file.name, fields: { preferred_models: rest.length > 0 ? rest : null } }];
     })
     .sort((a, b) => Number(b.name === target) - Number(a.name === target));
+
+/**
+ * Patches the listed credential with quota cache key `key`. A Fable lock change
+ * mirrors the gateway's single holder: locking one unlocks every other, and an
+ * unlock (DELETE clears the lock wherever it is) unlocks them all.
+ */
+export const applyFilePatch = (
+  files: AuthFileItem[],
+  key: string,
+  patch: Partial<AuthFileItem>
+): AuthFileItem[] =>
+  files.map((file) => {
+    if (getQuotaCacheKey(file) === key) return { ...file, ...patch };
+    return 'fableLocked' in patch && file.fableLocked ? { ...file, fableLocked: undefined } : file;
+  });

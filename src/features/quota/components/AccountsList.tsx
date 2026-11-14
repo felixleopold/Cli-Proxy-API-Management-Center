@@ -57,7 +57,7 @@ export interface AccountsListProps {
   /** Patches one listed credential by its quota cache key (e.g. the enabled toggle). */
   onFileChange: (key: string, patch: Partial<AuthFileItem>) => void;
   /** Reloads the credential list after a settings save. */
-  onReload: () => void;
+  onReload: () => Promise<void>;
   resolvedTheme: ResolvedTheme;
 }
 

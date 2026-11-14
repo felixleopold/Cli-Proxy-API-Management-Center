@@ -6,6 +6,17 @@ const responseWithRawFiles = (files: Array<Record<string, unknown>>): AuthFilesR
   ({ files }) as unknown as AuthFilesResponse;
 
 describe('auth-files response normalization', () => {
+  test('reads the Fable lock only when the gateway sets it', () => {
+    const result = normalizeAuthFilesResponse(
+      responseWithRawFiles([
+        { name: 'a.json', fable_locked: true },
+        { name: 'b.json', fable_locked: false },
+      ])
+    );
+
+    expect(result.files.map((file) => file.fableLocked)).toEqual([true, undefined]);
+  });
+
   test('normalizes WRR weights while preserving zero and negative values', () => {
     const result = normalizeAuthFilesResponse(
       responseWithRawFiles([

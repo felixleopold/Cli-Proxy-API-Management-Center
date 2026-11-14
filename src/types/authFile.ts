@@ -131,6 +131,8 @@ export interface AuthFileItem {
   paceMode?: AuthFilePaceMode;
   /** End of the pace override (ms). */
   paceUntilMs?: number;
+  /** Fable requests go only to this credential (PUT /usage/fable); at most one holds it. */
+  fableLocked?: boolean;
   /** End of a pause (ms): the account takes no traffic but still counts toward pool capacity. */
   pausedUntilMs?: number;
   /** Why the gateway routes to this credential or not, right now; absent on older gateways. */

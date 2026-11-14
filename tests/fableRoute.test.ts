@@ -3,9 +3,12 @@ import {
   FABLE_MODEL_ID,
   FABLE_ROUTE_ANY,
   FABLE_ROUTE_SEVERAL,
+  applyFilePatch,
   fableRoutePatches,
   fableRouteValue,
 } from '@/features/quota/fableRoute';
+import type { AuthFileItem } from '@/types';
+import { getQuotaCacheKey } from '@/utils/quota/identity';
 
 const files = [
   { name: 'a.json', preferredModels: [FABLE_MODEL_ID, 'claude-opus-5-5'] },
@@ -35,5 +38,30 @@ describe('Fable route patches', () => {
     expect(fableRouteValue([files[2]])).toBe(FABLE_ROUTE_ANY);
     expect(fableRouteValue([files[1], files[2]])).toBe('b.json');
     expect(fableRouteValue(files)).toBe(FABLE_ROUTE_SEVERAL);
+  });
+});
+
+describe('applyFilePatch', () => {
+  const listed = (name: string, fableLocked?: true): AuthFileItem =>
+    ({ name, type: 'claude', ...(fableLocked ? { fableLocked } : {}) }) as AuthFileItem;
+  const holders = (files: AuthFileItem[]) =>
+    files.filter((file) => file.fableLocked).map((file) => file.name);
+
+  test('locking one account unlocks the previous holder', () => {
+    const files = [listed('a.json', true), listed('b.json')];
+    const key = getQuotaCacheKey(files[1]);
+    expect(holders(applyFilePatch(files, key, { fableLocked: true }))).toEqual(['b.json']);
+  });
+
+  test('an unlock leaves no holder', () => {
+    const files = [listed('a.json', true), listed('b.json', true)];
+    const key = getQuotaCacheKey(files[0]);
+    expect(holders(applyFilePatch(files, key, { fableLocked: undefined }))).toEqual([]);
+  });
+
+  test('other patches leave the lock alone', () => {
+    const files = [listed('a.json', true), listed('b.json')];
+    const key = getQuotaCacheKey(files[1]);
+    expect(holders(applyFilePatch(files, key, { disabled: true }))).toEqual(['a.json']);
   });
 });

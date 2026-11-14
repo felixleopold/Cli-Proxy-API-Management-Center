@@ -46,6 +46,7 @@ import {
   poolResetCredits,
   poolResetEvents,
   projectPool,
+  withPooledPace,
   recentBurn,
   steadyActivity,
   stretchActivity,
@@ -193,8 +194,8 @@ export function QuotaForecast({
   } | null>(null);
   const users = useLedgerUsers();
   const [person, setPerson] = useState('');
-  // Only a chosen person needs the gateway's pool report; everyone is the cards' own view.
-  const personPools = useUsagePool(person ? poolProviders(files, tab) : [], person);
+  // The gateway's pool report: its burn paces every projection; a chosen person also gets their view.
+  const personPools = useUsagePool(poolProviders(files, tab), person);
   const showNotification = useNotificationStore((store) => store.showNotification);
 
   // The drawn history; before the first quota sample only capacity steps show.
@@ -245,18 +246,28 @@ export function QuotaForecast({
   );
 
   // Learned from every pool, not just the visible ones: one person sleeps once.
-  const activity = useMemo(
+  const learned = useMemo(
     () => learnActivity(pools, recent ?? [], nowMs, sleep, ledger ?? []),
     [pools, recent, nowMs, sleep, ledger]
+  );
+  // The gateway's pooled burn paces both the usual pattern and "Same as now".
+  const activity = useMemo(
+    () => withPooledPace(learned, pools, personPools.reports, nowMs),
+    [learned, pools, personPools.reports, nowMs]
   );
   // "Same as now" needs history to measure the burn; without it the usual pattern stands in.
   const future = prefs.future === 'same' && !samples ? 'usual' : prefs.future;
   const projected = useMemo(
     () =>
       future === 'same' && recent
-        ? steadyActivity(pools, recent, nowMs, prefs.burnHours, activity)
+        ? withPooledPace(
+            steadyActivity(pools, recent, nowMs, prefs.burnHours, learned),
+            pools,
+            personPools.reports,
+            nowMs
+          )
         : activity,
-    [future, recent, pools, nowMs, prefs.burnHours, activity]
+    [future, recent, pools, nowMs, prefs.burnHours, learned, activity, personPools.reports]
   );
   const scenario = futureScenario(future);
   const night = useMemo(() => nightHours(activity.sleep), [activity]);

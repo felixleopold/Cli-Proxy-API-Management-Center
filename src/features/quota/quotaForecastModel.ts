@@ -13,6 +13,7 @@
 
 import type { AuthFileItem, UsageLedgerBucket } from '@/types';
 import type { CapacityEntry } from '@/services/api/capacityHistory';
+import type { UsagePoolReport } from '@/services/api/usagePool';
 import type { QuotaHistorySample, QuotaHistoryWindow } from '@/services/api/quotaHistory';
 import { isRecord } from '@/utils/helpers';
 import type { QuotaProviderType } from './providers/types';
@@ -1603,6 +1604,53 @@ export function stretchActivity(
     })
   );
   return { perHour: perMs * HOUR_MS, activity: { ...FLAT_ACTIVITY, rates } };
+}
+
+/**
+ * The gateway's pooled pace in place of each credential's own history: a pool
+ * window's burn (GET /usage/pool, plan-weighted units per wall-clock hour over
+ * the last BURN_SPAN_MS) is split by plan weight, so every account drains the same
+ * share of its window. History rates mostly say which account routing picked,
+ * not how fast the pool goes, which drew a lightly used account flat and a busy
+ * one steep. Apply it last, to whichever activity projects (the learned one or
+ * "Same as now"), so its rates are converted for that activity's profile.
+ * Pools or accounts the report gives no burn or weight for keep their rate;
+ * overridden accounts drop their learned range, so the fixed spread applies.
+ */
+/** How far back the gateway's pool burn looks (quotahistory.BurnSpan). */
+const BURN_SPAN_MS = 3 * HOUR_MS;
+
+export function withPooledPace(
+  activity: PoolActivity,
+  pools: readonly ProviderPool[],
+  reports: readonly UsagePoolReport[],
+  nowMs: number
+): PoolActivity {
+  // Rates count activity-weighted time, so the burn divides by the profile's
+  // mean weight over the span it was measured in; the projection then repeats
+  // that span's use (assuming the gateway sampled all of it). A burn measured
+  // only while the profile says asleep counts as an awake hour's.
+  const meanWeight =
+    activityClock(activity.profile, nowMs - BURN_SPAN_MS, nowMs).at(nowMs) / BURN_SPAN_MS;
+  const clockWeight = meanWeight > 0 ? meanWeight : Math.max(...activity.profile);
+  const rates = new Map(activity.rates);
+  const ranges = new Map(activity.ranges);
+  pools.forEach((pool) => {
+    const report = reports.find((candidate) => candidate.provider === pool.provider);
+    pool.credentials.forEach((credential) => {
+      const kind = credential.window === 'weekly' ? 'weekly' : 'five_hour';
+      const window = report?.windows.find((candidate) => candidate.kind === kind);
+      const weight = window?.accounts.find((account) => account.id === credential.authId)?.weight;
+      const totalWeight = window?.accounts.reduce((sum, account) => sum + account.weight, 0) ?? 0;
+      if (window?.burnPerHour == null || !weight || totalWeight <= 0 || !(clockWeight > 0)) return;
+      // Its part of the burn is burn × weight / total units; over its own weight
+      // that is burn / total of its window per hour, whatever its plan.
+      const percentPerHour = (window.burnPerHour / totalWeight) * 100;
+      rates.set(credential.authId, percentPerHour / HOUR_MS / clockWeight);
+      ranges.delete(credential.authId);
+    });
+  });
+  return { ...activity, rates, ranges };
 }
 
 /* ---------- Activity: when in the day quota gets used ---------- */
