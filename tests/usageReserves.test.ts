@@ -17,8 +17,10 @@ import {
 import { apiClient } from '@/services/api/client';
 import {
   changeOverride,
+  heldLogins,
   lenderReleaseUntil,
   overrideTarget,
+  parseReservePercent,
   reportsFor,
   reserveStateOf,
   showsLenderRelease,
@@ -434,6 +436,67 @@ describe('release and pace requests', () => {
     } finally {
       apiClient.post = post;
       apiClient.delete = del;
+    }
+  });
+});
+
+describe('person reserve controls', () => {
+  test('accepts a reserve strictly above 0 and up to 100', () => {
+    expect(parseReservePercent(' 5 ')).toBe(5);
+    expect(parseReservePercent('7.5')).toBe(7.5);
+    expect(parseReservePercent('100')).toBe(100);
+    for (const text of ['', '0', '-1', '100.1', 'abc'])
+      expect(parseReservePercent(text)).toBeNull();
+  });
+
+  test('lists held logins from the report, soonest back first', () => {
+    const report = normalizeUsagePoolReport({
+      provider: 'claude',
+      user: { name: 'Felix', reserve_percent: 5 },
+      accounts: [
+        { name: 'a.json', label: 'A', person_hold: null },
+        {
+          name: 'b.json',
+          label: 'B',
+          person_hold: {
+            window: 'weekly',
+            left_percent: 3,
+            reserve_percent: 5,
+            resets_at: '2026-11-18T10:00:00Z',
+          },
+        },
+        {
+          name: 'c.json',
+          label: 'C',
+          person_hold: {
+            window: 'five_hour',
+            left_percent: 4.2,
+            reserve_percent: 5,
+            resets_at: '2026-11-15T15:00:00Z',
+          },
+        },
+      ],
+      windows: [],
+    });
+    expect(heldLogins([report]).map((login) => [login.name, login.hold.window])).toEqual([
+      ['c.json', 'five_hour'],
+      ['b.json', 'weekly'],
+    ]);
+  });
+
+  test('writes the floor as a raw number under the existing key spelling', async () => {
+    const { get, put } = apiClient;
+    const sent: unknown[] = [];
+    apiClient.get = (async () => ({ Felix: { 'reserve-percent': 5 } })) as typeof apiClient.get;
+    apiClient.put = (async (url: string, data?: unknown) => {
+      sent.push([url, data]);
+    }) as typeof apiClient.put;
+    try {
+      await usagePoolApi.setPersonReserve('felix', 10);
+      expect(sent).toEqual([['/config/usage-reserves/people/Felix/reserve-percent', 10]]);
+    } finally {
+      apiClient.get = get;
+      apiClient.put = put;
     }
   });
 });
