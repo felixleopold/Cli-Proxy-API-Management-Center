@@ -15,9 +15,8 @@ import type { CSSProperties, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconChevronDown } from '@/components/ui/icons';
 import { Select } from '@/components/ui/Select';
-import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { useNow } from '@/hooks/useNow';
-import { useNotificationStore, useThemeStore } from '@/stores';
+import { useThemeStore } from '@/stores';
 import type { UsagePoolReport, UsagePoolWindow } from '@/services/api/usagePool';
 import type { AuthFileItem } from '@/types';
 import { getAuthFileIcon, getTypeLabel } from '@/features/authFiles/constants';
@@ -69,13 +68,9 @@ import { readForecastPrefs, writeForecastPrefs, type ForecastPrefs } from '../qu
 import { formatMultiplier, shareLeft } from '../planMultipliers';
 import type { QuotaHistoryState } from '../hooks/useQuotaHistory';
 import { useUsagePool } from '../hooks/useUsagePool';
-import {
-  activeOverrideUntil,
-  formatPoolTime,
-  overrideTarget,
-  poolProviders,
-} from '../usagePoolModel';
+import { overrideTarget, poolProviders } from '../usagePoolModel';
 import { HoverCard, InfoHint } from './HoverCard';
+import { PersonReserveBar } from './PersonReserveBar';
 import { readQuotaUiState, writeQuotaUiState } from '../uiState';
 import {
   DrainChart,
@@ -196,7 +191,6 @@ export function QuotaForecast({
   const [person, setPerson] = useState('');
   // The gateway's pool report: its burn paces every projection; a chosen person also gets their view.
   const personPools = useUsagePool(poolProviders(files, tab), person);
-  const showNotification = useNotificationStore((store) => store.showNotification);
 
   // The drawn history; before the first quota sample only capacity steps show.
   const startMs = samples ? historyStartMs(past, nowMs, samples, timeline) : nowMs;
@@ -566,16 +560,7 @@ export function QuotaForecast({
     );
   };
   const shownPerson = personPools.reports.find((report) => report.user)?.user ?? null;
-  const overrideUntil = activeOverrideUntil(shownPerson, nowMs);
   const overrideFor = overrideTarget(personPools.reports, person);
-  const toggleOverride = async (on: boolean) => {
-    try {
-      if (overrideFor) await personPools.setOverride(overrideFor, on);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t('common.unknown_error');
-      showNotification(t('usage_pool.override_failed', { message }), 'error');
-    }
-  };
   const canPickPerson =
     users.length > 0 && personPools.supported && poolProviders(files, tab).length > 0;
   const personPicker = canPickPerson && (
@@ -614,44 +599,19 @@ export function QuotaForecast({
     </span>
   );
 
-  const personBarNode = (
-    <>
-      {shownPerson && (
-        <div className={styles.personBar}>
-          <span>
-            <strong>
-              {shownPerson.reservePercent > 0
-                ? t('usage_pool.person_reserve', {
-                    name: shownPerson.name,
-                    percent: shownPerson.reservePercent,
-                  })
-                : shownPerson.name}
-            </strong>{' '}
-            ·{' '}
-            {overrideUntil !== null
-              ? t('usage_pool.person_override_until', {
-                  time: formatPoolTime(overrideUntil, nowMs, language),
-                })
-              : shownPerson.reservePercent <= 0
-                ? t('usage_pool.person_no_reserve')
-                : shownPerson.softStopped
-                  ? t('quota_forecast.person_paused')
-                  : t('usage_pool.person_using')}
-          </span>
-          {shownPerson.reservePercent > 0 && (
-            <label className={styles.override}>
-              <span>{t('usage_pool.override_label')}</span>
-              <ToggleSwitch
-                checked={overrideUntil !== null}
-                onChange={(on) => void toggleOverride(on)}
-                disabled={personPools.saving || overrideFor === null}
-                ariaLabel={t('usage_pool.override_aria', { name: shownPerson.name })}
-              />
-            </label>
-          )}
-        </div>
-      )}
-    </>
+  const personBarNode = shownPerson && (
+    <PersonReserveBar
+      person={shownPerson}
+      reports={personPools.reports}
+      saving={personPools.saving}
+      canChange={overrideFor !== null}
+      onSetReserve={(percent) =>
+        overrideFor ? personPools.setReserve(overrideFor, percent) : Promise.resolve()
+      }
+      onSetOverride={(on, hours) =>
+        overrideFor ? personPools.setOverride(overrideFor, on, hours) : Promise.resolve()
+      }
+    />
   );
 
   // No local readings yet: the gateway's person view alone, when it has one.

@@ -4,8 +4,8 @@ import { changeOverride, reportsFor, type ScopedPoolReports } from '../usagePool
 import { useAuthStore } from '@/stores';
 import { MINUTE_MS } from '@/utils/time/durations';
 
-/** How long an override from the panel lasts: one 5-hour window. */
-export const OVERRIDE_DURATION = '5h';
+/** The release lengths the panel offers, in hours. */
+export const OVERRIDE_HOURS = [1, 2, 5, 12] as const;
 
 /**
  * The gateway's pool report per provider, scoped to user when set, refetched
@@ -72,19 +72,17 @@ export function useUsagePool(providers: string[], user: string) {
   }, [load]);
 
   /**
-   * Turns target's override on for OVERRIDE_DURATION or off; rejects on failure.
-   * Ignored unless target is the selected user (see overrideTarget).
+   * Turns target's override on for hours (the gateway's Go duration) or off;
+   * rejects on failure. Ignored unless target is the selected user (see overrideTarget).
    */
   const setOverride = useCallback(
-    async (target: string, on: boolean) => {
+    async (target: string, on: boolean, hours: number = OVERRIDE_HOURS[1]) => {
       if (!target || target !== user) return;
       setSaving(true);
       try {
         await changeOverride(target, on, {
           set: (name, enable) =>
-            enable
-              ? usagePoolApi.setOverride(name, OVERRIDE_DURATION)
-              : usagePoolApi.clearOverride(name),
+            enable ? usagePoolApi.setOverride(name, `${hours}h`) : usagePoolApi.clearOverride(name),
           selected: () => selectedRef.current,
           refresh: load,
         });
@@ -95,5 +93,34 @@ export function useUsagePool(providers: string[], user: string) {
     [load, user]
   );
 
-  return { reports: reportsFor(loaded, user), supported, loading, error, saving, setOverride };
+  /**
+   * Sets target's reserve floor, then refreshes while target is still selected.
+   * Ignored unless target is the selected user; rejects on failure.
+   */
+  const setReserve = useCallback(
+    async (target: string, percent: number) => {
+      if (!target || target !== user) return;
+      setSaving(true);
+      try {
+        await changeOverride(target, true, {
+          set: (name) => usagePoolApi.setPersonReserve(name, percent),
+          selected: () => selectedRef.current,
+          refresh: load,
+        });
+      } finally {
+        setSaving(false);
+      }
+    },
+    [load, user]
+  );
+
+  return {
+    reports: reportsFor(loaded, user),
+    supported,
+    loading,
+    error,
+    saving,
+    setOverride,
+    setReserve,
+  };
 }

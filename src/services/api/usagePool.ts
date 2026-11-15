@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import { getConfigValue, guardConfigConnection } from './configValue';
 import { isRecord } from '@/utils/helpers';
 import type { AuthFilePaceMode } from '@/types';
 
@@ -55,10 +56,27 @@ export interface UsagePoolUser {
   overrideUntilMs: number | null;
 }
 
+/** Why a person's reserve floor skips a login: the window that holds it longest. */
+export interface PersonHold {
+  window: UsagePoolWindowKind;
+  leftPercent: number;
+  reservePercent: number;
+  resetsAtMs: number | null;
+}
+
+/** One login of the pool; personHold is set when the scoped person's floor skips it. */
+export interface UsagePoolLogin {
+  name: string;
+  label: string;
+  plan: string;
+  personHold: PersonHold | null;
+}
+
 export interface UsagePoolReport {
   provider: string;
   checkedAtMs: number;
   user: UsagePoolUser | null;
+  logins: UsagePoolLogin[];
   activeAccount: { id: string; label: string } | null;
   windows: UsagePoolWindow[];
 }
@@ -110,6 +128,16 @@ const normalizeWindow = (raw: Record<string, unknown>): UsagePoolWindow => ({
   })),
 });
 
+const normalizeHold = (value: unknown): PersonHold | null =>
+  isRecord(value)
+    ? {
+        window: value.window === 'weekly' ? 'weekly' : 'five_hour',
+        leftPercent: num(value.left_percent),
+        reservePercent: num(value.reserve_percent),
+        resetsAtMs: time(value.resets_at),
+      }
+    : null;
+
 export const normalizeUsagePoolReport = (data: unknown): UsagePoolReport => {
   const record = isRecord(data) ? data : {};
   const user = isRecord(record.user) ? record.user : null;
@@ -126,6 +154,12 @@ export const normalizeUsagePoolReport = (data: unknown): UsagePoolReport => {
         }
       : null,
     activeAccount: active ? { id: str(active.id), label: str(active.label) } : null,
+    logins: list(record.accounts).map((account) => ({
+      name: str(account.name),
+      label: str(account.label),
+      plan: str(account.plan),
+      personHold: normalizeHold(account.person_hold),
+    })),
     windows: list(record.windows).map(normalizeWindow),
   };
 };
@@ -144,6 +178,25 @@ export const usagePoolApi = {
   },
 
   clearOverride: (user: string) => apiClient.delete('/usage/override', { params: { user } }),
+
+  /**
+   * Sets a person's reserve floor (0 < percent <= 100) under the spelling of
+   * their existing config key; the gateway matches names case-insensitively
+   * but a differently cased key would add a second entry.
+   */
+  async setPersonReserve(user: string, percent: number): Promise<void> {
+    const assertConnection = guardConfigConnection();
+    const people = await getConfigValue<unknown>('/config/usage-reserves/people', {});
+    const key =
+      Object.keys(isRecord(people) ? people : {}).find(
+        (name) => name.toLowerCase() === user.toLowerCase()
+      ) ?? user;
+    assertConnection();
+    await apiClient.put(
+      `/config/usage-reserves/people/${encodeURIComponent(key)}/reserve-percent`,
+      percent
+    );
+  },
 
   /**
    * Releases a lender's reserves for a Go duration ("4h") or until an instant,

@@ -5,6 +5,7 @@
  */
 
 import type {
+  PersonHold,
   UsagePoolAccount,
   UsagePoolRefill,
   UsagePoolReport,
@@ -131,4 +132,50 @@ export function formatPoolTime(atMs: number, nowMs: number, language?: string): 
     language,
     withinWeek ? { weekday: 'short', ...clock } : { month: 'short', day: 'numeric', ...clock }
   ).format(at);
+}
+
+/** The reserve shares the panel offers as one-tap presets. */
+export const PERSON_RESERVE_PRESETS = [5, 10] as const;
+
+/**
+ * A person's reserve as the gateway accepts it: a number with 0 < x <= 100.
+ * Null for anything else, including empty text.
+ */
+export function parseReservePercent(text: string): number | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  const value = Number(trimmed);
+  return Number.isFinite(value) && value > 0 && value <= 100 ? value : null;
+}
+
+/** A login the person's reserve floor skips, with the provider it belongs to. */
+export interface HeldLogin {
+  provider: string;
+  name: string;
+  label: string;
+  hold: PersonHold;
+}
+
+/** Logins held by the scoped person's floor, soonest back first. */
+export function heldLogins(reports: UsagePoolReport[]): HeldLogin[] {
+  return reports
+    .flatMap((report) =>
+      report.logins.flatMap((login) =>
+        login.personHold
+          ? [
+              {
+                provider: report.provider,
+                name: login.name,
+                label: login.label || login.name,
+                hold: login.personHold,
+              },
+            ]
+          : []
+      )
+    )
+    .sort(
+      (left, right) =>
+        (left.hold.resetsAtMs ?? Infinity) - (right.hold.resetsAtMs ?? Infinity) ||
+        left.label.localeCompare(right.label)
+    );
 }
