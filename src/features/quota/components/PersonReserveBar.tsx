@@ -6,7 +6,7 @@
  * below it is skipped until its window resets while the others keep serving.
  */
 
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -47,6 +47,7 @@ export function PersonReserveBar({
   const showNotification = useNotificationStore((state) => state.showNotification);
   const [custom, setCustom] = useState('');
   const [hours, setHours] = useState<number>(OVERRIDE_HOURS[1]);
+  const releaseRef = useRef<HTMLButtonElement>(null);
   const language = i18n.resolvedLanguage;
   const reserve = person.reservePercent;
   const overrideUntil = activeOverrideUntil(person, nowMs);
@@ -61,6 +62,12 @@ export function PersonReserveBar({
       const message = err instanceof Error ? err.message : t('common.unknown_error');
       showNotification(t(failedKey, { message }), 'error');
     }
+  };
+  // The button is disabled while saving, which drops its focus: give it back afterwards.
+  const toggleRelease = async (on: boolean) => {
+    const hadFocus = document.activeElement === releaseRef.current;
+    await attempt(() => onSetOverride(on, hours), 'usage_pool.override_failed');
+    if (hadFocus) window.requestAnimationFrame(() => releaseRef.current?.focus());
   };
   const setReserve = (percent: number) =>
     attempt(async () => {
@@ -147,44 +154,34 @@ export function PersonReserveBar({
         {reserve > 0 && (
           <div className={styles.group} role="group" aria-label={t('usage_pool.release_label')}>
             <span className={styles.label}>{t('usage_pool.release_label')}</span>
-            {overrideUntil !== null ? (
-              <Button
-                variant="secondary"
+            {overrideUntil === null && (
+              <Select
                 size="sm"
+                value={String(hours)}
+                options={OVERRIDE_HOURS.map((count) => ({
+                  value: String(count),
+                  label: t('timed_menu.hours', { count }),
+                }))}
+                ariaLabel={t('usage_pool.release_length')}
                 disabled={disabled}
-                aria-label={t('usage_pool.release_undo_aria', { name: person.name })}
-                onClick={() =>
-                  void attempt(() => onSetOverride(false, hours), 'usage_pool.override_failed')
-                }
-              >
-                {t('usage_pool.release_undo')}
-              </Button>
-            ) : (
-              <>
-                <Select
-                  size="sm"
-                  value={String(hours)}
-                  options={OVERRIDE_HOURS.map((count) => ({
-                    value: String(count),
-                    label: t('timed_menu.hours', { count }),
-                  }))}
-                  ariaLabel={t('usage_pool.release_length')}
-                  disabled={disabled}
-                  onChange={(value) => setHours(Number(value))}
-                />
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={disabled}
-                  aria-label={t('usage_pool.release_aria', { name: person.name })}
-                  onClick={() =>
-                    void attempt(() => onSetOverride(true, hours), 'usage_pool.override_failed')
-                  }
-                >
-                  {t('usage_pool.release_start')}
-                </Button>
-              </>
+                onChange={(value) => setHours(Number(value))}
+              />
             )}
+            <Button
+              ref={releaseRef}
+              variant="secondary"
+              size="sm"
+              disabled={disabled}
+              aria-label={t(
+                overrideUntil !== null ? 'usage_pool.release_undo_aria' : 'usage_pool.release_aria',
+                { name: person.name }
+              )}
+              onClick={() => void toggleRelease(overrideUntil === null)}
+            >
+              {overrideUntil !== null
+                ? t('usage_pool.release_undo')
+                : t('usage_pool.release_start')}
+            </Button>
           </div>
         )}
       </div>

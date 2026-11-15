@@ -499,4 +499,30 @@ describe('person reserve controls', () => {
       apiClient.put = put;
     }
   });
+
+  test('aborts the floor write when the connection changes during the people read', async () => {
+    const { get, put } = apiClient;
+    const first = { apiBase: 'https://first.invalid', managementKey: 'fixture' };
+    apiClient.setConfig(first);
+    let writes = 0;
+    apiClient.get = (async () => {
+      // Switched away and back while the read was pending (ABA).
+      apiClient.setConfig({ apiBase: 'https://second.invalid', managementKey: 'other-fixture' });
+      apiClient.setConfig(first);
+      return { Felix: { 'reserve-percent': 5 } };
+    }) as typeof apiClient.get;
+    apiClient.put = (async () => {
+      writes += 1;
+    }) as typeof apiClient.put;
+    try {
+      await expect(usagePoolApi.setPersonReserve('Felix', 10)).rejects.toMatchObject({
+        name: 'AbortError',
+      });
+      expect(writes).toBe(0);
+    } finally {
+      apiClient.get = get;
+      apiClient.put = put;
+      apiClient.setConfig({ apiBase: '', managementKey: '' });
+    }
+  });
 });

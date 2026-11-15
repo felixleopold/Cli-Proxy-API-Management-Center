@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { getConfigValue } from './configValue';
+import { getConfigValue, guardConfigConnection } from './configValue';
 import { isRecord } from '@/utils/helpers';
 import type { AuthFilePaceMode } from '@/types';
 
@@ -185,11 +185,13 @@ export const usagePoolApi = {
    * but a differently cased key would add a second entry.
    */
   async setPersonReserve(user: string, percent: number): Promise<void> {
+    const assertConnection = guardConfigConnection();
     const people = await getConfigValue<unknown>('/config/usage-reserves/people', {});
     const key =
       Object.keys(isRecord(people) ? people : {}).find(
         (name) => name.toLowerCase() === user.toLowerCase()
       ) ?? user;
+    assertConnection();
     await apiClient.put(
       `/config/usage-reserves/people/${encodeURIComponent(key)}/reserve-percent`,
       percent
