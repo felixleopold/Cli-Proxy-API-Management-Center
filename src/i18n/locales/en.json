@@ -2933,6 +2933,7 @@
     "settings_hint_reserveFiveHour": "The share of each 5-hour window kept for the lender; the pool stops using the account once only this much is left.",
     "settings_hint_reserveWeekly": "The share of each weekly window kept for the lender; the pool stops using the account once only this much is left.",
     "verification_required": "Verification required",
+    "verify_account": "Verify account",
     "retired_badge": "Retired · {{date}}",
     "retired_title": "Retired on {{date}}",
     "retired_hint": "Retired: out of the pool and the totals, with its plan, lender, reserves and history kept. Reactivate it from ⚙ or the toggle.",

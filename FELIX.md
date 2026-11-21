@@ -125,7 +125,9 @@ Current base: upstream `v1.25.6`.
   base-plan percent, so unequal plans pace correctly), for Claude, Gemini (`antigravity`) and
   Codex. The Gemini pool and Antigravity account rows use the Gemini Models 5-hour and weekly
   windows. Each window prefers the gateway's Gemini quota signals and falls back to the loaded quota card.
-  Accounts show "Verification required" when the gateway reports that status or cooldown reason.
+  Accounts and Auth Files show "Verification required" when the gateway reports that status or
+  cooldown reason for Antigravity, or "Verify account" when it supplies an HTTPS Google Accounts
+  verification link.
   The projection is sleep-aware: each credential's daily rate is its own
   trailing-7-day drain or its last-24h drain, whichever is higher (below 24h, the drain so far
   over its activity-weighted time; below 3h, the window pace), spread over a local hour-of-day

@@ -17,6 +17,42 @@ describe('auth-files response normalization', () => {
     expect(result.files.map((file) => file.fableLocked)).toEqual([true, undefined]);
   });
 
+  test('accepts only HTTPS Google Accounts verification links for Antigravity', () => {
+    const url = 'https://accounts.google.com/signin?continue=%2Fsetup';
+    const { files } = normalizeAuthFilesResponse(
+      responseWithRawFiles(
+        [
+          url,
+          undefined,
+          '//accounts.google.com/signin',
+          'http://accounts.google.com/signin',
+          'https://accounts.google.com.example.org/signin',
+          'https://accounts.google.com@example.org/signin',
+          'https://accounts.google.com:8443/signin',
+          'blob:https://accounts.google.com/id',
+          url,
+        ].map((verificationUrl, index) => ({
+          name: `account-${index}.json`,
+          provider: index === 8 ? 'codex' : 'antigravity',
+          status: 'verification_required',
+          verification_url: verificationUrl,
+        }))
+      )
+    );
+
+    expect(files.map((file) => file.verificationUrl)).toEqual([
+      url,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+  });
+
   test('normalizes WRR weights while preserving zero and negative values', () => {
     const result = normalizeAuthFilesResponse(
       responseWithRawFiles([

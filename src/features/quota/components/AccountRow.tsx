@@ -22,6 +22,8 @@ import {
   isThemeSurfaceIconProvider,
 } from '@/features/authFiles/constants';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
+import { VerifyAccountLink } from '@/features/authFiles/components/VerifyAccountLink';
+import { requiresVerification } from '@/features/authFiles/verification';
 import type { AccountSpendContext } from '@/features/usage/components/AccountSpend';
 import { slotClassName } from '@/features/usage/components/slotClass';
 import { formatUsd, type SubscriptionSummary } from '@/features/usage/usageModel';
@@ -30,12 +32,7 @@ import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { isClaudeFile } from '@/utils/quota/validators';
 import { DAY_MS } from '@/utils/time/durations';
 import { activePause } from '../accountControls';
-import {
-  nextResetsOf,
-  requiresVerification,
-  type AccountWindow,
-  type AccountWindows,
-} from '../accountCards';
+import { nextResetsOf, type AccountWindow, type AccountWindows } from '../accountCards';
 import { AccountSettingsPopover } from './AccountSettingsPopover';
 import { formatCountdown, formatWhen } from './countdown';
 import { HoverCard } from './HoverCard';
@@ -451,6 +448,7 @@ export function AccountRow(props: AccountRowProps) {
   const retiredAtMs = file?.disabled ? file.retiredAtMs : undefined;
   const pausedUntilMs = file ? activePause(file, now) : null;
   const verificationRequired = file && requiresVerification(file);
+  const verificationUrl = verificationRequired ? file.verificationUrl : undefined;
 
   return (
     <li
@@ -487,7 +485,7 @@ export function AccountRow(props: AccountRowProps) {
                 role="img"
               />
             )}
-            {verificationRequired && (
+            {verificationRequired && !verificationUrl && (
               <span className={styles.statusBadge}>
                 {t('usage_accounts.verification_required')}
               </span>
@@ -499,6 +497,12 @@ export function AccountRow(props: AccountRowProps) {
             )}
             <IconChevronRight size={12} aria-hidden="true" className={styles.chevron} />
           </button>
+          {verificationUrl && (
+            <VerifyAccountLink
+              url={verificationUrl}
+              className={`${styles.statusBadge} ${styles.verifyLink}`}
+            />
+          )}
         </span>
         <span className={`${styles.cell} ${styles.plan}`}>{plan}</span>
         <WindowCell

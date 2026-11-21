@@ -1,10 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import {
-  pairAccountSpend,
-  pooledByAuthId,
-  requiresVerification,
-  windowsForFile,
-} from '@/features/quota/accountCards';
+import { pairAccountSpend, pooledByAuthId, windowsForFile } from '@/features/quota/accountCards';
+import { requiresVerification } from '@/features/authFiles/verification';
 import { buildPools, cardReading } from '@/features/quota/quotaForecastModel';
 import { buildAntigravityQuotaGroups } from '@/utils/quota/builders';
 import { classifyQuotaFiles } from '@/features/quota/logic';

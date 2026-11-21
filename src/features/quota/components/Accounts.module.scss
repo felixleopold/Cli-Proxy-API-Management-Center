@@ -465,6 +465,11 @@ strong + .cardLine {
   white-space: nowrap;
 }
 
+.verifyLink {
+  color: var(--primary-color);
+  text-decoration: underline;
+}
+
 /* "Paused until Thu 07:00": like the retired badge, in the pause hue. */
 .pausedBadge {
   flex: none;
