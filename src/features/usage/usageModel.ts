@@ -559,8 +559,11 @@ export function summarizeSubscription(
 ): SubscriptionSummary {
   const { quota, session, observedAtMs } = subscription;
   const window = quota ? quotaWindowSpan(quota, nowMs) : null;
+  // Ledger buckets are hourly: count the one the window starts in, or a window
+  // opening at 00:04 would drop its whole first hour of spend.
+  const span = window ? { ...window, startMs: floorToUnit(window.startMs, 'hour') } : fallback;
   const own = filterBuckets(buckets, {
-    ...(window ?? fallback),
+    ...span,
     provider: null,
     authId: subscription.id,
   });

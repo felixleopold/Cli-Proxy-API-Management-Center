@@ -404,6 +404,22 @@ describe('rollups', () => {
     ).toBeNull();
   });
 
+  test('subscription summary counts the hour bucket the window starts in', () => {
+    // The window opened at 11:04; its first bucket is stamped 11:00.
+    const openedMidHour = {
+      ...claude,
+      quota: { ...claude.quota!, resetMs: NOW - HOUR + 4 * 60_000 + WEEK_MS },
+    };
+    const summary = summarizeSubscription(
+      openedMidHour,
+      [bucket({ hourMs: NOW - HOUR, costUsd: 7 }), bucket({ hourMs: NOW - 2 * HOUR, costUsd: 9 })],
+      clients,
+      NOW,
+      { startMs: 0, endMs: 0 }
+    );
+    expect(summary.costUsd).toBe(7);
+  });
+
   test('slots follow identity order, keep "" as none and fold past seven', () => {
     const keys = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
     const slots = assignSlots(keys);
