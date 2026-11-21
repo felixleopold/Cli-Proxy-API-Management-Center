@@ -43,6 +43,10 @@ export function canRefreshQuotaAfterList(
   );
 }
 
+/** Config API keys (`account_type: api_key`): spend only, no subscription row. */
+export const isApiKeyCredential = (file: AuthFileItem): boolean =>
+  String(file.account_type ?? '').toLowerCase() === 'api_key';
+
 export const resolveQuotaProviderType = (file: AuthFileItem): QuotaProviderType | null =>
   QUOTA_TAB_ORDER.find((type) => QUOTA_FILTER_MAP[type](file)) ?? null;
 
@@ -55,6 +59,7 @@ export function classifyQuotaFiles(files: AuthFileItem[]): QuotaFileEntry[] {
     QUOTA_TAB_ORDER.map((type) => [type, []])
   );
   for (const file of files) {
+    if (isApiKeyCredential(file)) continue;
     const type = resolveQuotaProviderType(file);
     if (!type) continue;
     groups.get(type)?.push({ file, type });
@@ -73,7 +78,7 @@ export function disabledAccountFiles(
 ): AuthFileItem[] {
   const query = search.trim().toLowerCase();
   return files.filter((file) => {
-    if (!isDisabledAuthFile(file)) return false;
+    if (!isDisabledAuthFile(file) || isApiKeyCredential(file)) return false;
     const enabled = { ...file, disabled: false };
     const inTab =
       tab === 'all' ||

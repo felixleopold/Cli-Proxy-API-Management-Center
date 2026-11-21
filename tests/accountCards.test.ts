@@ -56,6 +56,25 @@ describe('account card pairing', () => {
     ]);
   });
 
+  test('gives config API keys no row, quota or spend-only', () => {
+    const keys = [
+      file('claude-2', 'claude', { id: 'claude:apikey:aaa', account_type: 'api_key' }),
+      file('gemini-credits', 'gemini', { id: 'gemini:apikey:bbb', account_type: 'api_key' }),
+    ];
+    const keyEntries = classifyQuotaFiles(keys);
+    const { spendOnly } = pairAccountSpend(
+      keyEntries,
+      [
+        summary('claude:apikey:aaa', 'claude', 'claude-2'),
+        summary('gemini:apikey:bbb', 'gemini', 'g'),
+      ],
+      '',
+      keys
+    );
+    expect(keyEntries).toEqual([]);
+    expect(spendOnly).toEqual([]);
+  });
+
   test('searches spend-only cards, and never turns a hidden quota card into one', () => {
     const { spendOnly } = pairAccountSpend(entries, summaries, 'ERIN', files);
     expect(spendOnly.map((item) => item.subscription.id)).toEqual(['gemini-erin.json']);
