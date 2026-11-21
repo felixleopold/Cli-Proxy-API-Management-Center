@@ -4,6 +4,7 @@ import { normalizeClientKey } from '../src/services/api/clientKeys';
 import {
   WEEK_MS,
   assignSlots,
+  subscriptionSlots,
   userSlots,
   buildClientRows,
   clientKind,
@@ -428,6 +429,22 @@ describe('rollups', () => {
     expect(slots.get('g')).toBe(6);
     expect(slots.get('h')).toBe('other');
     expect(assignSlots(['a', 'c']).get('c')).toBe(1);
+  });
+
+  test('subscription slots go to the biggest spenders, not the first provider', () => {
+    const logins = Array.from({ length: 7 }, (_, i) => ({
+      ...claude,
+      id: `ag-${i}`,
+      provider: 'antigravity',
+      name: `login${i}@gmail.com`,
+    }));
+    const slots = subscriptionSlots(
+      [...logins, claude],
+      [bucket({ authId: claude.id, costUsd: 300 }), bucket({ authId: 'ag-0', costUsd: 1 })]
+    );
+    expect(slots.get(claude.id)).toBe(0);
+    expect(slots.get('ag-0')).toBe(1);
+    expect(slots.get('ag-6')).toBe('other');
   });
 
   test('a user keeps their colour by name, whoever else is listed', () => {

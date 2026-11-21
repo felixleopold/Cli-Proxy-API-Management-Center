@@ -590,10 +590,7 @@ export function summarizeSubscription(
 /** A categorical slot, "other" past SLOT_COUNT, or "none" for unassigned / unattributed. */
 export type SeriesSlot = number | 'other' | 'none';
 
-/**
- * Slots in the given order. The order comes from identity, not spend, so a
- * filter, range or new reading never repaints a series. '' is always "none".
- */
+/** Slots in the given order, "other" past SLOT_COUNT. '' is always "none". */
 export function assignSlots(keys: readonly string[]): Map<string, SeriesSlot> {
   const slots = new Map<string, SeriesSlot>([['', 'none']]);
   keys
@@ -639,11 +636,28 @@ export function userSlots(clients: readonly UsageClient[]): Map<string, SeriesSl
   return slots;
 }
 
-/** Subscriptions by provider, then name; imported personal-account usage last. */
-export function subscriptionSlots(subscriptions: readonly Subscription[]): Map<string, SeriesSlot> {
+/**
+ * Subscriptions by spend in the loaded buckets, so the named slots go to the
+ * ones that cost money rather than to whichever provider sorts first (seven
+ * Antigravity logins once took every slot). Ties by provider, then name;
+ * imported personal-account usage last.
+ */
+export function subscriptionSlots(
+  subscriptions: readonly Subscription[],
+  buckets: readonly UsageLedgerBucket[]
+): Map<string, SeriesSlot> {
+  const spend = new Map<string, number>();
+  for (const bucket of buckets) {
+    spend.set(bucket.authId, (spend.get(bucket.authId) ?? 0) + bucket.costUsd);
+  }
   return assignSlots([
     ...[...subscriptions]
-      .sort((a, b) => a.provider.localeCompare(b.provider) || a.name.localeCompare(b.name))
+      .sort(
+        (a, b) =>
+          (spend.get(b.id) ?? 0) - (spend.get(a.id) ?? 0) ||
+          a.provider.localeCompare(b.provider) ||
+          a.name.localeCompare(b.name)
+      )
       .map((subscription) => subscription.id),
     OWN_ACCOUNT_AUTH_ID,
   ]);

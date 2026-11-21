@@ -210,10 +210,10 @@ export function UsageSections({
   // A retired credential with spend in the loaded ledger keeps the colour it had while active.
   const subscriptionColors = useMemo(() => {
     const spent = new Set(buckets.map((bucket) => bucket.authId));
-    return subscriptionSlots([
-      ...subscriptions,
-      ...retired.filter((subscription) => spent.has(subscription.id)),
-    ]);
+    return subscriptionSlots(
+      [...subscriptions, ...retired.filter((subscription) => spent.has(subscription.id))],
+      buckets
+    );
   }, [buckets, retired, subscriptions]);
   const subscriptionById = useMemo(
     () => new Map(subscriptions.map((subscription) => [subscription.id, subscription])),
