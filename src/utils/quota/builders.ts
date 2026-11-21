@@ -17,7 +17,7 @@ import type {
   XaiBillingSummary,
   XaiProductUsageSummary,
 } from '@/types';
-import { ANTIGRAVITY_GEMINI_GROUP_ID, isAntigravityGeminiBucket } from './constants';
+import { isAntigravityGeminiBucket } from './constants';
 import { normalizeNumberValue, normalizeQuotaFraction, normalizeStringValue } from './parsers';
 import { parseOffsetSecondsToMs, resolveResetMs } from './resetInstants';
 
@@ -76,7 +76,6 @@ export function buildAntigravityQuotaGroups(
         normalizeStringValue(group.displayName ?? group.display_name) ??
         `Quota Group ${groupIndex + 1}`;
       const groupId = toStableId(label, `quota-group-${groupIndex + 1}`);
-      if (groupId !== ANTIGRAVITY_GEMINI_GROUP_ID) return null;
       const buckets = Array.isArray(group.buckets) ? group.buckets : [];
       const parsedBuckets = buckets
         .map((bucket): AntigravityQuotaBucket | null => {

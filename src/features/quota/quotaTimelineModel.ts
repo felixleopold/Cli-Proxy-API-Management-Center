@@ -10,7 +10,7 @@
  * week, and no per-card percentage shows that.
  */
 
-import { ANTIGRAVITY_GEMINI_GROUP_ID, isAntigravityGeminiBucket } from '@/utils/quota/constants';
+import { isAntigravityGeminiBucket } from '@/utils/quota/constants';
 import { DAY_MS, HOUR_MS } from '@/utils/time/durations';
 import type { QuotaProviderType } from './providers/types';
 
@@ -489,7 +489,6 @@ export function buildTimelineLane(input: TimelineLaneInput): TimelineLane {
       groups?: { id: string; buckets: AntigravityBucketLike[] }[];
     };
     const buckets = (groups ?? [])
-      .filter((group) => group.id === ANTIGRAVITY_GEMINI_GROUP_ID)
       .flatMap((group) => group.buckets)
       .filter(
         (bucket) => isAntigravityGeminiBucket(bucket.id) && typeof bucket.resetAtMs === 'number'

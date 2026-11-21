@@ -111,7 +111,6 @@ export const ANTIGRAVITY_QUOTA_REQUEST_HEADERS = {
   'User-Agent': 'antigravity/hub/2.24.0 (aidev_client; os_type=darwin; arch=arm64; cl=963137146)',
 };
 
-export const ANTIGRAVITY_GEMINI_GROUP_ID = 'gemini-models';
 export const isAntigravityGeminiBucket = (id: string) =>
   id === 'gemini-5h' || id === 'gemini-weekly';
 
