@@ -52,10 +52,37 @@
   cursor: help;
 }
 
-/* `any` may spend subscription quota too, so it reads a little louder. */
+/* `any` and `subscription` spend subscription quota, so they read a little louder. */
 .credentialsAny {
   border-color: var(--text-secondary);
   color: var(--text-primary);
+}
+
+.prefer {
+  margin-left: 6px;
+  padding-left: 6px;
+  border-left: 1px solid var(--border-primary);
+  font-family: $font-family;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* A group pin decides which accounts may serve the key, so it is always shown by the name. */
+.routeGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: $radius-full;
+  background: var(--text-primary);
+  color: var(--bg-secondary);
+  font-family: $font-mono;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+  cursor: help;
 }
 
 .allModels {

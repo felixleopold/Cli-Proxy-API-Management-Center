@@ -287,6 +287,18 @@
   min-width: 200px;
 }
 
+.nameBadges {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  vertical-align: top;
+
+  &:empty {
+    display: none;
+  }
+}
+
 .nameButton {
   display: inline-flex;
   flex-direction: column;

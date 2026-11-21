@@ -94,10 +94,10 @@
   }
 }
 
-/* Credential pin: two radio cards. */
+/* Credential pin: three radio cards. */
 .choices {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin: 0 0 $spacing-md;
   padding: 0;
@@ -171,4 +171,78 @@
   font-size: 12px;
   line-height: 1.45;
   color: var(--text-secondary);
+}
+
+/* Preference and route group: a label, one row of choices, a hint. */
+.option {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 $spacing-md;
+  padding: 0;
+  border: 0;
+
+  legend {
+    margin-bottom: $spacing-xs;
+    padding: 0;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  :global(.hint) {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+}
+
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border-color);
+  border-radius: $radius-full;
+  background: var(--bg-tertiary);
+}
+
+.segment {
+  position: relative;
+  cursor: pointer;
+
+  input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 4px 13px;
+    border: 1px solid transparent;
+    border-radius: $radius-full;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover span {
+      color: var(--text-primary);
+    }
+  }
+
+  input:checked + span {
+    border-color: var(--border-hover);
+    background: var(--floating-surface, var(--bg-primary));
+    color: var(--text-primary);
+  }
+
+  input:focus-visible + span {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
 }

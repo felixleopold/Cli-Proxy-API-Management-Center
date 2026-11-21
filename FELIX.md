@@ -116,6 +116,19 @@ Current base: upstream `v1.25.6`.
   since OpenAI clients append `/models` themselves and 404 without `/v1`. Config saves are YAML
   diffs (`buildConfigPatch`), so the `client-keys` block, `gateway-urls` included, is only sent
   when edited in the YAML editor.
+- **Input API keys and client-key routing** (`src/features/clientKeys/`). Above the keys, *Input API
+  keys* lists the upstream API-key credentials from `GET /credentials` (entries with `auth_kind:
+  api-key`, a `config:` source or the client-key flags): provider and name, scope (*Client keys
+  only*, *Serves client keys*, *Device only*), credential-group chips, and this cycle's spend against
+  `monthly_limit_usd` with its anchor ("Day 15 · since Nov 15", `*` for unpriced usage, a badge when
+  `limit_reached`). Edit sends `PATCH /api-keys/settings {auth_id, billing_cycle_day,
+  monthly_limit_usd, client_keys_only, serve_client_keys, credential_groups}`; group choices come
+  from the config's `credential-groups`. The key form offers `credentials` `api-key`,
+  `subscription` or `any`, `prefer_credentials` for `any` (sent as `""` otherwise, which clears it),
+  and a one-click `route_group` pin; the list and sheet badge both. Provider config reads and writes
+  keep `client-keys-only`, `credential-groups`, `billing-cycle-day` and `monthly-limit-usd`, which the
+  provider forms don't edit. Logic: `inputKeysModel.ts`; tests: `tests/inputKeys.test.ts`,
+  `tests/providerClientKeyRouting.test.ts`.
 - **Quota forecast** (`src/features/quota/quotaForecastModel.ts`, `components/QuotaForecast*`).
   Per-provider pool chart of remaining quota in plan multipliers (each credential contributes what
   is left of its share, refilling to its effective multiplier at reset; the pool is ΣE; values read

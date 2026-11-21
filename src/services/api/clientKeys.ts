@@ -7,7 +7,10 @@ import { isRecord } from '@/utils/helpers';
  * `client-keys.enabled` is off; the usage route also while `usage-ledger.enabled` is off.
  */
 
-export type ClientKeyCredentials = 'api-key' | 'any';
+export type ClientKeyCredentials = 'api-key' | 'subscription' | 'any';
+
+/** Which kind `credentials: 'any'` tries first; '' leaves it to priority and strategy. */
+export type ClientKeyPreference = '' | 'api-key' | 'subscription';
 
 export interface ClientKey {
   id: string;
@@ -22,6 +25,10 @@ export interface ClientKey {
   /** Empty allows every model. */
   models: string[];
   credentials: ClientKeyCredentials;
+  /** Only meaningful with `credentials: 'any'`. */
+  preferCredentials: ClientKeyPreference;
+  /** Credential group the key is pinned to; '' uses the default pool. */
+  routeGroup: string;
   /** 0 means unlimited. */
   monthlyBudgetUsd: number;
   /** This UTC month's priced spend; null while the usage ledger is off. */
@@ -35,6 +42,10 @@ export interface ClientKeyInput {
   project: string;
   models: string[];
   credentials: ClientKeyCredentials;
+  /** Sent as '' to clear. */
+  preferCredentials: ClientKeyPreference;
+  /** Sent as '' to clear. */
+  routeGroup: string;
   monthlyBudgetUsd: number;
   /** RFC3339, or '' for no expiry. */
   expiresAt: string;
@@ -89,6 +100,12 @@ const timeMs = (value: unknown): number | null => {
   return Number.isFinite(ms) ? ms : null;
 };
 
+const credentialsOf = (value: unknown): ClientKeyCredentials =>
+  value === 'any' || value === 'subscription' ? value : 'api-key';
+
+const preferenceOf = (value: unknown): ClientKeyPreference =>
+  value === 'api-key' || value === 'subscription' ? value : '';
+
 const list = (value: unknown): Record<string, unknown>[] =>
   Array.isArray(value) ? value.filter(isRecord) : [];
 
@@ -102,7 +119,9 @@ export const normalizeClientKey = (raw: Record<string, unknown>): ClientKey => (
   expiresAtMs: timeMs(raw.expires_at),
   disabled: raw.disabled === true,
   models: Array.isArray(raw.models) ? raw.models.map(str).filter(Boolean) : [],
-  credentials: raw.credentials === 'any' ? 'any' : 'api-key',
+  credentials: credentialsOf(raw.credentials),
+  preferCredentials: raw.credentials === 'any' ? preferenceOf(raw.prefer_credentials) : '',
+  routeGroup: str(raw.route_group),
   monthlyBudgetUsd: Math.max(0, num(raw.monthly_budget_usd)),
   spentUsdMonth:
     raw.spent_usd_month === null || raw.spent_usd_month === undefined
@@ -152,6 +171,9 @@ const serializeInput = (input: ClientKeyInput) => ({
   project: input.project,
   models: input.models,
   credentials: input.credentials,
+  // A preference only applies to `any`; '' clears a stale one.
+  prefer_credentials: input.credentials === 'any' ? input.preferCredentials : '',
+  route_group: input.routeGroup,
   monthly_budget_usd: input.monthlyBudgetUsd,
   expires_at: input.expiresAt,
 });
@@ -165,11 +187,14 @@ export const clientKeysApi = {
   },
 
   async create(input: ClientKeyInput): Promise<ClientKeyWithSecret> {
-    const { expires_at, ...rest } = serializeInput(input);
-    // Create has no expiry to clear; omit an empty one.
-    return withSecret(
-      await apiClient.post<unknown>(BASE, expires_at ? { ...rest, expires_at } : rest)
+    // Create has nothing to clear; omit empty optional fields.
+    const body = Object.fromEntries(
+      Object.entries(serializeInput(input)).filter(
+        ([field, value]) =>
+          !['expires_at', 'prefer_credentials', 'route_group'].includes(field) || value !== ''
+      )
     );
+    return withSecret(await apiClient.post<unknown>(BASE, body));
   },
 
   async update(id: string, input: ClientKeyInput): Promise<ClientKey> {

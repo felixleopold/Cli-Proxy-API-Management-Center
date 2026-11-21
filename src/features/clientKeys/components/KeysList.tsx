@@ -23,7 +23,14 @@ import {
 } from '../clientKeysModel';
 import { OPTIONAL_COLUMNS, type ClientKeysViewPrefs, type OptionalColumn } from '../viewPrefs';
 import { ColumnsMenu } from './ColumnsMenu';
-import { BudgetBar, CredentialsBadge, ModelChips, StatusBadge, UnpricedBadge } from './KeyBits';
+import {
+  BudgetBar,
+  CredentialsBadge,
+  ModelChips,
+  RouteGroupBadge,
+  StatusBadge,
+  UnpricedBadge,
+} from './KeyBits';
 import styles from './KeysList.module.scss';
 
 export interface KeyActions {
@@ -98,7 +105,7 @@ export function KeysList({
 
   const cell: Record<OptionalColumn, (key: ClientKey) => ReactNode> = {
     models: (key) => <ModelChips models={key.models} />,
-    credentials: (key) => <CredentialsBadge credentials={key.credentials} />,
+    credentials: (key) => <CredentialsBadge keyEntry={key} />,
     budget: (key) => <BudgetBar keyEntry={key} />,
     expires: (key) => <span className={styles.date}>{formatDate(key.expiresAtMs)}</span>,
     created: (key) => <span className={styles.date}>{formatDate(key.createdAtMs)}</span>,
@@ -239,7 +246,10 @@ export function KeysList({
                           <span className={styles.name}>{key.name}</span>
                           <span className={styles.prefix}>{key.prefix}</span>
                         </button>
-                        <UnpricedBadge keyEntry={key} />
+                        <span className={styles.nameBadges}>
+                          <RouteGroupBadge group={key.routeGroup} />
+                          <UnpricedBadge keyEntry={key} />
+                        </span>
                       </th>
                       {flat && (
                         <td className={key.project ? undefined : styles.muted}>

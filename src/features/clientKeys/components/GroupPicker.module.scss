@@ -1,0 +1,81 @@
+@use '../../../styles/mixins' as *;
+
+.picker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: $radius-full;
+  background: var(--bg-secondary);
+  font-family: $font-mono;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition:
+    border-color $transition-fast,
+    background-color $transition-fast;
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      border-color: var(--border-hover);
+    }
+  }
+
+  &[aria-pressed='true'] {
+    border-color: var(--text-primary);
+    background: var(--text-primary);
+    color: var(--bg-secondary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+/* The default-pool pill is a label, not a group name. */
+.plain {
+  font-family: inherit;
+}
+
+.missing {
+  border-style: dashed;
+  border-color: var(--amber-30);
+  color: var(--amber-text);
+}
+
+.clear {
+  padding: 5px 8px;
+  border: 0;
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill {
+    transition: none;
+  }
+}
