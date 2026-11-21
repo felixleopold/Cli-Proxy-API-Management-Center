@@ -416,11 +416,11 @@ export function buildPools(
     const live = readPoolCredential(file);
     const fromCard = cardCredential(file, card);
     const signalled = live ?? historyCredential(file, samples);
-    // Gemini prefers live data for the same window. Other cards can supersede older readings.
+    // Gemini prefers live data for the same window. Otherwise a newer card can supersede older readings.
     const cardWins =
       fromCard !== null &&
-      (provider === 'antigravity'
-        ? !live || (live.window === 'session' && fromCard.window === 'weekly')
+      (provider === 'antigravity' && live !== null
+        ? live.window === 'session' && fromCard.window === 'weekly'
         : cardIsNewer(card, signalled?.observedAtMs ?? null) &&
           (fromCard.window === 'weekly' || signalled?.window !== 'weekly'));
     const credential = (cardWins ? fromCard : signalled) ?? fromCard;

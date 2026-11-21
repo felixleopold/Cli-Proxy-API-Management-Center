@@ -84,7 +84,7 @@ export function buildAntigravityQuotaGroups(
 
           const rawFraction = bucket.remainingFraction ?? bucket.remaining_fraction;
           const remainingFraction =
-            rawFraction === undefined ? 0 : normalizeQuotaFraction(rawFraction);
+            rawFraction == null ? 0 : normalizeQuotaFraction(rawFraction);
           if (remainingFraction === null) return null;
 
           const window = normalizeStringValue(bucket.window) ?? undefined;
