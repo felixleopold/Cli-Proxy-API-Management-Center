@@ -8,7 +8,7 @@
 import { parseSubscription, type SubscriptionSummary } from '@/features/usage/usageModel';
 import type { AuthFileItem } from '@/types';
 import { DAY_MS, HOUR_MS } from '@/utils/time/durations';
-import type { QuotaFileEntry } from './logic';
+import { isApiKeyCredential, type QuotaFileEntry } from './logic';
 import type { NextResets } from './accountControls';
 import {
   cardIsNewer,
@@ -27,7 +27,10 @@ export interface AccountSpendPairing {
   fileFor: (summary: SubscriptionSummary) => AuthFileItem | null;
 }
 
+const isApiKeyFile = (file: AuthFileItem | undefined) => !!file && isApiKeyCredential(file);
+
 /**
+ * API keys get no row: their spend is on Client keys and in the spend history.
  * `entries` are all quota cards before search and paging, so a card hidden by
  * either never turns its spend into a second, spend-only card. `files` gives
  * spend-only cards their file name for search, as quota cards search it.
@@ -47,6 +50,7 @@ export function pairAccountSpend(
     spendOnly: summaries.filter(
       ({ subscription }) =>
         !claimed.has(subscription.id) &&
+        !isApiKeyFile(filesById.get(subscription.id)) &&
         (!query ||
           [subscription.name, subscription.id, filesById.get(subscription.id)?.name ?? ''].some(
             (value) => value.toLowerCase().includes(query)

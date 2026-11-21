@@ -63,7 +63,9 @@ Current base: upstream `v1.25.6`.
   reserve, each with an ⓘ hover explanation), saved diff-only through `PATCH /credentials/fields`
   (`nickname` included); file management stays on Auth Files. A row pairs
   with its spend by auth id (`file.id`, else the file name), the ledger's `auth_id`; credentials
-  without quota support get a spend-only row after the quota rows, on the last page
+  without quota support get a spend-only row after the quota rows, on the last page; config API keys
+  (`account_type: api_key`) get no row at all (their cycle spend is on Client keys, their spend stays
+  in the history)
   (`src/features/quota/accountCards.ts`, `accountSettings.ts`; components `AccountsList.tsx`,
   `AccountRow.tsx`, `QuotaAccountRow.tsx`, `AccountSettingsPopover.tsx`; tests:
   `tests/accountCards.test.ts`, `tests/accountRows.test.ts`). The expanded rows reuse the provider
@@ -123,7 +125,8 @@ Current base: upstream `v1.25.6`.
   `monthly_limit_usd` with its anchor ("Day 15 · since Nov 15", `*` for unpriced usage, a badge when
   `limit_reached`). Edit sends `PATCH /api-keys/settings {auth_id, billing_cycle_day,
   monthly_limit_usd, client_keys_only, serve_client_keys, credential_groups}`; group choices come
-  from the config's `credential-groups`. The key form offers `credentials` `api-key`,
+  from the config's `credential-groups`, except the private `special*` groups, which appear only on a
+  key that already holds one (agents set them through the API, fleet skill `cliproxy-keys`). The key form offers `credentials` `api-key`,
   `subscription` or `any`, `prefer_credentials` for `any` (sent as `""` otherwise, which clears it),
   and a one-click `route_group` pin; the list and sheet badge both. Provider config reads and writes
   keep `client-keys-only`, `credential-groups`, `billing-cycle-day` and `monthly-limit-usd`, which the

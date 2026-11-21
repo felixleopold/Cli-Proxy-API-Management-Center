@@ -63,8 +63,14 @@ export const parseLimitUsd = (text: string): number | null => {
   return Number.isFinite(value) && value >= 0 ? value : null;
 };
 
-/** Configured groups first (config order), then any the key holds that config no longer lists. */
+/** Groups the UI never offers (the private `special*` groups); agents still set them via the API. */
+const isHiddenGroup = (group: string) => group.startsWith('special');
+
+/**
+ * Configured groups first (config order), then any the key holds that config no longer lists.
+ * Hidden groups appear only when the key already holds them, so an edit keeps them.
+ */
 export const groupChoices = (configured: string[], held: string[]): string[] => [
-  ...configured,
+  ...configured.filter((group) => !isHiddenGroup(group) || held.includes(group)),
   ...held.filter((group) => !configured.includes(group)),
 ];

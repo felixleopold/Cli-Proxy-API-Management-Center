@@ -3,6 +3,7 @@ import { apiClient } from '../src/services/api/client';
 import { clientKeysApi, normalizeClientKey } from '../src/services/api/clientKeys';
 import { inputKeysApi, serializeInputKeySettings } from '../src/services/api/inputKeys';
 import {
+  groupChoices,
   inputKeyLabel,
   inputKeyLimit,
   inputKeyScope,
@@ -162,4 +163,10 @@ test('client key routing fields: create omits empty ones, update sends "" to cle
   expect(
     normalizeClientKey({ credentials: 'any', prefer_credentials: 'api-key', route_group: 'x' })
   ).toMatchObject({ preferCredentials: 'api-key', routeGroup: 'x' });
+});
+
+test('groupChoices hides special* groups unless the key already holds one', () => {
+  const configured = ['commercial', 'special', 'special-plus'];
+  expect(groupChoices(configured, [])).toEqual(['commercial']);
+  expect(groupChoices(configured, ['special-plus'])).toEqual(['commercial', 'special-plus']);
 });
