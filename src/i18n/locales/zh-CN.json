@@ -2913,6 +2913,7 @@
     "settings_hint_lender": "将此账号借给池的人。出借人的预留为其保留，可在“预留”栏中释放。",
     "settings_hint_reserveFiveHour": "每个 5 小时窗口为出借人保留的份额；只剩这么多时，池将不再使用此账号。",
     "settings_hint_reserveWeekly": "每个每周窗口为出借人保留的份额；只剩这么多时，池将不再使用此账号。",
+    "verification_required": "需要验证",
     "retired_badge": "已退役 · {{date}}",
     "retired_title": "于 {{date}} 退役",
     "retired_hint": "已退役：不计入池和总量，套餐、出借方、预留和历史均保留。可通过 ⚙ 或开关重新启用。",

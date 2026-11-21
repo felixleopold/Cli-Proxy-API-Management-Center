@@ -17,6 +17,7 @@ import type {
   XaiBillingSummary,
   XaiProductUsageSummary,
 } from '@/types';
+import { ANTIGRAVITY_GEMINI_GROUP_ID, isAntigravityGeminiBucket } from './constants';
 import { normalizeNumberValue, normalizeQuotaFraction, normalizeStringValue } from './parsers';
 import { parseOffsetSecondsToMs, resolveResetMs } from './resetInstants';
 
@@ -75,18 +76,19 @@ export function buildAntigravityQuotaGroups(
         normalizeStringValue(group.displayName ?? group.display_name) ??
         `Quota Group ${groupIndex + 1}`;
       const groupId = toStableId(label, `quota-group-${groupIndex + 1}`);
+      if (groupId !== ANTIGRAVITY_GEMINI_GROUP_ID) return null;
       const buckets = Array.isArray(group.buckets) ? group.buckets : [];
       const parsedBuckets = buckets
-        .map((bucket, bucketIndex): AntigravityQuotaBucket | null => {
-          const remainingFraction = normalizeQuotaFraction(
-            bucket.remainingFraction ?? bucket.remaining_fraction
-          );
+        .map((bucket): AntigravityQuotaBucket | null => {
+          const rawId = normalizeStringValue(bucket.bucketId ?? bucket.bucket_id);
+          if (!rawId || !isAntigravityGeminiBucket(rawId)) return null;
+
+          const rawFraction = bucket.remainingFraction ?? bucket.remaining_fraction;
+          const remainingFraction =
+            rawFraction === undefined ? 0 : normalizeQuotaFraction(rawFraction);
           if (remainingFraction === null) return null;
 
           const window = normalizeStringValue(bucket.window) ?? undefined;
-          const rawId =
-            normalizeStringValue(bucket.bucketId ?? bucket.bucket_id) ??
-            `${groupId}-${window ?? `bucket-${bucketIndex + 1}`}`;
           const label = normalizeStringValue(bucket.displayName ?? bucket.display_name) ?? rawId;
 
           const resetTime =

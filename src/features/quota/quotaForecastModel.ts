@@ -30,7 +30,7 @@ import {
 export const HOUR_MS = 60 * 60 * 1000;
 export const DAY_MS = 24 * HOUR_MS;
 
-export const FORECAST_PROVIDERS = ['claude', 'codex', 'meta'] as const;
+export const FORECAST_PROVIDERS = ['claude', 'antigravity', 'codex'] as const;
 export type ForecastProvider = (typeof FORECAST_PROVIDERS)[number];
 
 export const FORECAST_HORIZON_DAYS = [1, 3, 7, 14] as const;
@@ -169,7 +169,7 @@ interface SignalWindow {
 
 /** Mirrors the backend's quota history parser so both sides agree on windows. */
 const readSignalWindows = (
-  provider: ForecastProvider,
+  provider: ForecastProvider | 'meta',
   signal: (name: string) => unknown,
   observedAtMs: number | null
 ): SignalWindow[] => {
@@ -195,6 +195,23 @@ const readSignalWindows = (
         minutes,
         fraction === null ? null : fraction * 100,
         parseUnixMs(signal(`${prefix}Reset`))
+      );
+    });
+    return windows;
+  }
+
+  if (provider === 'antigravity') {
+    (
+      [
+        ['Weekly', 7 * 24 * 60],
+        ['5h', 5 * 60],
+      ] as const
+    ).forEach(([name, minutes]) => {
+      const prefix = `X-Antigravity-Gemini-${name}-`;
+      add(
+        minutes,
+        parseNumber(signal(`${prefix}Used-Percent`)),
+        parseUnixMs(signal(`${prefix}Reset-At`))
       );
     });
     return windows;
@@ -240,7 +257,7 @@ const providerOf = (file: AuthFileItem): string =>
 export function readPoolCredential(file: AuthFileItem): PoolCredential | null {
   const provider = providerOf(file);
   const authId = typeof file.id === 'string' ? file.id : '';
-  if (!isForecastProvider(provider) || !authId) return null;
+  if ((!isForecastProvider(provider) && provider !== 'meta') || !authId) return null;
   const signal = readSignals(file);
   if (!signal) return null;
 
@@ -396,13 +413,16 @@ export function buildPools(
     const provider = providerOf(file);
     if (!isForecastProvider(provider)) return;
     const card = typeof file.id === 'string' ? cardReadings.get(file.id) : undefined;
-    const signalled = readPoolCredential(file) ?? historyCredential(file, samples);
+    const live = readPoolCredential(file);
     const fromCard = cardCredential(file, card);
-    // A newer card replaces it unless that would trade a weekly reading for a 5-hour one.
+    const signalled = live ?? historyCredential(file, samples);
+    // Gemini prefers live data for the same window. Other cards can supersede older readings.
     const cardWins =
       fromCard !== null &&
-      cardIsNewer(card, signalled?.observedAtMs ?? null) &&
-      (fromCard.window === 'weekly' || signalled?.window !== 'weekly');
+      (provider === 'antigravity'
+        ? !live || (live.window === 'session' && fromCard.window === 'weekly')
+        : cardIsNewer(card, signalled?.observedAtMs ?? null) &&
+          (fromCard.window === 'weekly' || signalled?.window !== 'weekly'));
     const credential = (cardWins ? fromCard : signalled) ?? fromCard;
     if (!credential) return;
     byProvider.set(provider, [...(byProvider.get(provider) ?? []), credential]);
@@ -432,7 +452,7 @@ export function readShortWindow(
 ): { minutes: number; usedPercent: number; resetAtMs: number; observedAtMs: number | null } | null {
   const provider = providerOf(file);
   const signal = readSignals(file);
-  if (!isForecastProvider(provider) || !signal) return null;
+  if ((!isForecastProvider(provider) && provider !== 'meta') || !signal) return null;
   const observedAtMs = readObservedAtMs(file);
   const short = readSignalWindows(provider, signal, observedAtMs)
     .filter((window) => window.minutes < WEEKLY_MIN_MINUTES)
@@ -495,7 +515,13 @@ const shortWindowOf = (
 ): { minutes: number; usedPercent: number } | null => {
   const reading = typeof file.id === 'string' ? cardReadings.get(file.id) : undefined;
   const live = readShortWindow(file, nowMs);
-  if (live && !(reading?.short && cardIsNewer(reading, live.observedAtMs))) return live;
+  if (
+    live &&
+    (providerOf(file) === 'antigravity' ||
+      !(reading?.short && cardIsNewer(reading, live.observedAtMs)))
+  ) {
+    return live;
+  }
   const card = reading?.short;
   return card
     ? {

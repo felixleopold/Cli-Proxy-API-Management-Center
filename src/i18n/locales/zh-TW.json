@@ -2939,6 +2939,7 @@
     "settings_hint_lender": "將此帳號借給池的人。出借人的預留為其保留，可在「預留」列中釋放。",
     "settings_hint_reserveFiveHour": "每個 5 小時視窗為出借人保留的份額；只剩這麼多時，池將不再使用此帳號。",
     "settings_hint_reserveWeekly": "每個每週視窗為出借人保留的份額；只剩這麼多時，池將不再使用此帳號。",
+    "verification_required": "需要驗證",
     "retired_badge": "已退役 · {{date}}",
     "retired_title": "於 {{date}} 退役",
     "retired_hint": "已退役：不計入池與總量，方案、出借方、預留與歷史皆保留。可透過 ⚙ 或開關重新啟用。",

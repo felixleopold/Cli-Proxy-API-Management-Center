@@ -20,7 +20,7 @@ import {
 } from '@/services/api';
 import {
   ANTIGRAVITY_QUOTA_URLS,
-  ANTIGRAVITY_REQUEST_HEADERS,
+  ANTIGRAVITY_QUOTA_REQUEST_HEADERS,
   normalizeStringValue,
   parseAntigravityPayload,
   buildAntigravityQuotaGroups,
@@ -147,7 +147,7 @@ const fetchAntigravityQuota = async (
         authIndex,
         method: 'POST',
         url,
-        header: { ...ANTIGRAVITY_REQUEST_HEADERS },
+        header: { ...ANTIGRAVITY_QUOTA_REQUEST_HEADERS },
         data: requestBody,
       });
 

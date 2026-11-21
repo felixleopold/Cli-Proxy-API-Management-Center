@@ -346,6 +346,6 @@ describe('plan multiplier field', () => {
         'auth_files.plan_multiplier_invalid'
       );
     }
-    expect(buildAuthFileFieldsPatch(editor({}, '2', 'antigravity'), resolveError)).toEqual({});
+    expect(buildAuthFileFieldsPatch(editor({}, '2', 'qwen'), resolveError)).toEqual({});
   });
 });

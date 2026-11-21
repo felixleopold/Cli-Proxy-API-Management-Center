@@ -7,6 +7,7 @@ import {
   HOUR_MS,
   baselineProfile,
   buildPools,
+  cardReading,
   credentialNow,
   creditsNear,
   drainBuckets,
@@ -177,29 +178,57 @@ describe('readPoolCredential', () => {
     ]);
   });
 
-  test('Muse pools its weekly window; disabled or signal-less Muse credentials add no pool', () => {
+  test('Gemini is pooled between Claude and Codex and live signals win over a newer card', () => {
+    const gemini = file('antigravity', {
+      'x-antigravity-gemini-weekly-used-percent': '35',
+      'X-Antigravity-Gemini-Weekly-Reset-At': unix(NOW + 2 * DAY_MS),
+    });
+    const claude = file('claude', {
+      'Anthropic-Ratelimit-Unified-7d-Utilization': '0.5',
+      'Anthropic-Ratelimit-Unified-7d-Reset': unix(NOW + DAY_MS),
+    });
+    const codex = file('codex', {
+      'X-Codex-Primary-Used-Percent': '70',
+      'X-Codex-Primary-Window-Minutes': '300',
+      'X-Codex-Primary-Reset-At': unix(NOW + HOUR_MS),
+    });
     const muse = file('meta', {
-      'Muse-Window-Used-Percent': '70',
-      'Muse-Window-Minutes': '300',
-      'Muse-Window-Reset-At': unix(NOW + HOUR_MS),
       'Muse-Weekly-Used-Percent': '35',
       'Muse-Weekly-Reset-At': unix(NOW + 2 * DAY_MS),
     });
-    expect(buildPools([muse])).toEqual([
-      {
-        provider: 'meta',
-        capacity: 1,
-        credentials: [
-          expect.objectContaining({
-            window: 'weekly',
-            periodMs: WEEK_MS,
-            usedPercent: 35,
-            resetAtMs: NOW + 2 * DAY_MS,
-          }),
-        ],
-      },
-    ]);
-    expect(buildPools([{ ...muse, disabled: true }, file('meta', {})])).toEqual([]);
+    const quota = {
+      status: 'success',
+      fetchedAtMs: NOW,
+      groups: [{
+        id: 'gemini-models',
+        buckets: [{
+          id: 'gemini-weekly',
+          remainingFraction: 0.33,
+          periodHours: 168,
+          resetAtMs: NOW + DAY_MS,
+        }],
+      }],
+    };
+    const reading = cardReading('antigravity', quota)!;
+    const cards = new Map([['antigravity-1', reading]]);
+    const pools = buildPools([codex, gemini, claude, muse], [], cards);
+    expect(pools.map(({ provider }) => provider)).toEqual(['claude', 'antigravity', 'codex']);
+    expect(pools[1].credentials[0]).toMatchObject({
+      window: 'weekly',
+      periodMs: WEEK_MS,
+      usedPercent: 35,
+      resetAtMs: NOW + 2 * DAY_MS,
+    });
+    expect(buildPools([file('antigravity', {})], [], cards)[0].credentials[0]).toMatchObject({
+      window: 'weekly',
+      usedPercent: 67,
+      resetAtMs: NOW + DAY_MS,
+    });
+    const session = file('antigravity', {
+      'X-Antigravity-Gemini-5h-Used-Percent': '20',
+      'X-Antigravity-Gemini-5h-Reset-At': unix(NOW + HOUR_MS),
+    });
+    expect(buildPools([session], [], cards)[0].credentials[0].window).toBe('weekly');
   });
 });
 
@@ -1098,9 +1127,9 @@ describe('pool cards', () => {
   test('stored preferences keep valid fields over the defaults', () => {
     expect(parseForecastPrefs(null)).toEqual(DEFAULT_FORECAST_PREFS);
     expect(
-      parseForecastPrefs({ collapsed: { meta: false, claude: 'yes' }, burnHours: 6, future: 'x' })
+      parseForecastPrefs({ collapsed: { meta: true, claude: 'yes' }, burnHours: 6, future: 'x' })
     ).toEqual({
-      collapsed: { claude: false, codex: false, meta: false },
+      collapsed: { claude: false, antigravity: false, codex: false },
       burnHours: 6,
       future: 'usual',
     });
