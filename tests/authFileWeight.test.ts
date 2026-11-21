@@ -117,7 +117,10 @@ describe('auth-file usage cap patch', () => {
         'auth_files.usage_cap_invalid'
       );
     }
-    expect(buildAuthFileFieldsPatch(withCap({}, '80', 'antigravity'), resolveError)).toEqual({});
+    expect(buildAuthFileFieldsPatch(withCap({}, '80', 'qwen'), resolveError)).toEqual({});
+    expect(buildAuthFileFieldsPatch(withCap({}, '80', 'antigravity'), resolveError)).toEqual({
+      usage_cap_percent: 80,
+    });
   });
 });
 

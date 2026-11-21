@@ -20,9 +20,8 @@ export interface ForecastPrefs {
 
 const KEY = 'quotaPage.forecastPrefs';
 
-/** Muse starts as a one-line summary; Claude and Codex open. */
 export const DEFAULT_FORECAST_PREFS: ForecastPrefs = {
-  collapsed: { claude: false, codex: false, meta: true },
+  collapsed: { claude: false, antigravity: false, codex: false },
   burnHours: 3,
   future: 'usual',
 };

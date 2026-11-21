@@ -30,7 +30,12 @@ import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { isClaudeFile } from '@/utils/quota/validators';
 import { DAY_MS } from '@/utils/time/durations';
 import { activePause } from '../accountControls';
-import { nextResetsOf, type AccountWindow, type AccountWindows } from '../accountCards';
+import {
+  nextResetsOf,
+  requiresVerification,
+  type AccountWindow,
+  type AccountWindows,
+} from '../accountCards';
 import { AccountSettingsPopover } from './AccountSettingsPopover';
 import { formatCountdown, formatWhen } from './countdown';
 import { HoverCard } from './HoverCard';
@@ -445,6 +450,7 @@ export function AccountRow(props: AccountRowProps) {
   const disabled = file?.disabled === true;
   const retiredAtMs = file?.disabled ? file.retiredAtMs : undefined;
   const pausedUntilMs = file ? activePause(file, now) : null;
+  const verificationRequired = file && requiresVerification(file);
 
   return (
     <li
@@ -462,7 +468,7 @@ export function AccountRow(props: AccountRowProps) {
       >
         <ProviderIcon provider={provider} resolvedTheme={resolvedTheme} />
         <span className={styles.identity}>
-          {file && <RoutingDot file={file} />}
+          {file && !verificationRequired && <RoutingDot file={file} />}
           <button
             type="button"
             className={styles.account}
@@ -480,6 +486,11 @@ export function AccountRow(props: AccountRowProps) {
                 aria-label={errorMessage}
                 role="img"
               />
+            )}
+            {verificationRequired && (
+              <span className={styles.statusBadge}>
+                {t('usage_accounts.verification_required')}
+              </span>
             )}
             {retiredAtMs !== undefined && <RetiredBadge atMs={retiredAtMs} />}
             {pausedUntilMs !== null && <PausedBadge untilMs={pausedUntilMs} />}
@@ -587,7 +598,7 @@ export function RetiredBadge({ atMs }: { atMs: number }) {
     day: 'numeric',
   }).format(atMs);
   return (
-    <span className={styles.retiredBadge} title={t('usage_accounts.retired_title', { date })}>
+    <span className={styles.statusBadge} title={t('usage_accounts.retired_title', { date })}>
       {t('usage_accounts.retired_badge', { date })}
     </span>
   );

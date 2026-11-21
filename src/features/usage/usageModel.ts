@@ -183,6 +183,20 @@ function museWindow(signals: Signals, name: 'weekly' | 'window'): QuotaWindow | 
   };
 }
 
+function geminiWindow(
+  signals: Signals,
+  name: 'weekly' | '5h',
+  periodMs: number
+): QuotaWindow | null {
+  const resetAt = readNumber(signals.get(`x-antigravity-gemini-${name}-reset-at`));
+  if (resetAt === null) return null;
+  return {
+    usedPercent: readNumber(signals.get(`x-antigravity-gemini-${name}-used-percent`)),
+    resetMs: resetAt * 1000,
+    periodMs,
+  };
+}
+
 /** A credential and its quota windows, from the passive `quota.signals` snapshot. */
 export function parseSubscription(file: AuthFileItem): Subscription {
   const quota = isRecord(file.quota) ? file.quota : {};
@@ -209,6 +223,11 @@ export function parseSubscription(file: AuthFileItem): Subscription {
     windows = [
       codexWindow(signals, 'primary', observedAtMs),
       codexWindow(signals, 'secondary', observedAtMs),
+    ].filter((window): window is QuotaWindow => window !== null);
+  } else if (provider === 'antigravity') {
+    windows = [
+      geminiWindow(signals, 'weekly', WEEK_MS),
+      geminiWindow(signals, '5h', 5 * HOUR_MS),
     ].filter((window): window is QuotaWindow => window !== null);
   } else if (provider === 'meta') {
     windows = [museWindow(signals, 'weekly'), museWindow(signals, 'window')].filter(

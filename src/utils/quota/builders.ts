@@ -17,6 +17,7 @@ import type {
   XaiBillingSummary,
   XaiProductUsageSummary,
 } from '@/types';
+import { isAntigravityGeminiBucket } from './constants';
 import { normalizeNumberValue, normalizeQuotaFraction, normalizeStringValue } from './parsers';
 import { parseOffsetSecondsToMs, resolveResetMs } from './resetInstants';
 
@@ -77,16 +78,16 @@ export function buildAntigravityQuotaGroups(
       const groupId = toStableId(label, `quota-group-${groupIndex + 1}`);
       const buckets = Array.isArray(group.buckets) ? group.buckets : [];
       const parsedBuckets = buckets
-        .map((bucket, bucketIndex): AntigravityQuotaBucket | null => {
-          const remainingFraction = normalizeQuotaFraction(
-            bucket.remainingFraction ?? bucket.remaining_fraction
-          );
+        .map((bucket): AntigravityQuotaBucket | null => {
+          const rawId = normalizeStringValue(bucket.bucketId ?? bucket.bucket_id);
+          if (!rawId || !isAntigravityGeminiBucket(rawId)) return null;
+
+          const rawFraction = bucket.remainingFraction ?? bucket.remaining_fraction;
+          const remainingFraction =
+            rawFraction == null ? 0 : normalizeQuotaFraction(rawFraction);
           if (remainingFraction === null) return null;
 
           const window = normalizeStringValue(bucket.window) ?? undefined;
-          const rawId =
-            normalizeStringValue(bucket.bucketId ?? bucket.bucket_id) ??
-            `${groupId}-${window ?? `bucket-${bucketIndex + 1}`}`;
           const label = normalizeStringValue(bucket.displayName ?? bucket.display_name) ?? rawId;
 
           const resetTime =

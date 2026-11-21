@@ -125,6 +125,27 @@ describe('quota signals', () => {
     });
   });
 
+  test('antigravity Gemini windows come from the gateway signals', () => {
+    const subscription = parseSubscription({
+      name: 'antigravity.json',
+      type: 'antigravity',
+      quota: {
+        signals: {
+          'X-Antigravity-Gemini-Weekly-Used-Percent': '29',
+          'X-Antigravity-Gemini-Weekly-Reset-At': String((NOW + DAY) / 1000),
+          'X-Antigravity-Gemini-5h-Used-Percent': '100',
+          'X-Antigravity-Gemini-5h-Reset-At': String((NOW + HOUR) / 1000),
+        },
+      },
+    });
+    expect(subscription.quota).toEqual({ usedPercent: 29, resetMs: NOW + DAY, periodMs: WEEK_MS });
+    expect(subscription.session).toEqual({
+      usedPercent: 100,
+      resetMs: NOW + HOUR,
+      periodMs: 5 * HOUR,
+    });
+  });
+
   test('credentials without signals have no window', () => {
     expect(parseSubscription({ name: 'gemini.json', type: 'gemini' }).quota).toBeNull();
   });

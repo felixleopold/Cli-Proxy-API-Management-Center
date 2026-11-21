@@ -450,7 +450,7 @@ describe('buildTimelineLane', () => {
     ]);
   });
 
-  test('antigravity anchors on its bucket reset, with remaining from the fraction', () => {
+  test('antigravity anchors on Gemini windows even when other groups reset sooner', () => {
     const lane = buildTimelineLane({
       ...base,
       provider: 'antigravity',
@@ -458,9 +458,34 @@ describe('buildTimelineLane', () => {
         status: 'success',
         groups: [
           {
+            id: 'claude-and-gpt-models',
             buckets: [
-              { label: '5h', remainingFraction: 0.4, resetAtMs: 1000, periodHours: 5 },
-              { label: 'Weekly', remainingFraction: 0.82, resetAtMs: 5000, periodHours: 168 },
+              {
+                id: 'claude-weekly',
+                label: 'Weekly',
+                remainingFraction: 0,
+                resetAtMs: 2000,
+                periodHours: 168,
+              },
+            ],
+          },
+          {
+            id: 'gemini-models',
+            buckets: [
+              {
+                id: 'gemini-5h',
+                label: '5h',
+                remainingFraction: 0.4,
+                resetAtMs: 1000,
+                periodHours: 5,
+              },
+              {
+                id: 'gemini-weekly',
+                label: 'Weekly',
+                remainingFraction: 0.82,
+                resetAtMs: 5000,
+                periodHours: 168,
+              },
             ],
           },
         ],
@@ -485,7 +510,12 @@ describe('buildTimelineLane', () => {
       provider: 'antigravity',
       quota: {
         status: 'success',
-        groups: [{ buckets: [{ label: '5h', remainingFraction: 0.4, resetAtMs: null }] }],
+        groups: [
+          {
+            id: 'gemini-models',
+            buckets: [{ id: 'gemini-5h', label: '5h', remainingFraction: 0.4, resetAtMs: null }],
+          },
+        ],
       },
     });
     expect(lane.anchorMs).toBeNull();

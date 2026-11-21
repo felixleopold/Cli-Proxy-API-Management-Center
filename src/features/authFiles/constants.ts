@@ -65,7 +65,13 @@ export const FALSY_TEXT_VALUES = new Set(['false', '0', 'no', 'n', 'off']);
 export const AUTH_FILE_WEBSOCKET_PROVIDERS = new Set(['codex', 'xai']);
 export const AUTH_FILE_USING_API_PROVIDERS = new Set(['xai']);
 // Providers whose window usage the gateway observes, so it can enforce usage_cap_percent.
-export const AUTH_FILE_USAGE_CAP_PROVIDERS = new Set(['claude', 'codex', 'devin', 'meta']);
+export const AUTH_FILE_USAGE_CAP_PROVIDERS = new Set([
+  'claude',
+  'antigravity',
+  'codex',
+  'devin',
+  'meta',
+]);
 export const AUTH_FILE_MANUAL_REFRESH_PROVIDERS = new Set([
   'meta',
   'antigravity',

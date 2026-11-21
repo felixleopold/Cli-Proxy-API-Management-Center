@@ -12,6 +12,7 @@ import type { QuotaFileEntry } from './logic';
 import type { NextResets } from './accountControls';
 import {
   cardIsNewer,
+  readPoolCredential,
   readShortWindow,
   type CardReading,
   type PoolCredential,
@@ -116,6 +117,7 @@ export interface AccountWindowSources {
     observedAtMs: number | null;
   } | null;
   nowMs: number;
+  preferLive?: boolean;
 }
 
 /**
@@ -130,12 +132,14 @@ export function accountWindows({
   card,
   liveShort,
   nowMs,
+  preferLive = false,
 }: AccountWindowSources): AccountWindows {
   // A card without a 5-hour window falls back to a longer one there (e.g. Devin's daily).
   const cardShort = card?.short && card.short.periodMs <= SHORT_PERIOD_MS ? card.short : null;
   const cardLong = card && (!cardShort || card.periodMs > cardShort.periodMs) ? card : null;
   const long =
-    pooled?.window === 'weekly' && !(cardLong && cardIsNewer(card, pooled.observedAtMs))
+    pooled?.window === 'weekly' &&
+    (preferLive || !(cardLong && cardIsNewer(card, pooled.observedAtMs)))
       ? pooled
       : cardLong;
   const live =
@@ -148,7 +152,7 @@ export function accountWindows({
           observedAtMs: liveShort.observedAtMs,
         };
   const short: WindowSource | null =
-    live && !(cardShort && cardIsNewer(card, live.observedAtMs)) ? live : cardShort;
+    live && (preferLive || !(cardShort && cardIsNewer(card, live.observedAtMs))) ? live : cardShort;
   return {
     short: short ? windowNow(short, nowMs) : null,
     long: long ? windowNow(long, nowMs) : null,
@@ -169,11 +173,15 @@ export function windowsForFile(
   nowMs: number
 ): AccountWindows {
   const authId = typeof file.id === 'string' ? file.id : '';
+  const provider = String(file.provider ?? file.type ?? '')
+    .trim()
+    .toLowerCase();
   return accountWindows({
-    pooled: pooled.get(authId) ?? null,
+    pooled: pooled.get(authId) ?? (provider === 'meta' ? readPoolCredential(file) : null),
     card: cardReadings.get(authId) ?? null,
     liveShort: readShortWindow(file, nowMs),
     nowMs,
+    preferLive: provider === 'antigravity',
   });
 }
 
@@ -189,3 +197,10 @@ export const nextResetsOf = (windows: AccountWindows): NextResets => ({
       ? windows.long.observedResetAtMs
       : null,
 });
+
+export const requiresVerification = (file: AuthFileItem): boolean =>
+  file.status === 'verification_required' ||
+  file.statusMessage === 'verification_required' ||
+  file.routingStatus?.reason === 'verification_required' ||
+  (file.cooldownSnapshot?.records?.some(({ reason }) => reason === 'verification_required') ??
+    false);

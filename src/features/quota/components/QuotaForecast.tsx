@@ -85,7 +85,7 @@ import styles from './QuotaForecast.module.scss';
 const SERIES_COLOR: Record<ForecastProvider, string> = {
   claude: 'var(--fc-claude)',
   codex: 'var(--fc-codex)',
-  meta: 'var(--fc-meta)',
+  antigravity: 'var(--fc-antigravity)',
 };
 
 /** Gateway reasons a capacity change's label already says. */
@@ -190,7 +190,8 @@ export function QuotaForecast({
   const users = useLedgerUsers();
   const [person, setPerson] = useState('');
   // The gateway's pool report: its burn paces every projection; a chosen person also gets their view.
-  const personPools = useUsagePool(poolProviders(files, tab), person);
+  const personProviders = poolProviders(files, tab).filter((provider) => provider !== 'meta');
+  const personPools = useUsagePool(personProviders, person);
 
   // The drawn history; before the first quota sample only capacity steps show.
   const startMs = samples ? historyStartMs(past, nowMs, samples, timeline) : nowMs;
@@ -314,7 +315,7 @@ export function QuotaForecast({
         const drawn = timeline ? withCapacityTimeline(pool, timeline, samples ?? []) : pool;
         const row: ForecastRow = {
           key: pool.provider,
-          label: getTypeLabel(t, pool.provider),
+          label: getTypeLabel(t, pool.provider === 'antigravity' ? 'gemini' : pool.provider),
           color: SERIES_COLOR[pool.provider],
           capacity: pool.capacity,
           history: samples ? poolHistory(drawn, samples, startMs, nowMs) : [],
@@ -543,7 +544,9 @@ export function QuotaForecast({
         <header className={styles.cardHead}>
           <span className={styles.identity}>
             {icon && <img src={icon} alt="" className={styles.providerIcon} />}
-            <span className={styles.providerName}>{getTypeLabel(t, report.provider)}</span>
+            <span className={styles.providerName}>
+              {getTypeLabel(t, report.provider === 'antigravity' ? 'gemini' : report.provider)}
+            </span>
           </span>
         </header>
         <div className={styles.cardSummary}>
@@ -562,7 +565,7 @@ export function QuotaForecast({
   const shownPerson = personPools.reports.find((report) => report.user)?.user ?? null;
   const overrideFor = overrideTarget(personPools.reports, person);
   const canPickPerson =
-    users.length > 0 && personPools.supported && poolProviders(files, tab).length > 0;
+    users.length > 0 && personPools.supported && personProviders.length > 0;
   const personPicker = canPickPerson && (
     <div className={styles.control}>
       <span className={styles.controlLabel} aria-hidden="true">
@@ -734,7 +737,7 @@ export function QuotaForecast({
 
       {cards.map(({ pool, row, summary, empty, first, burn, drain, selected }) => {
         const provider = pool.provider;
-        const name = getTypeLabel(t, provider);
+        const name = row.label;
         const icon = getAuthFileIcon(provider, resolvedTheme);
         const collapsed = collapsible && prefs.collapsed[provider];
         const accounts = t('quota_forecast.accounts', { count: pool.credentials.length });

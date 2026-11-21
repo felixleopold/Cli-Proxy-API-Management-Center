@@ -122,14 +122,17 @@ Current base: upstream `v1.25.6`.
   "1.4× / 3.4× ours · 41% left", tooltips add the % of our multiplier) with a projection to the next
   resets, drain history (× per hour/day for one pool, % of each pool when comparing) and a horizon
   picker (rationing counts from 85% of each credential's cap, and ledger cost calibrates in
-  base-plan percent, so unequal plans pace correctly), for Claude, Codex and Muse (`meta`), each shown only once one of its
-  credentials reports quota. The projection is sleep-aware: each credential's daily rate is its own
+  base-plan percent, so unequal plans pace correctly), for Claude, Gemini (`antigravity`) and
+  Codex. The Gemini pool and Antigravity account rows use the Gemini Models 5-hour and weekly
+  windows. Each window prefers the gateway's Gemini quota signals and falls back to the loaded quota card.
+  Accounts show "Verification required" when the gateway reports that status or cooldown reason.
+  The projection is sleep-aware: each credential's daily rate is its own
   trailing-7-day drain or its last-24h drain, whichever is higher (below 24h, the drain so far
   over its activity-weighted time; below 3h, the window pace), spread over a local hour-of-day
   profile learned from drain and blended into a configurable sleep baseline. Unused Codex manual resets show as amber expiry markers and a count,
-  but the projection never assumes one is redeemed. Shown as one card per provider (Muse collapsed by
-  default, remembered in `quotaForecastPrefs.ts`) under a shared bar: Remaining | Drain rate, burn
-  rate over the last 1h/3h/6h, Future usage (*Usual pattern* = the model above with its likely range;
+  but the projection never assumes one is redeemed. Each provider has an expanded card by default,
+  remembered in `quotaForecastPrefs.ts`. The shared bar offers Remaining | Drain rate, burn rate over
+  the last 1h/3h/6h, Future usage (*Usual pattern* = the model above with its likely range;
   *Same as now* = each credential's selected burn rate, waking hours only; *Busier*/*Quieter* = the
   busy/quiet pace) and the horizon, plus *For: Everyone ▾*, which switches the cards' big number to
   what `GET /usage/pool?user=` leaves that person after their reserve (with their 5-hour reserve
@@ -195,9 +198,9 @@ Current base: upstream `v1.25.6`.
   is unavailable). The Quota windows timeline has one bar per lane and no height to gain, so it
   has none. Tests: `tests/tallCharts.test.ts`.
 - **Usage reserves** (gateway `usage-reserves`, f-squared/CLIProxyAPI#29). Three surfaces:
-  *Credential sheet* (`src/features/authFiles/components/AuthFileReserveFields.tsx`), on Claude, Codex,
-  Muse (`meta`) and Devin credentials (`AUTH_FILE_USAGE_CAP_PROVIDERS`): Claude plan (`plan`: pro,
-  max, ultra; weights 5-hour/weekly 1/1, 5/5, 20/10), `lender`, and the lender reserves
+  *Credential sheet* (`src/features/authFiles/components/AuthFileReserveFields.tsx`), on Claude,
+  Antigravity, Codex, Muse (`meta`) and Devin credentials (`AUTH_FILE_USAGE_CAP_PROVIDERS`): Claude
+  plan (`plan`: pro, max, ultra; weights 5-hour/weekly 1/1, 5/5, 20/10), `lender`, and the lender reserves
   `reserve_five_hour_percent` / `reserve_weekly_percent` (0-100). The gateway stops routing to a
   credential once a window's usage reaches 100 − the reserve held now; over the release lead before
   the reset that reserve tapers linearly down to the floor (f-squared/CLIProxyAPI#31). The legacy "Usage cap" `usage_cap_percent` (1-99) still works and stands

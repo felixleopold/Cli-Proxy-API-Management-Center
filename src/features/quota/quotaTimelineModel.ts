@@ -10,6 +10,7 @@
  * week, and no per-card percentage shows that.
  */
 
+import { isAntigravityGeminiBucket } from '@/utils/quota/constants';
 import { DAY_MS, HOUR_MS } from '@/utils/time/durations';
 import type { QuotaProviderType } from './providers/types';
 
@@ -315,6 +316,7 @@ interface XaiBillingLike {
 }
 
 interface AntigravityBucketLike {
+  id: string;
   label?: string;
   /** Fraction 0..1 of quota REMAINING — the inverse of the percent-used providers. */
   remainingFraction?: number | null;
@@ -483,11 +485,14 @@ export function buildTimelineLane(input: TimelineLaneInput): TimelineLane {
   }
 
   if (provider === 'antigravity') {
-    // Buckets live one level down, inside groups, and the groups are a display
-    // concern the chart doesn't care about — flatten them.
-    const buckets = ((quota as { groups?: { buckets?: AntigravityBucketLike[] }[] }).groups ?? [])
-      .flatMap((group) => group.buckets ?? [])
-      .filter((bucket) => typeof bucket.resetAtMs === 'number');
+    const { groups } = quota as {
+      groups?: { id: string; buckets: AntigravityBucketLike[] }[];
+    };
+    const buckets = (groups ?? [])
+      .flatMap((group) => group.buckets)
+      .filter(
+        (bucket) => isAntigravityGeminiBucket(bucket.id) && typeof bucket.resetAtMs === 'number'
+      );
     const chosen = pickLaneWindow(buckets, maxPeriodHours);
     if (!chosen) return empty;
 
