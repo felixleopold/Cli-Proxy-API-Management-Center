@@ -2939,6 +2939,7 @@
     "settings_hint_reserveFiveHour": "Phần của mỗi kỳ 5 giờ được giữ cho người cho mượn; pool ngừng dùng tài khoản khi chỉ còn chừng đó.",
     "settings_hint_reserveWeekly": "Phần của mỗi kỳ hằng tuần được giữ cho người cho mượn; pool ngừng dùng tài khoản khi chỉ còn chừng đó.",
     "verification_required": "Cần xác minh",
+    "verify_account": "Xác minh tài khoản",
     "retired_badge": "Đã ngừng · {{date}}",
     "retired_title": "Ngừng ngày {{date}}",
     "retired_hint": "Đã ngừng: ra khỏi pool và tổng, giữ nguyên gói, bên cho mượn, phần giữ lại và lịch sử. Kích hoạt lại qua ⚙ hoặc công tắc.",

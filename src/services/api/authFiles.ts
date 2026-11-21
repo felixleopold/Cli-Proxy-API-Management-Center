@@ -296,6 +296,25 @@ export const normalizeRoutingStatus = (value: unknown): AuthFileRoutingStatus | 
   };
 };
 
+const normalizeVerificationUrl = (entry: AuthFileEntry): string | undefined => {
+  const provider = readTextField(entry, 'type') || readTextField(entry, 'provider');
+  if (normalizeOAuthProviderKey(provider) !== 'antigravity') return undefined;
+
+  try {
+    const url = new URL(readTextField(entry, 'verification_url'));
+    if (
+      url.protocol === 'https:' &&
+      url.origin === 'https://accounts.google.com' &&
+      !url.username &&
+      !url.password
+    ) {
+      return url.href;
+    }
+  } catch {
+    return undefined;
+  }
+};
+
 const normalizeAuthFileEntry = (
   entry: AuthFileEntry,
   observedAt: string | undefined,
@@ -355,6 +374,7 @@ const normalizeAuthFileEntry = (
     successCount: normalizeUsageTotal(entry.success),
     failureCount: normalizeUsageTotal(entry.failed),
     ...(statusMessage ? { statusMessage } : {}),
+    verificationUrl: normalizeVerificationUrl(entry),
     ...(modified > 0 ? { modified } : {}),
     priority,
     weight,

@@ -84,6 +84,7 @@ export interface AuthFileItem {
   unavailable?: boolean;
   status?: string;
   statusMessage?: string;
+  verificationUrl?: string;
   lastRefresh?: string | number;
   modified?: number;
   priority?: number;

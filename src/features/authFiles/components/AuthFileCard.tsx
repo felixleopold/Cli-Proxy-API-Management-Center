@@ -33,7 +33,9 @@ import { deriveAuthFileIdentity } from '@/features/authFiles/identity';
 import { resolveAuthFileQuotaType } from '@/features/authFiles/logic';
 import type { AuthFileStatusBarData } from '@/features/authFiles/hooks/useAuthFilesStatusBarCache';
 import { AuthFileQuotaSection } from '@/features/authFiles/components/AuthFileQuotaSection';
+import { requiresVerification } from '@/features/authFiles/verification';
 import { AuthFileCooldownSection } from './AuthFileCooldownSection';
+import { VerifyAccountLink } from './VerifyAccountLink';
 import styles from './AuthFileCard.module.scss';
 
 export type AuthFileCardProps = {
@@ -107,6 +109,7 @@ export function AuthFileCard(props: AuthFileCardProps) {
 
   const rawStatusMessage = getAuthFileStatusMessage(file);
   const hasStatusWarning = hasAuthFileStatusWarning(file);
+  const verificationRequired = providerKey === 'antigravity' && requiresVerification(file);
 
   const priorityValue = Number.isSafeInteger(file.priority) ? file.priority : undefined;
   const weightValue = Number.isSafeInteger(file.weight) ? file.weight : undefined;
@@ -185,10 +188,16 @@ export function AuthFileCard(props: AuthFileCardProps) {
         </p>
       )}
 
-      {rawStatusMessage && hasStatusWarning && (
-        <div className={styles.warning} title={rawStatusMessage}>
+      {(verificationRequired || (rawStatusMessage && hasStatusWarning)) && (
+        <div className={styles.warning} title={rawStatusMessage || undefined}>
           <IconInfo className={styles.warningIcon} size={14} />
-          <span>{rawStatusMessage}</span>
+          {verificationRequired && file.verificationUrl ? (
+            <VerifyAccountLink url={file.verificationUrl} className={styles.verifyLink} />
+          ) : (
+            <span>
+              {verificationRequired ? t('usage_accounts.verification_required') : rawStatusMessage}
+            </span>
+          )}
         </div>
       )}
 
