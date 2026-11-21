@@ -2640,9 +2640,12 @@
     "selection_empty": "Нет расхода в выбранном периоде",
     "stack_label": "Группировка",
     "stack_user": "По пользователям",
+    "stack_provider": "По провайдерам",
     "stack_subscription": "По подпискам",
     "users_title": "Пользователи",
-    "retired_credential": "Выведен: {{name}}"
+    "retired_credential": "Выведен: {{name}}",
+    "disabled_credential": "Отключён: {{name}}",
+    "api_key_credential": "API-ключ"
   },
   "fable_route": {
     "title": "Fable идёт на",

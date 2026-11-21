@@ -81,11 +81,16 @@ Current base: upstream `v1.25.6`.
   resets roll forward by whole periods. Cards without either say they show the history range. The
   ledger refetches when the selection needs an earlier start or the clock passes the hour the
   snapshot ends in. Rows show
-  spend by user and ≈ spend at 100% from ≥ 5% used; the chart stacks by user or subscription
-  with reset markers; the table drills user → device → model; the label editor maps key → device/user
+  spend by user and ≈ spend at 100% from ≥ 5% used; the chart stacks by user or by provider on the
+  All tab (grouping Antigravity under Gemini to match the forecast pools: Claude, Gemini, Codex,
+  etc.) and by subscription within a single provider tab (scoped to that provider's active,
+  disabled, retired, and runtime API-key credentials so idle or other-provider accounts never push
+  active spenders into "Other subscriptions") with reset markers; the table drills user → device →
+  model; the label editor maps key → device/user
   (fingerprint = first 12 hex of sha256 of the key). Series colors follow identity (each user takes
   the slot their name hashes to, so colours never move when people are added: Felix orange,
-  Ferdinand violet; subscriptions by provider and name; `components/seriesSlots.module.scss`). Provider colours: Claude coral, Codex silver, Muse green.
+  Ferdinand violet; providers use their canonical badge colors; subscriptions by provider and name;
+  `components/seriesSlots.module.scss`). Provider colours: Claude coral, Codex silver, Muse green.
   Logic: `usageModel.ts`; tests: `tests/usageModel.test.ts`.
 - **Claude API credit switch** (`src/features/quota/components/ClaudeCreditCard.tsx`, an inline
   toggle in the `/usage-quota` header). Reads and flips the fork-only gateway switch

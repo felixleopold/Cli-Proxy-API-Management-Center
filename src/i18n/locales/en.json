@@ -2622,9 +2622,12 @@
     "selection_empty": "No usage in this selection",
     "stack_label": "Stack by",
     "stack_user": "By user",
+    "stack_provider": "By provider",
     "stack_subscription": "By subscription",
     "users_title": "Users",
-    "retired_credential": "Retired: {{name}}"
+    "retired_credential": "Retired: {{name}}",
+    "disabled_credential": "Disabled: {{name}}",
+    "api_key_credential": "API key"
   },
   "fable_route": {
     "title": "Fable goes to",

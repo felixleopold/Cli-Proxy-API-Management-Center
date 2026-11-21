@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconChevronLeft, IconChevronRight } from '@/components/ui/icons';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { getAuthFileIcon } from '@/features/authFiles/constants';
+import { TYPE_COLORS, getAuthFileIcon } from '@/features/authFiles/constants';
 import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
 import { providerLabel } from '@/features/dashboard/utils';
 import { QUOTA_TAB_ORDER } from '@/features/quota/constants';
@@ -38,17 +38,22 @@ import {
   OTHER_KEY,
   OWN_ACCOUNT_AUTH_ID,
   RANGES,
+  REMOVED_KEY,
   buildClientRows,
   buildTimeBuckets,
   credentialKind,
   filterBuckets,
   formatUsd,
   ledgerStartMs,
+  parseApiKeyAuthId,
   parseSubscription,
+  providerKey,
+  providerSlots,
   resetMarkers,
   resolveSelection,
   rollupUsers,
   seriesKey,
+  spendByAuth,
   stackByTime,
   subscriptionSlots,
   unpricedModels,
@@ -63,10 +68,19 @@ import {
 } from './usageModel';
 import styles from './UsageSections.module.scss';
 
-type StackBy = 'user' | 'subscription';
-const STACK_MODES: StackBy[] = ['user', 'subscription'];
+type StackBy = 'user' | 'source';
+type ResolvedStackMode = 'user' | 'provider' | 'subscription';
+const STACK_MODES: StackBy[] = ['user', 'source'];
 
 const slotOrder = (slot: SeriesSlot) => (slot === 'other' ? 100 : slot === 'none' ? 101 : slot);
+
+const PROVIDER_SERIES_ORDER = QUOTA_TAB_ORDER.map(providerKey);
+
+const providerOrder = (id: string) => {
+  if (id === 'unknown') return PROVIDER_SERIES_ORDER.length + 1;
+  const index = PROVIDER_SERIES_ORDER.indexOf(id);
+  return index === -1 ? PROVIDER_SERIES_ORDER.length : index;
+};
 
 /** A window whose credential vanished (or lost its window) falls back to the range. */
 const resolveOrRange = (
@@ -138,11 +152,18 @@ export function UsageSections({
         .map((file) => withHistoryWindow(parseSubscription(file), samples ?? [])),
     [files, samples]
   );
-  // Retired credentials keep their spend under their own name and colour.
+  // Retired and temporarily disabled credentials keep their spend under their own name and colour.
   const retired = useMemo(
     () =>
       files
         .filter((file) => file.disabled && file.retiredAtMs !== undefined)
+        .map(parseSubscription),
+    [files]
+  );
+  const disabled = useMemo(
+    () =>
+      files
+        .filter((file) => file.disabled && file.retiredAtMs === undefined)
         .map(parseSubscription),
     [files]
   );
@@ -207,14 +228,6 @@ export function UsageSections({
   );
   // From the shared buckets, so a model only a private credential used is not named.
   const unpriced = useMemo(() => unpricedModels(buckets), [buckets]);
-  // A retired credential with spend in the loaded ledger keeps the colour it had while active.
-  const subscriptionColors = useMemo(() => {
-    const spent = new Set(buckets.map((bucket) => bucket.authId));
-    return subscriptionSlots([
-      ...subscriptions,
-      ...retired.filter((subscription) => spent.has(subscription.id)),
-    ]);
-  }, [buckets, retired, subscriptions]);
   const subscriptionById = useMemo(
     () => new Map(subscriptions.map((subscription) => [subscription.id, subscription])),
     [subscriptions]
@@ -222,6 +235,10 @@ export function UsageSections({
   const retiredById = useMemo(
     () => new Map(retired.map((subscription) => [subscription.id, subscription])),
     [retired]
+  );
+  const disabledById = useMemo(
+    () => new Map(disabled.map((subscription) => [subscription.id, subscription])),
+    [disabled]
   );
 
   const providerFilter = picked ? null : provider === 'all' ? null : provider;
@@ -263,40 +280,143 @@ export function UsageSections({
   const rollup = useMemo(() => rollupUsers(selected, labels), [labels, selected]);
   const previousCost = useMemo(() => sumCost(previous), [previous]);
 
+  const selectedSpendByAuth = useMemo(() => spendByAuth(selected), [selected]);
+  // Scoped to the active provider filter and selected spend so other providers or idle
+  // accounts never starve active spenders into "Other subscriptions". Deleted credentials
+  // collapse into REMOVED_KEY rather than consuming named slots.
+  const subscriptionColors = useMemo(() => {
+    const inScope = (subscription: Subscription) =>
+      providerFilter === null || subscription.provider === providerFilter;
+    const namedSpend = new Map<string, number>();
+    for (const [id, cost] of selectedSpendByAuth) {
+      if (credentialKind(id, subscriptionById, retiredById, disabledById) !== 'removed') {
+        namedSpend.set(id, cost);
+      }
+    }
+    return subscriptionSlots(
+      [
+        ...subscriptions.filter(inScope),
+        ...disabled.filter((sub) => inScope(sub) && (selectedSpendByAuth.get(sub.id) ?? 0) > 0),
+        ...retired.filter((sub) => inScope(sub) && (selectedSpendByAuth.get(sub.id) ?? 0) > 0),
+      ],
+      namedSpend
+    );
+  }, [
+    disabled,
+    disabledById,
+    providerFilter,
+    retired,
+    retiredById,
+    selectedSpendByAuth,
+    subscriptionById,
+    subscriptions,
+  ]);
+  const providerColors = useMemo(
+    () =>
+      providerSlots(
+        selected.map((bucket) => bucket.provider),
+        QUOTA_TAB_ORDER
+      ),
+    [selected]
+  );
+  const apiKeyCountsByProvider = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const [id, cost] of selectedSpendByAuth) {
+      if (cost <= 0) continue;
+      const parsed = parseApiKeyAuthId(id);
+      if (parsed) counts.set(parsed.provider, (counts.get(parsed.provider) ?? 0) + 1);
+    }
+    return counts;
+  }, [selectedSpendByAuth]);
+
+  const providerColor = useCallback(
+    (id: string): string | undefined => {
+      const colorSet = TYPE_COLORS[id];
+      if (!colorSet || id === 'unknown' || id === 'empty') return undefined;
+      return (resolvedTheme === 'dark' && colorSet.dark ? colorSet.dark : colorSet.light).text;
+    },
+    [resolvedTheme]
+  );
+
   const userLabel = useCallback((user: string) => user || t('usage.unassigned'), [t]);
   const subscriptionLabel = useCallback(
     (id: string) => {
       const subscription = subscriptionById.get(id);
-      switch (credentialKind(id, subscriptionById, retiredById)) {
+      switch (credentialKind(id, subscriptionById, retiredById, disabledById)) {
         case 'pre_tracking':
           return t('usage.auth_pre_tracking');
         case 'own_account':
           return t('usage.auth_own_account');
         case 'retired':
           return t('usage.retired_credential', { name: retiredById.get(id)!.name });
+        case 'disabled':
+          return t('usage.disabled_credential', { name: disabledById.get(id)!.name });
+        case 'api_key': {
+          const parsed = parseApiKeyAuthId(id)!;
+          const providerName = providerLabel(parsed.provider, t('usage.unknown_provider'));
+          const base = `${providerName} · ${t('usage.api_key_credential')}`;
+          return (apiKeyCountsByProvider.get(parsed.provider) ?? 0) > 1
+            ? `${base} (${parsed.keyId.slice(0, 6)})`
+            : base;
+        }
         case 'removed':
           return t('usage.removed_credential');
         default:
           return `${providerLabel(subscription!.provider, t('usage.unknown_provider'))} · ${subscription!.name}`;
       }
     },
-    [retiredById, subscriptionById, t]
+    [apiKeyCountsByProvider, disabledById, retiredById, subscriptionById, t]
   );
 
   // ---------- Chart ----------
-  const stackMode: StackBy = picked ? 'user' : stackBy;
+  const stackMode: ResolvedStackMode = picked
+    ? 'user'
+    : stackBy === 'user'
+      ? 'user'
+      : providerFilter === null
+        ? 'provider'
+        : 'subscription';
   const timeBuckets = useMemo(() => buildTimeBuckets(selection, selection.unit), [selection]);
   const stacked = useMemo(
     () =>
-      stackByTime(selected, timeBuckets, (bucket) =>
-        stackMode === 'user'
-          ? seriesKey(userColors, labelByFingerprint.get(bucket.fingerprint)?.user ?? '')
-          : seriesKey(subscriptionColors, bucket.authId)
-      ),
-    [labelByFingerprint, selected, stackMode, subscriptionColors, timeBuckets, userColors]
+      stackByTime(selected, timeBuckets, (bucket) => {
+        if (stackMode === 'user') {
+          return seriesKey(userColors, labelByFingerprint.get(bucket.fingerprint)?.user ?? '');
+        }
+        if (stackMode === 'provider') return providerKey(bucket.provider);
+        if (
+          credentialKind(bucket.authId, subscriptionById, retiredById, disabledById) === 'removed'
+        ) {
+          return REMOVED_KEY;
+        }
+        return seriesKey(subscriptionColors, bucket.authId);
+      }),
+    [
+      disabledById,
+      labelByFingerprint,
+      retiredById,
+      selected,
+      stackMode,
+      subscriptionById,
+      subscriptionColors,
+      timeBuckets,
+      userColors,
+    ]
   );
   const series = useMemo<ChartSeries[]>(() => {
     const keys = new Set(stacked.flatMap((bucket) => Array.from(bucket.values.keys())));
+    if (stackMode === 'provider') {
+      return Array.from(keys)
+        .map((key): ChartSeries => ({
+          key,
+          slot: providerColors.get(key) ?? 'none',
+          color: providerColor(key),
+          label: providerLabel(key, t('usage.unknown_provider')),
+        }))
+        .sort(
+          (a, b) => providerOrder(a.key) - providerOrder(b.key) || a.label.localeCompare(b.label)
+        );
+    }
     const colors = stackMode === 'user' ? userColors : subscriptionColors;
     return Array.from(keys)
       .map((key): ChartSeries => {
@@ -307,6 +427,13 @@ export function UsageSections({
             label: t(stackMode === 'user' ? 'usage.other_users' : 'usage.other_subscriptions'),
           };
         }
+        if (key === REMOVED_KEY) {
+          return {
+            key,
+            slot: 'none',
+            label: t('usage.removed_credential'),
+          };
+        }
         return {
           key,
           slot: colors.get(key) ?? 'other',
@@ -314,7 +441,17 @@ export function UsageSections({
         };
       })
       .sort((a, b) => slotOrder(a.slot) - slotOrder(b.slot));
-  }, [stackMode, stacked, subscriptionColors, subscriptionLabel, t, userColors, userLabel]);
+  }, [
+    providerColor,
+    providerColors,
+    stackMode,
+    stacked,
+    subscriptionColors,
+    subscriptionLabel,
+    t,
+    userColors,
+    userLabel,
+  ]);
 
   // Resets only read as landmarks at hour and six-hour resolution.
   const markers = useMemo<ChartMarker[]>(() => {
@@ -637,7 +774,13 @@ export function UsageSections({
                             aria-pressed={stackBy === value}
                             onClick={() => setStackBy(value)}
                           >
-                            {t(`usage.stack_${value}`)}
+                            {t(
+                              value === 'user'
+                                ? 'usage.stack_user'
+                                : providerFilter === null
+                                  ? 'usage.stack_provider'
+                                  : 'usage.stack_subscription'
+                            )}
                           </button>
                         ))}
                       </div>

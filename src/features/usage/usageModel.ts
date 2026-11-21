@@ -22,6 +22,8 @@ export const ESTIMATE_MIN_PERCENT = 5;
 export const MAX_WINDOWS_BACK = 12;
 /** Series key for everything past the named slots. */
 export const OTHER_KEY = '\u0000other';
+/** Series key grouping spend from deleted credentials into a single legend row. */
+export const REMOVED_KEY = '\u0000removed';
 /** Ledger `auth_id` of imported usage from a personal account, before the gateway. */
 export const OWN_ACCOUNT_AUTH_ID = 'imported-own-account';
 
@@ -640,13 +642,94 @@ export function userSlots(clients: readonly UsageClient[]): Map<string, SeriesSl
 }
 
 /** Subscriptions by provider, then name; imported personal-account usage last. */
-export function subscriptionSlots(subscriptions: readonly Subscription[]): Map<string, SeriesSlot> {
-  return assignSlots([
-    ...[...subscriptions]
-      .sort((a, b) => a.provider.localeCompare(b.provider) || a.name.localeCompare(b.name))
-      .map((subscription) => subscription.id),
-    OWN_ACCOUNT_AUTH_ID,
+export function subscriptionSlots(
+  subscriptions: readonly Subscription[],
+  spendByAuthId?: ReadonlyMap<string, number>
+): Map<string, SeriesSlot> {
+  const ordered = [...subscriptions]
+    .sort((a, b) => a.provider.localeCompare(b.provider) || a.name.localeCompare(b.name))
+    .map((subscription) => subscription.id);
+  const identityOrder = new Map<string, number>();
+  const addIdentity = (id: string) => {
+    if (id && !identityOrder.has(id)) identityOrder.set(id, identityOrder.size);
+  };
+  ordered.forEach(addIdentity);
+
+  if (!spendByAuthId) {
+    addIdentity(OWN_ACCOUNT_AUTH_ID);
+    return assignSlots(Array.from(identityOrder.keys()));
+  }
+
+  // Include spent auth IDs absent from the credential list (e.g. disabled runtime API keys).
+  const extras = Array.from(spendByAuthId.entries())
+    .filter(([id, cost]) => id && id !== OWN_ACCOUNT_AUTH_ID && cost > 0 && !identityOrder.has(id))
+    .map(([id]) => id)
+    .sort((a, b) => a.localeCompare(b));
+  extras.forEach(addIdentity);
+  if ((spendByAuthId.get(OWN_ACCOUNT_AUTH_ID) ?? 0) > 0) addIdentity(OWN_ACCOUNT_AUTH_ID);
+
+  const allKeys = Array.from(identityOrder.keys());
+  if (allKeys.length <= SLOT_COUNT) return assignSlots(allKeys);
+
+  // Past SLOT_COUNT, drop idle credentials first; if still over, keep the highest-spend ones.
+  const spent = allKeys.filter((id) => (spendByAuthId.get(id) ?? 0) > 0);
+  if (spent.length <= SLOT_COUNT) return assignSlots(spent);
+
+  const bySpend = [...spent].sort(
+    (a, b) =>
+      (spendByAuthId.get(b) ?? 0) - (spendByAuthId.get(a) ?? 0) ||
+      (identityOrder.get(a) ?? 0) - (identityOrder.get(b) ?? 0)
+  );
+  return assignSlots(bySpend);
+}
+
+/** Total spend per serving credential in these buckets. */
+export function spendByAuth(buckets: readonly UsageLedgerBucket[]): Map<string, number> {
+  const totals = new Map<string, number>();
+  for (const bucket of buckets) {
+    totals.set(bucket.authId, (totals.get(bucket.authId) ?? 0) + bucket.costUsd);
+  }
+  return totals;
+}
+
+/**
+ * Normalized ledger provider id for Spend over time ("By provider").
+ * Antigravity serves Gemini subscriptions (matching the Gemini forecast pool),
+ * so it groups under 'gemini'; empty falls back to 'unknown'.
+ */
+export const providerKey = (provider: string): string => {
+  const normalized = provider.trim().toLowerCase();
+  if (!normalized) return 'unknown';
+  return normalized === 'antigravity' ? 'gemini' : normalized;
+};
+
+/**
+ * Fallback slots for providers without a dedicated badge color. Every provider
+ * takes a real slot (cycling past SLOT_COUNT) so none is hidden in "Other".
+ */
+export function providerSlots(
+  providers: readonly string[],
+  order: readonly string[] = []
+): Map<string, SeriesSlot> {
+  const rank = new Map(order.map((provider, index) => [providerKey(provider), index]));
+  const normalized = Array.from(new Set(providers.map(providerKey))).sort((a, b) => {
+    if (a === 'unknown') return 1;
+    if (b === 'unknown') return -1;
+    const rankA = rank.get(a) ?? order.length;
+    const rankB = rank.get(b) ?? order.length;
+    return rankA - rankB || a.localeCompare(b);
+  });
+  const slots = new Map<string, SeriesSlot>([
+    ['', 'none'],
+    ['unknown', 'none'],
   ]);
+  let nextSlot = 0;
+  for (const provider of normalized) {
+    if (slots.has(provider)) continue;
+    slots.set(provider, nextSlot % SLOT_COUNT);
+    nextSlot += 1;
+  }
+  return slots;
 }
 
 /**
@@ -671,17 +754,27 @@ export const unpricedModels = (buckets: readonly UsageLedgerBucket[]): string[] 
  * subscription window.
  */
 export type CredentialKind =
-  'subscription' | 'pre_tracking' | 'own_account' | 'retired' | 'removed';
+  'subscription' | 'api_key' | 'disabled' | 'pre_tracking' | 'own_account' | 'retired' | 'removed';
+
+/** Parses `<provider>:apikey:<id>` auth IDs emitted for config-defined API keys. */
+export function parseApiKeyAuthId(authId: string): { provider: string; keyId: string } | null {
+  const match = /^([^:]+):apikey:(.+)$/i.exec(authId.trim());
+  if (!match) return null;
+  return { provider: match[1].toLowerCase(), keyId: match[2] };
+}
 
 export function credentialKind(
   authId: string,
   known: { has(id: string): boolean },
-  retired: { has(id: string): boolean } = new Set()
+  retired: { has(id: string): boolean } = new Set(),
+  disabled: { has(id: string): boolean } = new Set()
 ): CredentialKind {
   if (!authId) return 'pre_tracking';
   if (authId === OWN_ACCOUNT_AUTH_ID) return 'own_account';
   if (known.has(authId)) return 'subscription';
-  return retired.has(authId) ? 'retired' : 'removed';
+  if (retired.has(authId)) return 'retired';
+  if (disabled.has(authId)) return 'disabled';
+  return parseApiKeyAuthId(authId) ? 'api_key' : 'removed';
 }
 
 /** Series key of a slotted entity: itself, OTHER_KEY past the named slots. */
