@@ -5,15 +5,24 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { IconX } from '@/components/ui/icons';
-import type { ClientKey, ClientKeyCredentials, ClientKeyInput } from '@/services/api/clientKeys';
+import type {
+  ClientKey,
+  ClientKeyCredentials,
+  ClientKeyInput,
+  ClientKeyPreference,
+} from '@/services/api/clientKeys';
 import { getErrorMessage } from '@/utils/helpers';
-import { addModelPatterns, isValidModelPattern } from '../clientKeysModel';
+import { CREDENTIAL_MODES, addModelPatterns, isValidModelPattern } from '../clientKeysModel';
+import { groupChoices } from '../inputKeysModel';
+import { GroupPicker } from './GroupPicker';
 import styles from './KeyFormDialog.module.scss';
 
 interface KeyFormDialogProps {
   /** null creates a key. */
   editing: ClientKey | null;
   projects: string[];
+  /** Configured `credential-groups` names. */
+  groups: string[];
   onClose: () => void;
   /** Rejects with the gateway's message, shown in the form. */
   onSubmit: (input: ClientKeyInput) => Promise<void>;
@@ -33,11 +42,22 @@ const expiryIso = (date: string) => {
   return new Date(year, month - 1, day).toISOString();
 };
 
+const PREFERENCES: ClientKeyPreference[] = ['', 'api-key', 'subscription'];
+
+/** i18n key segment of a credential kind. */
+const credentialKey = (value: ClientKeyCredentials) => value.replace('-', '_');
+
 /**
  * Create or edit a key. Rendered only while open, so every opening starts from the key's
  * current values.
  */
-export function KeyFormDialog({ editing, projects, onClose, onSubmit }: KeyFormDialogProps) {
+export function KeyFormDialog({
+  editing,
+  projects,
+  groups,
+  onClose,
+  onSubmit,
+}: KeyFormDialogProps) {
   const { t } = useTranslation();
   const modelsId = useId();
   const projectId = useId();
@@ -51,6 +71,9 @@ export function KeyFormDialog({ editing, projects, onClose, onSubmit }: KeyFormD
   const [credentials, setCredentials] = useState<ClientKeyCredentials>(
     editing?.credentials ?? 'api-key'
   );
+  const [prefer, setPrefer] = useState<ClientKeyPreference>(editing?.preferCredentials ?? '');
+  const [routeGroup, setRouteGroup] = useState(editing?.routeGroup ?? '');
+  const groupOptions = groupChoices(groups, editing?.routeGroup ? [editing.routeGroup] : []);
   const initialExpiry = editing?.expiresAtMs ? localDate(editing.expiresAtMs) : '';
   const [expiry, setExpiry] = useState(initialExpiry);
   const [submitted, setSubmitted] = useState(false);
@@ -94,6 +117,8 @@ export function KeyFormDialog({ editing, projects, onClose, onSubmit }: KeyFormD
         project: project.trim(),
         models: allModels,
         credentials,
+        preferCredentials: credentials === 'any' ? prefer : '',
+        routeGroup,
         monthlyBudgetUsd: budgetValue,
         // An unchanged date keeps the exact original instant.
         expiresAt:
@@ -115,7 +140,7 @@ export function KeyFormDialog({ editing, projects, onClose, onSubmit }: KeyFormD
       open
       onClose={onClose}
       closeDisabled={saving}
-      width={600}
+      width={640}
       title={
         editing
           ? t('client_keys.form_edit_title', { name: editing.name })
@@ -223,7 +248,7 @@ export function KeyFormDialog({ editing, projects, onClose, onSubmit }: KeyFormD
 
           <fieldset className={styles.choices}>
             <legend>{t('client_keys.field_credentials')}</legend>
-            {(['api-key', 'any'] as const).map((value) => (
+            {CREDENTIAL_MODES.map((value) => (
               <label
                 key={value}
                 className={
@@ -239,15 +264,57 @@ export function KeyFormDialog({ editing, projects, onClose, onSubmit }: KeyFormD
                 />
                 <span className={styles.choiceText}>
                   <span className={styles.choiceTitle}>
-                    {t(`client_keys.credentials_${value === 'any' ? 'any' : 'api_key'}_title`)}
+                    {t(`client_keys.credentials_${credentialKey(value)}_title`)}
                     <code>{value}</code>
                   </span>
                   <span className={styles.choiceHint}>
-                    {t(`client_keys.credentials_${value === 'any' ? 'any' : 'api_key'}_hint`)}
+                    {t(`client_keys.credentials_${credentialKey(value)}_hint`)}
                   </span>
                 </span>
               </label>
             ))}
+          </fieldset>
+
+          {credentials === 'any' && (
+            <fieldset className={styles.option}>
+              <legend>{t('client_keys.field_prefer')}</legend>
+              <div className={styles.segmented}>
+                {PREFERENCES.map((value) => (
+                  <label key={value || 'default'} className={styles.segment}>
+                    <input
+                      type="radio"
+                      name="client-key-prefer"
+                      value={value}
+                      checked={prefer === value}
+                      onChange={() => setPrefer(value)}
+                    />
+                    <span>
+                      {t(`client_keys.prefer_${value ? credentialKey(value) : 'default'}`)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div className="hint">{t('client_keys.field_prefer_hint')}</div>
+            </fieldset>
+          )}
+
+          <fieldset className={styles.option}>
+            <legend>{t('client_keys.field_route_group')}</legend>
+            {groupOptions.length === 0 ? (
+              <div className="hint">{t('client_keys.route_group_unconfigured')}</div>
+            ) : (
+              <>
+                <GroupPicker
+                  mode="single"
+                  choices={groupOptions}
+                  configured={groups}
+                  selected={routeGroup}
+                  onChange={setRouteGroup}
+                  ariaLabel={t('client_keys.field_route_group')}
+                />
+                <div className="hint">{t('client_keys.field_route_group_hint')}</div>
+              </>
+            )}
           </fieldset>
 
           {error && (

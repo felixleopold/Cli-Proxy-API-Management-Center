@@ -7,7 +7,11 @@ import type {
   ProviderKeyConfig,
 } from '@/types';
 import type { Config } from '@/types/config';
-import type { ProviderRuntimePolicy, RequestScopedErrorRule } from '@/types/provider';
+import type {
+  ClientKeyRoutingConfig,
+  ProviderRuntimePolicy,
+  RequestScopedErrorRule,
+} from '@/types/provider';
 import { buildHeaderObject } from '@/utils/headers';
 import { isRecord } from '@/utils/helpers';
 import { readCredentialWeight } from '@/utils/credentialWeight';
@@ -139,6 +143,23 @@ const normalizeRuntimePolicy = (record: Record<string, unknown> | null): Provide
   return policy;
 };
 
+const normalizeClientKeyRouting = (
+  record: Record<string, unknown> | null
+): ClientKeyRoutingConfig => {
+  const routing: ClientKeyRoutingConfig = {};
+  const clientKeysOnly = normalizeBoolean(record?.['client-keys-only']);
+  if (clientKeysOnly !== undefined) routing.clientKeysOnly = clientKeysOnly;
+  const groups = record?.['credential-groups'];
+  if (Array.isArray(groups)) {
+    routing.credentialGroups = groups.filter((g): g is string => typeof g === 'string');
+  }
+  const day = record?.['billing-cycle-day'];
+  if (typeof day === 'number' && Number.isFinite(day)) routing.billingCycleDay = day;
+  const limit = record?.['monthly-limit-usd'];
+  if (typeof limit === 'number' && Number.isFinite(limit)) routing.monthlyLimitUsd = limit;
+  return routing;
+};
+
 const normalizeProviderKeyConfig = (item: unknown): ProviderKeyConfig | null => {
   if (item === undefined || item === null) return null;
   const record = isRecord(item) ? item : null;
@@ -146,7 +167,11 @@ const normalizeProviderKeyConfig = (item: unknown): ProviderKeyConfig | null => 
   const trimmed = String(apiKey || '').trim();
   if (!trimmed) return null;
 
-  const config: ProviderKeyConfig = { apiKey: trimmed, ...normalizeRuntimePolicy(record) };
+  const config: ProviderKeyConfig = {
+    apiKey: trimmed,
+    ...normalizeRuntimePolicy(record),
+    ...normalizeClientKeyRouting(record),
+  };
   for (const [key, wire] of [
     ['alphaSearch', 'alpha-search'],
     ['disableCodexCloaking', 'disable-codex-cloaking'],
@@ -226,7 +251,11 @@ const normalizeGeminiKeyConfig = (item: unknown): GeminiKeyConfig | null => {
   const trimmed = String(apiKey || '').trim();
   if (!trimmed) return null;
 
-  const config: GeminiKeyConfig = { apiKey: trimmed, ...normalizeRuntimePolicy(record) };
+  const config: GeminiKeyConfig = {
+    apiKey: trimmed,
+    ...normalizeRuntimePolicy(record),
+    ...normalizeClientKeyRouting(record),
+  };
   const weight = readCredentialWeight(record?.weight);
   if (weight !== undefined) config.weight = weight;
   const serveClientKeys = normalizeBoolean(record?.['serve-client-keys']);
@@ -284,6 +313,7 @@ const normalizeOpenAIProvider = (
     baseUrl: String(baseUrl),
     apiKeyEntries,
     ...normalizeRuntimePolicy(provider),
+    ...normalizeClientKeyRouting(provider),
   };
 
   const supportPromptCacheKey = normalizeBoolean(provider['support-prompt-cache-key']);
@@ -371,6 +401,13 @@ export const normalizeConfigResponse = (raw: unknown): Config => {
     config.clientKeysGatewayUrls = gatewayUrls.filter(
       (url): url is string => typeof url === 'string' && url.trim() !== ''
     );
+  }
+  const groups = at('credential-groups');
+  if (Array.isArray(groups)) {
+    config.credentialGroups = groups.flatMap((group) => {
+      const name = isRecord(group) && typeof group.name === 'string' ? group.name.trim() : '';
+      return name ? [name] : [];
+    });
   }
   const quota = at('quota-exceeded');
   config.quotaExceeded = {

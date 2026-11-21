@@ -175,6 +175,11 @@ const buildProviderKeyConfig = (
         )
       : {}),
     authIndex: existing?.authIndex,
+    // Not on this form; edited on the Client keys page.
+    clientKeysOnly: existing?.clientKeysOnly,
+    credentialGroups: existing?.credentialGroups,
+    billingCycleDay: existing?.billingCycleDay,
+    monthlyLimitUsd: existing?.monthlyLimitUsd,
     ...pickProviderBehavior(input, brand),
   };
   if ((brand === 'codex' || brand === 'xai') && input.websockets !== undefined) {

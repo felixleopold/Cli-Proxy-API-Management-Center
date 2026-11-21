@@ -1,0 +1,49 @@
+@use '../../../styles/mixins' as *;
+
+.subject {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 0 0 $spacing-md;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+
+  code {
+    font-family: $font-mono;
+    font-size: 11.5px;
+    font-weight: 400;
+    color: var(--text-tertiary);
+    overflow-wrap: anywhere;
+  }
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 0 $spacing-md;
+  padding: 0;
+  border: 0;
+
+  legend {
+    margin-bottom: $spacing-xs;
+    padding: 0;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+}
+
+.toggleRow {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.toggleHint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}

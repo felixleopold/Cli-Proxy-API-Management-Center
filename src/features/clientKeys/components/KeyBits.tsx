@@ -16,14 +16,33 @@ export function StatusBadge({ status }: { status: KeyStatus }) {
   );
 }
 
-export function CredentialsBadge({ credentials }: { credentials: ClientKey['credentials'] }) {
+const kindKey = (kind: 'api-key' | 'subscription' | 'any') => kind.replace('-', '_');
+
+/** The credential pin, plus the kind `any` tries first when it has a preference. */
+export function CredentialsBadge({ keyEntry }: { keyEntry: ClientKey }) {
   const { t } = useTranslation();
+  const { credentials, preferCredentials: prefer } = keyEntry;
+  const hint = t(`client_keys.credentials_${kindKey(credentials)}_hint`);
   return (
     <span
-      className={`${styles.credentials} ${credentials === 'any' ? styles.credentialsAny : ''}`}
-      title={t(`client_keys.credentials_${credentials === 'any' ? 'any' : 'api_key'}_hint`)}
+      className={`${styles.credentials} ${credentials === 'api-key' ? '' : styles.credentialsAny}`}
+      title={prefer ? `${hint}\n${t(`client_keys.prefer_${kindKey(prefer)}_hint`)}` : hint}
     >
       {credentials}
+      {prefer && (
+        <span className={styles.prefer}>{t(`client_keys.prefer_${kindKey(prefer)}_short`)}</span>
+      )}
+    </span>
+  );
+}
+
+/** A key pinned to a credential group; nothing for the default pool. */
+export function RouteGroupBadge({ group }: { group: string }) {
+  const { t } = useTranslation();
+  if (!group) return null;
+  return (
+    <span className={styles.routeGroup} title={t('client_keys.route_group_hint', { group })}>
+      {group}
     </span>
   );
 }

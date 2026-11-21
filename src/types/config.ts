@@ -35,6 +35,8 @@ export interface Config {
   oauthExcludedModels?: Record<string, string[]>;
   /** `client-keys.gateway-urls`: addresses apps can reach the gateway's model port at. */
   clientKeysGatewayUrls?: string[];
+  /** Names of the top-level `credential-groups`, in config order. */
+  credentialGroups?: string[];
   raw?: Record<string, unknown>;
 }
 

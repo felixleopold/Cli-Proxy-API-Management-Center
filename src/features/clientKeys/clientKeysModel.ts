@@ -4,7 +4,7 @@
  * without a browser (tests/clientKeysModel.test.ts).
  */
 
-import type { ClientKey, ClientKeyUsage } from '@/services/api/clientKeys';
+import type { ClientKey, ClientKeyCredentials, ClientKeyUsage } from '@/services/api/clientKeys';
 import {
   addUnits,
   buildTimeBuckets,
@@ -12,6 +12,9 @@ import {
   type StackedBucket,
   type TimeSpan,
 } from '@/features/usage/usageModel';
+
+/** The form's credential choices, narrowest first. */
+export const CREDENTIAL_MODES: ClientKeyCredentials[] = ['api-key', 'subscription', 'any'];
 
 // ---------- Status and budget ----------
 

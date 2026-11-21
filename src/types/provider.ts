@@ -67,7 +67,22 @@ export interface CloakConfig {
   cacheUserId?: boolean;
 }
 
-export interface GeminiKeyConfig extends ProviderRuntimePolicy {
+/**
+ * Fork-only client-key and spend settings on an upstream API-key entry. The provider forms do not
+ * edit them (the Client keys page does), but every read and write keeps them.
+ */
+export interface ClientKeyRoutingConfig {
+  /** `client-keys-only`: reserved for client keys; implies serving them. */
+  clientKeysOnly?: boolean;
+  /** `credential-groups`; an explicit empty list clears an inherited one. */
+  credentialGroups?: string[];
+  /** `billing-cycle-day`, 1–31. */
+  billingCycleDay?: number;
+  /** `monthly-limit-usd`; 0 is unlimited. */
+  monthlyLimitUsd?: number;
+}
+
+export interface GeminiKeyConfig extends ProviderRuntimePolicy, ClientKeyRoutingConfig {
   source?: ProviderSource;
   apiKey: string;
   priority?: number;
@@ -83,7 +98,8 @@ export interface GeminiKeyConfig extends ProviderRuntimePolicy {
   authIndex?: string;
 }
 
-export interface ProviderKeyConfig extends ProviderRuntimePolicy, ProviderBehaviorOptions {
+export interface ProviderKeyConfig
+  extends ProviderRuntimePolicy, ProviderBehaviorOptions, ClientKeyRoutingConfig {
   source?: ProviderSource;
   apiKey: string;
   priority?: number;
@@ -103,7 +119,8 @@ export interface ProviderKeyConfig extends ProviderRuntimePolicy, ProviderBehavi
   authIndex?: string;
 }
 
-export interface OpenAIProviderConfig extends ProviderRuntimePolicy, ProviderBehaviorOptions {
+export interface OpenAIProviderConfig
+  extends ProviderRuntimePolicy, ProviderBehaviorOptions, ClientKeyRoutingConfig {
   source?: ProviderSource;
   name: string;
   prefix?: string;

@@ -14,7 +14,14 @@ import {
   type UsageRangeId,
 } from '../clientKeysModel';
 import { useKeyUsage } from '../hooks/useKeyUsage';
-import { BudgetBar, CredentialsBadge, ModelChips, StatusBadge, UnpricedBadge } from './KeyBits';
+import {
+  BudgetBar,
+  CredentialsBadge,
+  ModelChips,
+  RouteGroupBadge,
+  StatusBadge,
+  UnpricedBadge,
+} from './KeyBits';
 import styles from './KeyDetailSheet.module.scss';
 
 interface KeyDetailSheetProps {
@@ -57,7 +64,15 @@ export function KeyDetailSheet({ keyEntry, nowMs, onClose }: KeyDetailSheetProps
     [t('client_keys.col_status'), <StatusBadge status={keyStatus(keyEntry, nowMs)} />],
     [t('client_keys.fact_prefix'), <code className={styles.mono}>{keyEntry.prefix}</code>],
     [t('client_keys.col_project'), keyEntry.project || t('client_keys.no_project')],
-    [t('client_keys.col_credentials'), <CredentialsBadge credentials={keyEntry.credentials} />],
+    [t('client_keys.col_credentials'), <CredentialsBadge keyEntry={keyEntry} />],
+    [
+      t('client_keys.field_route_group'),
+      keyEntry.routeGroup ? (
+        <RouteGroupBadge group={keyEntry.routeGroup} />
+      ) : (
+        t('client_keys.route_group_none')
+      ),
+    ],
     [t('client_keys.col_models'), <ModelChips models={keyEntry.models} all />],
     [t('client_keys.col_expires'), formatDateTime(keyEntry.expiresAtMs)],
     [t('client_keys.col_created'), formatDateTime(keyEntry.createdAtMs)],

@@ -11,7 +11,11 @@ import type {
   ApiKeyEntry,
   ModelAlias,
 } from '@/types';
-import type { ProviderSource, ProviderRuntimePolicy } from '@/types/provider';
+import type {
+  ClientKeyRoutingConfig,
+  ProviderSource,
+  ProviderRuntimePolicy,
+} from '@/types/provider';
 
 const serializeHeaders = (headers?: Record<string, string>) =>
   headers && Object.keys(headers).length ? headers : undefined;
@@ -59,6 +63,15 @@ const serializeRuntimePolicy = (config: ProviderRuntimePolicy, supportsErrors = 
   return payload;
 };
 
+const serializeClientKeyRouting = (config: ClientKeyRoutingConfig) => {
+  const payload: Record<string, unknown> = {};
+  if (config.clientKeysOnly) payload['client-keys-only'] = true;
+  if (config.credentialGroups !== undefined) payload['credential-groups'] = config.credentialGroups;
+  if (config.billingCycleDay !== undefined) payload['billing-cycle-day'] = config.billingCycleDay;
+  if (config.monthlyLimitUsd !== undefined) payload['monthly-limit-usd'] = config.monthlyLimitUsd;
+  return payload;
+};
+
 /** Restore parent inheritance without turning untouched nulls into persisted defaults. */
 const applyPolicyIntent = (
   next: Record<string, unknown>,
@@ -86,6 +99,7 @@ const serializeProviderKey = (config: ProviderKeyConfig, family: ProviderFamily)
   if (config.priority !== undefined) payload.priority = config.priority;
   if (config.weight !== undefined) payload.weight = config.weight;
   if (config.serveClientKeys) payload['serve-client-keys'] = true;
+  Object.assign(payload, serializeClientKeyRouting(config));
   if (config.prefix?.trim()) payload.prefix = config.prefix.trim();
   if (config.baseUrl) payload['base-url'] = config.baseUrl;
   if (config.websockets !== undefined) payload.websockets = config.websockets;
@@ -153,6 +167,7 @@ const serializeVertexKey = (config: ProviderKeyConfig) => {
   if (config.priority !== undefined) payload.priority = config.priority;
   if (config.weight !== undefined) payload.weight = config.weight;
   if (config.serveClientKeys) payload['serve-client-keys'] = true;
+  Object.assign(payload, serializeClientKeyRouting(config));
   if (config.prefix?.trim()) payload.prefix = config.prefix.trim();
   if (config.baseUrl) payload['base-url'] = config.baseUrl;
   if (config.proxyUrl) payload['proxy-url'] = config.proxyUrl;
@@ -174,6 +189,7 @@ const serializeGeminiKey = (config: GeminiKeyConfig) => {
   if (config.priority !== undefined) payload.priority = config.priority;
   if (config.weight !== undefined) payload.weight = config.weight;
   if (config.serveClientKeys) payload['serve-client-keys'] = true;
+  Object.assign(payload, serializeClientKeyRouting(config));
   if (config.prefix?.trim()) payload.prefix = config.prefix.trim();
   if (config.baseUrl) payload['base-url'] = config.baseUrl;
   if (config.proxyUrl) payload['proxy-url'] = config.proxyUrl;
@@ -207,6 +223,7 @@ const serializeOpenAIProvider = (provider: OpenAIProviderConfig) => {
   if (models && models.length) payload.models = models;
   if (provider.priority !== undefined) payload.priority = provider.priority;
   if (provider.serveClientKeys) payload['serve-client-keys'] = true;
+  Object.assign(payload, serializeClientKeyRouting(provider));
   if (provider.disableCooling !== undefined) payload['disable-cooling'] = provider.disableCooling;
   return payload;
 };
@@ -315,12 +332,18 @@ const keySerializer = (family: ProviderFamily) =>
       ? serializeGeminiKey
       : (config: ProviderKeyConfig) => serializeProviderKey(config, family);
 const emptyOverride = (field: string): unknown => {
-  if (['models', 'excluded-models', 'request-scoped-errors'].includes(field)) return [];
+  if (['models', 'excluded-models', 'request-scoped-errors', 'credential-groups'].includes(field))
+    return [];
+  if (field === 'billing-cycle-day') return 1;
   if (field === 'request-retry') return -1;
   if (['headers', 'cloak'].includes(field)) return {};
-  if (['disable-cooling', 'websockets', 'disabled', 'serve-client-keys'].includes(field))
+  if (
+    ['disable-cooling', 'websockets', 'disabled', 'serve-client-keys', 'client-keys-only'].includes(
+      field
+    )
+  )
     return false;
-  if (['priority', 'weight'].includes(field)) return 0;
+  if (['priority', 'weight', 'monthly-limit-usd'].includes(field)) return 0;
   return '';
 };
 /** Only changed effective fields become overrides. Unchanged null/missing values retain inheritance. */

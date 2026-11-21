@@ -1,13 +1,14 @@
 /**
- * Client keys page: per-app gateway keys with a monthly budget, a model allowlist and a
- * credential pin, plus the agent (manager) tokens that may administer them.
+ * Client keys page: the upstream API keys the gateway spends (scope, groups, cycle limit), the
+ * per-app gateway keys with a monthly budget, a model allowlist and a credential pin, plus the
+ * agent (manager) tokens that may administer them.
  *
  * The page is a header, an overview and a list of sections; each section is a `Section` with
  * its own component, so a new panel is one more entry below. Secrets returned by create and
  * rotate live only in `revealed`, which is dropped when the reveal dialog closes.
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -20,10 +21,14 @@ import {
   type ClientKeyInput,
   type ClientKeyManager,
 } from '@/services/api/clientKeys';
-import { useAuthStore, useNotificationStore } from '@/stores';
+import { inputKeysApi, type InputKey, type InputKeySettings } from '@/services/api/inputKeys';
+import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
 import { getErrorMessage } from '@/utils/helpers';
 import { projectsOf, summarizeKeys } from './clientKeysModel';
+import { inputKeyLabel } from './inputKeysModel';
 import { AgentTokens } from './components/AgentTokens';
+import { InputKeyDialog } from './components/InputKeyDialog';
+import { InputKeys } from './components/InputKeys';
 import { KeyDetailSheet } from './components/KeyDetailSheet';
 import { KeyFormDialog } from './components/KeyFormDialog';
 import { KeysList } from './components/KeysList';
@@ -31,8 +36,11 @@ import { Overview } from './components/Overview';
 import { SecretReveal, type RevealedSecret } from './components/SecretReveal';
 import { Section } from './components/Section';
 import { useClientKeys } from './hooks/useClientKeys';
+import { useInputKeys } from './hooks/useInputKeys';
 import { readViewPrefs, writeViewPrefs, type ClientKeysViewPrefs } from './viewPrefs';
 import styles from './ClientKeysPage.module.scss';
+
+const NO_GROUPS: string[] = [];
 
 /** The key form: closed, creating, or editing one key. */
 type FormState = { mode: 'closed' } | { mode: 'create' } | { mode: 'edit'; key: ClientKey };
@@ -44,11 +52,16 @@ export function ClientKeysPage() {
   const showNotification = useNotificationStore((store) => store.showNotification);
   const showConfirmation = useNotificationStore((store) => store.showConfirmation);
   const { keys, managers, loading, featureOff, error, reload } = useClientKeys();
+  const inputKeys = useInputKeys();
+  const reloadInputKeys = inputKeys.reload;
+  const credentialGroups = useConfigStore((state) => state.config?.credentialGroups) ?? NO_GROUPS;
+  const fetchConfig = useConfigStore((state) => state.fetchConfig);
 
   const [prefs, setPrefs] = useState<ClientKeysViewPrefs>(readViewPrefs);
   const [form, setForm] = useState<FormState>({ mode: 'closed' });
   const [revealed, setRevealed] = useState<RevealedSecret | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [editingInput, setEditingInput] = useState<InputKey | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [creatingToken, setCreatingToken] = useState(false);
   // The control that opened the current dialog chain. The dialogs unmount on close, before the
@@ -57,7 +70,16 @@ export function ClientKeysPage() {
   // Fallback when the opener is gone, e.g. the empty state's button after the first key.
   const newKeyRef = useRef<HTMLButtonElement>(null);
 
-  useHeaderRefresh(reload);
+  const reloadAll = useCallback(
+    () => Promise.all([reload(), reloadInputKeys()]).then(() => undefined),
+    [reload, reloadInputKeys]
+  );
+  useHeaderRefresh(reloadAll);
+
+  // Credential groups for the pickers come from the config.
+  useEffect(() => {
+    void fetchConfig().catch(() => undefined);
+  }, [fetchConfig]);
 
   const overview = useMemo(() => summarizeKeys(keys, nowMs), [keys, nowMs]);
   const projects = useMemo(() => projectsOf(keys), [keys]);
@@ -180,6 +202,24 @@ export function ClientKeysPage() {
     if (!open) restoreFocus();
   };
 
+  const openInputKey = (entry: InputKey) => {
+    rememberFocus();
+    setEditingInput(entry);
+  };
+
+  const closeInputKey = () => {
+    setEditingInput(null);
+    restoreFocus();
+  };
+
+  const saveInputKey = async (settings: InputKeySettings) => {
+    await inputKeysApi.updateSettings(settings);
+    const name = editingInput ? inputKeyLabel(editingInput) : settings.authId;
+    closeInputKey();
+    showNotification(t('input_keys.saved', { name }), 'success');
+    void reloadInputKeys();
+  };
+
   const closeReveal = () => {
     setRevealed(null);
     restoreFocus();
@@ -271,6 +311,14 @@ export function ClientKeysPage() {
             </p>
           )}
 
+          <Section title={t('input_keys.title')} hint={t('input_keys.hint')}>
+            {inputKeys.loading ? (
+              <Skeleton height={120} rounded={14} />
+            ) : (
+              <InputKeys keys={inputKeys.keys} error={inputKeys.error} onEdit={openInputKey} />
+            )}
+          </Section>
+
           <Section title={t('client_keys.keys_title')} hint={t('client_keys.keys_hint')}>
             <KeysList
               keys={keys}
@@ -317,8 +365,18 @@ export function ClientKeysPage() {
         <KeyFormDialog
           editing={form.mode === 'edit' ? form.key : null}
           projects={projects}
+          groups={credentialGroups}
           onClose={closeForm}
           onSubmit={submitForm}
+        />
+      )}
+
+      {editingInput && (
+        <InputKeyDialog
+          entry={editingInput}
+          groups={credentialGroups}
+          onClose={closeInputKey}
+          onSubmit={saveInputKey}
         />
       )}
 

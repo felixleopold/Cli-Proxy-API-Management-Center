@@ -26,6 +26,8 @@ const key = (overrides: Partial<ClientKey>): ClientKey => ({
   disabled: false,
   models: [],
   credentials: 'any',
+  preferCredentials: '',
+  routeGroup: '',
   monthlyBudgetUsd: 0,
   spentUsdMonth: 0,
   unpricedUsageMonth: false,
