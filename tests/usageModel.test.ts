@@ -2,26 +2,33 @@ import { describe, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
 import { normalizeClientKey } from '../src/services/api/clientKeys';
 import {
+  OTHER_KEY,
+  OWN_ACCOUNT_AUTH_ID,
   WEEK_MS,
   assignSlots,
-  userSlots,
   buildClientRows,
-  clientKind,
   buildTimeBuckets,
-  OWN_ACCOUNT_AUTH_ID,
   clientKeyFingerprint,
+  clientKind,
   credentialKind,
   currentUsedPercent,
   filterBuckets,
   floorToUnit,
   ledgerNeedsReload,
   ledgerStartMs,
+  parseApiKeyAuthId,
   parseSubscription,
+  providerKey,
+  providerSlots,
   quotaWindowSpan,
   resolveSelection,
   rollupUsers,
+  seriesKey,
+  spendByAuth,
   stackByTime,
+  subscriptionSlots,
   summarizeSubscription,
+  userSlots,
   withHistoryWindow,
   type Subscription,
 } from '../src/features/usage/usageModel';
@@ -320,13 +327,22 @@ describe('ledger snapshot', () => {
 });
 
 describe('serving credentials', () => {
-  test('pre-tracking and imported personal usage are not removed credentials', () => {
+  test('pre-tracking, api keys, disabled and imported personal usage are classified accurately', () => {
     const known = new Set(['claude-a']);
+    const retired = new Set(['claude-ultra']);
+    const disabled = new Set(['claude-paused']);
     expect(credentialKind('', known)).toBe('pre_tracking');
     expect(credentialKind(OWN_ACCOUNT_AUTH_ID, known)).toBe('own_account');
     expect(credentialKind('claude-a', known)).toBe('subscription');
     expect(credentialKind('claude-gone', known)).toBe('removed');
-    expect(credentialKind('claude-ultra', known, new Set(['claude-ultra']))).toBe('retired');
+    expect(credentialKind('claude-ultra', known, retired)).toBe('retired');
+    expect(credentialKind('claude-paused', known, retired, disabled)).toBe('disabled');
+    expect(credentialKind('claude:apikey:b9ba263d9c4d', known, retired, disabled)).toBe('api_key');
+    expect(parseApiKeyAuthId('claude:apikey:b9ba263d9c4d')).toEqual({
+      provider: 'claude',
+      keyId: 'b9ba263d9c4d',
+    });
+    expect(parseApiKeyAuthId('claude-a')).toBeNull();
   });
 });
 
@@ -449,6 +465,87 @@ describe('rollups', () => {
     // Object prototype names are ordinary users, not inherited pins.
     for (const slot of userSlots(clients('constructor', '__proto__', 'toString')).values()) {
       expect(typeof slot === 'number' || slot === 'none').toBe(true);
+    }
+  });
+
+  test('provider slots roll Antigravity into Gemini, follow tab order, and never fold into other', () => {
+    expect(providerKey('  Claude ')).toBe('claude');
+    expect(providerKey('antigravity')).toBe('gemini');
+    expect(providerKey('Gemini')).toBe('gemini');
+    expect(providerKey('')).toBe('unknown');
+    const slots = providerSlots(
+      ['xai', 'claude', 'codex', 'antigravity', 'meta', 'gemini', 'kimi', 'devin', 'vertex', ''],
+      ['claude', 'antigravity', 'codex', 'xai', 'kimi', 'devin', 'meta']
+    );
+    expect(slots.get('claude')).toBe(0);
+    expect(slots.get('gemini')).toBe(1);
+    expect(slots.get('codex')).toBe(2);
+    expect(slots.has('antigravity')).toBe(false);
+    expect(slots.get('unknown')).toBe('none');
+    expect(slots.get('')).toBe('none');
+    for (const [key, slot] of slots) {
+      if (key && key !== 'unknown') expect(typeof slot).toBe('number');
+    }
+  });
+
+  test('subscription slots include disabled API keys and prevent idle or cross-provider starvation', () => {
+    const makeSub = (id: string, provider: string, name: string): Subscription => ({
+      id,
+      provider,
+      name,
+      observedAtMs: null,
+      quota: null,
+      session: null,
+    });
+    // Six Antigravity accounts plus three Claude accounts + one disabled runtime API key.
+    const allSubs = [
+      ...Array.from({ length: 6 }, (_, i) => makeSub(`ag-${i}`, 'antigravity', `ag${i}@gmail.com`)),
+      makeSub('claude-1', 'claude', 'agent01@f-squared.at'),
+      makeSub('claude-2', 'claude', 'agents@f-squared.at'),
+      makeSub('claude-3', 'claude', 'hanna@gmail.com'),
+    ];
+    const claudeBuckets = [
+      bucket({ provider: 'claude', authId: 'claude-1', costUsd: 50 }),
+      bucket({ provider: 'claude', authId: 'claude-2', costUsd: 40 }),
+      bucket({ provider: 'claude', authId: 'claude-3', costUsd: 10 }),
+      bucket({ provider: 'claude', authId: 'claude:apikey:b9ba263d9c4d', costUsd: 25 }),
+    ];
+    const claudeSpend = spendByAuth(claudeBuckets);
+    const claudeSlots = subscriptionSlots(
+      allSubs.filter((sub) => sub.provider === 'claude'),
+      claudeSpend
+    );
+    for (const id of ['claude-1', 'claude-2', 'claude-3', 'claude:apikey:b9ba263d9c4d']) {
+      expect(typeof claudeSlots.get(id)).toBe('number');
+      expect(seriesKey(claudeSlots, id)).toBe(id);
+    }
+
+    // When more than 7 credentials exist, idle accounts do not steal slots from active spenders,
+    // and past 7 active spenders only the smallest tail folds into "other".
+    const manySubs = Array.from({ length: 10 }, (_, i) =>
+      makeSub(`sub-${i}`, 'claude', `user${String(i).padStart(2, '0')}@example.com`)
+    );
+    const partialSpend = new Map([
+      ['sub-7', 100],
+      ['sub-8', 80],
+      ['sub-9', 60],
+    ]);
+    const partialSlots = subscriptionSlots(manySubs, partialSpend);
+    for (const id of ['sub-7', 'sub-8', 'sub-9']) {
+      expect(typeof partialSlots.get(id)).toBe('number');
+      expect(seriesKey(partialSlots, id)).toBe(id);
+    }
+
+    const busySpend = new Map(manySubs.map((sub, i) => [sub.id, (i + 1) * 10]));
+    const busySlots = subscriptionSlots(manySubs, busySpend);
+    // Top 7 spenders (sub-9..sub-3) get real slots; smallest 3 (sub-0..sub-2) fold to other.
+    for (let i = 3; i < 10; i++) {
+      expect(typeof busySlots.get(`sub-${i}`)).toBe('number');
+      expect(seriesKey(busySlots, `sub-${i}`)).toBe(`sub-${i}`);
+    }
+    for (let i = 0; i < 3; i++) {
+      expect(busySlots.get(`sub-${i}`)).toBe('other');
+      expect(seriesKey(busySlots, `sub-${i}`)).toBe(OTHER_KEY);
     }
   });
 });

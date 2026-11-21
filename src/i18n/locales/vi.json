@@ -2628,9 +2628,12 @@
     "selection_empty": "Không có mức dùng trong lựa chọn này",
     "stack_label": "Xếp chồng theo",
     "stack_user": "Theo người dùng",
+    "stack_provider": "Theo nhà cung cấp",
     "stack_subscription": "Theo gói",
     "users_title": "Người dùng",
-    "retired_credential": "Đã ngừng: {{name}}"
+    "retired_credential": "Đã ngừng: {{name}}",
+    "disabled_credential": "Đã tắt: {{name}}",
+    "api_key_credential": "Khóa API"
   },
   "fable_route": {
     "title": "Fable chuyển đến",

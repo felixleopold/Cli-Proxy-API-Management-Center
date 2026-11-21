@@ -156,4 +156,36 @@ describe('taller charts render', () => {
     // At normal height the steps are whole dollars and stay compact.
     expect(labels(false).every((label) => !label.includes('.'))).toBe(true);
   });
+
+  test('spend chart applies explicit series color as --series when provided', () => {
+    const html = renderToStaticMarkup(
+      createElement(UsageSpendChart, {
+        stacked: [
+          {
+            startMs: 0,
+            endMs: 3_600_000,
+            values: new Map([
+              ['claude', 12],
+              ['codex', 8],
+            ]),
+            total: 20,
+          },
+        ],
+        series: [
+          { key: 'claude', slot: 0, color: '#c4561f', label: 'Claude' },
+          { key: 'codex', slot: 1, color: '#52525b', label: 'Codex' },
+        ],
+        span: { startMs: 0, endMs: 3_600_000 },
+        unit: 'hour',
+        nowMs: 1_800_000,
+        showFuture: false,
+        markers: [],
+        summary: 'Spend',
+      })
+    );
+    expect(html).toContain('--series:#c4561f');
+    expect(html).toContain('--series:#52525b');
+    expect(html).toContain('Claude');
+    expect(html).toContain('Codex');
+  });
 });

@@ -2622,9 +2622,12 @@
     "selection_empty": "선택 범위에 사용량이 없습니다",
     "stack_label": "누적 기준",
     "stack_user": "사용자별",
+    "stack_provider": "제공자별",
     "stack_subscription": "구독별",
     "users_title": "사용자",
-    "retired_credential": "은퇴: {{name}}"
+    "retired_credential": "은퇴: {{name}}",
+    "disabled_credential": "비활성화됨: {{name}}",
+    "api_key_credential": "API 키"
   },
   "fable_route": {
     "title": "Fable 라우팅 대상",

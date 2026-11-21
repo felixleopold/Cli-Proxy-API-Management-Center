@@ -1,4 +1,12 @@
-import { useEffect, useId, useMemo, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   addUnits,
@@ -17,7 +25,12 @@ export interface ChartSeries {
   key: string;
   slot: SeriesSlot;
   label: string;
+  /** Optional explicit CSS color (e.g. a canonical provider color); overrides slot color. */
+  color?: string;
 }
+
+const seriesStyle = (color?: string): CSSProperties | undefined =>
+  color ? ({ '--series': color } as CSSProperties) : undefined;
 
 export interface ChartMarker {
   atMs: number;
@@ -146,7 +159,11 @@ export function UsageSpendChart({
       <figcaption className={styles.legend}>
         {series.map((item) => (
           <span key={item.key} className={styles.legendItem}>
-            <span className={`${styles.swatch} ${slotClassName(item.slot)}`} aria-hidden="true" />
+            <span
+              className={`${styles.swatch} ${item.color ? '' : slotClassName(item.slot)}`}
+              style={seriesStyle(item.color)}
+              aria-hidden="true"
+            />
             {item.label}
           </span>
         ))}
@@ -210,10 +227,11 @@ export function UsageSpendChart({
                   {visible.map((item, segmentIndex) => (
                     <span
                       key={item.key}
-                      className={`${styles.segment} ${slotClassName(item.slot)} ${
+                      className={`${styles.segment} ${item.color ? '' : slotClassName(item.slot)} ${
                         segmentIndex === visible.length - 1 ? styles.segmentTop : ''
                       }`}
                       style={{
+                        ...seriesStyle(item.color),
                         height: `${((bucket.values.get(item.key) ?? 0) / scaleMax) * 100}%`,
                       }}
                     />
@@ -258,7 +276,8 @@ export function UsageSpendChart({
                 .map((item) => (
                   <span key={item.key} className={styles.tooltipRow}>
                     <span
-                      className={`${styles.swatch} ${slotClassName(item.slot)}`}
+                      className={`${styles.swatch} ${item.color ? '' : slotClassName(item.slot)}`}
+                      style={seriesStyle(item.color)}
                       aria-hidden="true"
                     />
                     {item.label}

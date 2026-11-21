@@ -2634,9 +2634,12 @@
     "selection_empty": "所選範圍內沒有用量",
     "stack_label": "堆疊方式",
     "stack_user": "依使用者",
+    "stack_provider": "依供應商",
     "stack_subscription": "依訂閱",
     "users_title": "使用者",
-    "retired_credential": "已退役：{{name}}"
+    "retired_credential": "已退役：{{name}}",
+    "disabled_credential": "已停用：{{name}}",
+    "api_key_credential": "API 金鑰"
   },
   "fable_route": {
     "title": "Fable 路由到",
