@@ -1,0 +1,139 @@
+/*
+ * Hover cards: plain floating text. Pointer devices open them with :hover and focus;
+ * touch screens with a tap (data-open). --hover-card-shift keeps them in the viewport.
+ */
+
+.anchor {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  &:focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+
+.card {
+  --hover-card-shift: 0px;
+
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  display: none;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: var(--floating-surface, var(--bg-primary));
+  box-shadow: var(--floating-shadow);
+  color: var(--text-secondary);
+  font-family: $font-family;
+  font-size: 12px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+  letter-spacing: normal;
+  text-align: left;
+  text-transform: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: default;
+  pointer-events: none;
+  transform: translateX(var(--hover-card-shift));
+
+  strong,
+  b {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+}
+
+.anchor[data-placement='above'] > .card {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.anchor[data-align='center'] > .card {
+  left: 50%;
+  transform: translateX(calc(-50% + var(--hover-card-shift)));
+}
+
+.anchor[data-align='end'] > .card {
+  left: auto;
+  right: 0;
+}
+
+@media (hover: hover) {
+  .anchor:hover > .card,
+  .anchor:focus-within > .card {
+    display: block;
+  }
+}
+
+// Touch screens: a tap toggles the card; only keyboard focus opens it otherwise.
+@media (hover: none) {
+  .anchor:focus-visible > .card,
+  .anchor:has(:focus-visible) > .card {
+    display: block;
+  }
+}
+
+.anchor[data-open='true'] > .card {
+  display: block;
+  pointer-events: auto;
+}
+
+.anchor[data-dismissed='true'] > .card {
+  display: none;
+}
+
+.info {
+  flex: none;
+}
+
+.infoIcon {
+  position: relative;
+  display: inline-flex;
+  color: var(--text-tertiary);
+  border-radius: 50%;
+  cursor: help;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+
+  &:focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .infoIcon:hover {
+    color: var(--text-secondary);
+  }
+}
+
+// Touch: a 36px hit area around the 12px icon, without moving the surrounding text.
+@media (pointer: coarse) {
+  .infoIcon {
+    cursor: pointer;
+  }
+
+  .infoIcon::after {
+    content: '';
+    position: absolute;
+    inset: -12px;
+    border-radius: 50%;
+  }
+}

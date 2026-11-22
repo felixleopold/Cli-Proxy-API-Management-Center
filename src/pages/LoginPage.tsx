@@ -13,12 +13,12 @@ import { isSupportedLanguage } from '@/utils/language';
 import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
 import type { ApiError } from '@/types';
 import { LegacyBackendError } from '@/services/api/legacyBackendProbe';
+import { resolvePostLoginRedirect } from '@/router/routePaths';
 import styles from './LoginPage.module.scss';
 
 /**
  * 将 API 错误转换为本地化的用户友好消息
  */
-type RedirectState = { from?: { pathname?: string } };
 
 function getLocalizedErrorMessage(error: unknown, t: (key: string) => string): string {
   if (error instanceof LegacyBackendError) return t('login.error_legacy_backend');
@@ -88,7 +88,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   // The page the user asked for before being sent to login.
-  const redirectTo = (location.state as RedirectState | null)?.from?.pathname || '/';
+  const redirectTo = resolvePostLoginRedirect(location.state);
   const { showNotification } = useNotificationStore();
   const language = useLanguageStore((state) => state.language);
   const setLanguage = useLanguageStore((state) => state.setLanguage);

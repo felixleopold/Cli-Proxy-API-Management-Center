@@ -530,3 +530,10 @@
     transform: none;
   }
 }
+
+@media (pointer: coarse) {
+  .card .actions .iconButton {
+    width: 40px;
+    height: 40px;
+  }
+}

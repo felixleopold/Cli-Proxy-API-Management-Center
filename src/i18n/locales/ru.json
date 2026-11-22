@@ -2064,7 +2064,10 @@
     "expand": "Развернуть",
     "collapse": "Свернуть",
     "subtitle": "Консоль управления CLI Proxy API",
-    "auth_files_count": "Файлов аутентификации: {{count}}"
+    "auth_files_count": "Файлов аутентификации: {{count}}",
+    "open_navigation": "Открыть навигацию",
+    "close_navigation": "Закрыть навигацию",
+    "navigation": "Навигация"
   },
   "footer": {
     "api_version": "Версия CLI Proxy API",

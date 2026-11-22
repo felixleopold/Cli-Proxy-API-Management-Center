@@ -19,6 +19,12 @@
   min-height: 100vh;
   height: 100vh;
   overflow: hidden;
+
+  @supports (height: 100dvh) {
+    min-height: 100dvh;
+    height: 100dvh;
+  }
+
   // 与 .page-transition__layer 的不透明填充保持同色：外壳一旦用渐变，
   // main-content 的 padding 圈就会和内容层拼出一道 4~7 级色差的硬边，看着像每页都有边框。
   background: var(--bg-secondary);
@@ -33,6 +39,11 @@
     min-height: 100vh;
     overflow: visible;
     overflow-y: auto;
+
+    @supports (min-height: 100dvh) {
+      height: auto;
+      min-height: 100dvh;
+    }
   }
 
   &.plugin-resource-shell {
@@ -220,14 +231,14 @@
     right: 0;
     z-index: $z-dropdown + 2;
     border: 1px solid color-mix(in srgb, var(--border-color) 74%, transparent);
-    background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+    // Opaque: a backdrop-filter nested inside the glass pill does not blur in Chromium,
+    // which left the menu see-through over page content.
+    background: var(--floating-surface, var(--bg-primary));
     box-shadow: 0 20px 48px rgb(0 0 0 / 0.22);
-    --glass-blur: 16px;
-    backdrop-filter: var(--glass-backdrop-filter);
-    -webkit-backdrop-filter: var(--glass-backdrop-filter);
   }
 
   .language-menu-popover {
+    border-radius: $radius-lg;
     min-width: 164px;
     padding: $spacing-xs;
     display: flex;
@@ -245,9 +256,11 @@
     padding: 8px 10px;
     font-size: 14px;
     font-weight: 500;
+    text-align: left;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
     transition:
       background-color $transition-fast,
       color $transition-fast;
@@ -275,6 +288,7 @@
 
   .theme-menu-popover {
     padding: $spacing-sm $spacing-sm $spacing-xs;
+    border-radius: $radius-lg;
     display: flex;
     gap: $spacing-xs;
     width: max-content;
@@ -846,7 +860,8 @@
   }
 
   .top-gradient-blur {
-    height: 114px;
+    left: 0;
+    height: calc(114px + env(safe-area-inset-top, 0px));
   }
 
   .nav-tooltip {
@@ -854,13 +869,16 @@
   }
 
   .main-header {
+    // Fixed px (not var(--header-height)): MainLayout measures this element into that variable.
+    height: calc(74px + env(safe-area-inset-top, 0px));
+
     .sidebar-toggle-floating {
       display: none;
     }
 
     .header-actions {
-      top: var(--shell-gutter);
-      right: var(--shell-gutter);
+      top: calc(var(--shell-gutter) + env(safe-area-inset-top, 0px));
+      right: calc(var(--shell-gutter) + env(safe-area-inset-right, 0px));
       max-width: calc(
         100vw - var(--shell-gutter) - var(--shell-gutter) - var(--floating-control-size) - 14px
       );
@@ -871,8 +889,8 @@
 
     .mobile-sidebar-actions {
       display: inline-flex;
-      top: var(--shell-gutter);
-      left: var(--shell-gutter);
+      top: calc(var(--shell-gutter) + env(safe-area-inset-top, 0px));
+      left: calc(var(--shell-gutter) + env(safe-area-inset-left, 0px));
       padding: 5px;
       gap: 2px;
       border-radius: 14px;
@@ -882,19 +900,35 @@
       display: inline-flex;
     }
 
+    // Anchor both menus to the right edge of the action pill instead of their own
+    // button, so they never run off the right edge of a 360px screen.
+    .language-menu,
+    .theme-menu {
+      position: static;
+    }
+
+    .language-menu-popover,
+    .theme-menu-popover {
+      top: calc(100% + 8px);
+      right: 0;
+      left: auto;
+      max-width: calc(100vw - 2 * var(--shell-gutter));
+    }
+
     .language-menu-popover {
-      right: auto;
-      left: 0;
+      min-width: 220px;
+    }
+
+    .language-menu-option {
+      min-height: 44px;
     }
 
     .theme-menu-popover {
-      right: 0;
-      left: auto;
       transform: none;
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       justify-content: stretch;
-      width: min(188px, calc(100vw - 16px));
+      width: min(188px, calc(100vw - 2 * var(--shell-gutter)));
     }
 
     .theme-card {
@@ -920,11 +954,12 @@
     }
   }
 
+  // The open drawer and its backdrop sit above the floating header (z $z-dropdown + 1).
   .sidebar-backdrop {
     display: block;
     position: fixed;
     inset: 0;
-    z-index: $z-dropdown - 1;
+    z-index: $z-dropdown + 2;
     background: rgb(8 8 8 / 0.46);
 
     &.visible {
@@ -938,27 +973,57 @@
     top: 0;
     bottom: 0;
     left: 0;
-    z-index: $z-dropdown;
-    width: var(--sidebar-panel-width);
+    z-index: $z-dropdown + 3;
+    width: calc(var(--sidebar-panel-width) + env(safe-area-inset-left, 0px));
     height: auto;
+    padding: max(14px, env(safe-area-inset-top, 0px)) 10px
+      max(14px, env(safe-area-inset-bottom, 0px)) calc(10px + env(safe-area-inset-left, 0px));
+    overscroll-behavior: contain;
     transform: translateX(calc(-100% - 24px));
+    // Hidden (not just off-screen) while closed so it cannot be reached or announced.
+    visibility: hidden;
     background: var(--bg-primary);
     border: 0;
     border-right: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
     border-radius: 0;
     box-shadow: none;
+    transition:
+      transform $transition-normal,
+      visibility 0s linear $transition-normal;
 
     &.open {
       transform: translateX(0);
+      visibility: visible;
+      box-shadow: 12px 0 40px rgb(0 0 0 / 0.28);
+      transition:
+        transform $transition-normal,
+        visibility 0s;
+    }
+
+    .sidebar-header {
+      justify-content: space-between;
+      gap: $spacing-sm;
+    }
+
+    .nav-item {
+      min-height: 44px;
+      font-size: 14px;
     }
 
     &.collapsed {
-      width: var(--sidebar-panel-width);
-      padding: 14px 10px;
+      width: calc(var(--sidebar-panel-width) + env(safe-area-inset-left, 0px));
+      padding: max(14px, env(safe-area-inset-top, 0px)) 10px
+        max(14px, env(safe-area-inset-bottom, 0px)) calc(10px + env(safe-area-inset-left, 0px));
 
       .sidebar-brand,
       .nav-item {
         justify-content: flex-start;
+      }
+
+      .sidebar-header {
+        justify-content: space-between;
+        padding-right: 2px;
+        padding-left: 2px;
       }
 
       .nav-badge {
@@ -981,6 +1046,10 @@
     overflow: visible;
     overflow-y: auto;
 
+    @supports (min-height: 100dvh) {
+      min-height: 100dvh;
+    }
+
     &.content-logs {
       height: 100dvh;
       min-height: 0;
@@ -1000,7 +1069,10 @@
   }
 
   .main-content {
-    padding: calc(var(--header-height) + 16px) $spacing-md $spacing-lg;
+    padding: calc(var(--header-height) + 16px)
+      calc(#{$spacing-md} + env(safe-area-inset-right, 0px))
+      calc(#{$spacing-lg} + env(safe-area-inset-bottom, 0px))
+      calc(#{$spacing-md} + env(safe-area-inset-left, 0px));
 
     &.main-content-plugin-resource {
       min-height: 0;
@@ -1014,5 +1086,57 @@
       padding: calc(var(--header-height) + 8px) 8px max(8px, env(safe-area-inset-bottom));
       overflow: hidden;
     }
+  }
+}
+
+// Drawer close button: only rendered while the sidebar is an off-canvas drawer.
+.sidebar-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  margin: -6px -4px -6px 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background $transition-fast,
+    color $transition-fast;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover {
+    background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 26%, transparent);
+  }
+}
+
+// Touch screens get finger-sized header controls; desktop keeps its dense 38px pill.
+@media (pointer: coarse) {
+  :root {
+    --floating-control-size: 42px;
+  }
+}
+
+@media (max-width: $breakpoint-mobile) and (pointer: coarse) {
+  :root {
+    --header-height: 80px;
+  }
+
+  .main-header {
+    height: calc(80px + env(safe-area-inset-top, 0px));
   }
 }

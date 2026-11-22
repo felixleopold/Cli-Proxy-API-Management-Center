@@ -122,3 +122,19 @@
 .optionHighlighted {
   background: var(--bg-secondary);
 }
+
+// Touch: finger-sized trigger and options.
+@media (pointer: coarse) {
+  .trigger,
+  .triggerSm {
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  .option {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+  }
+}

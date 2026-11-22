@@ -1281,3 +1281,41 @@
   background: var(--failure-badge-bg);
   color: var(--failure-badge-text);
 }
+
+// Narrow phones: paired fields and definition lists stack into one column.
+@media (max-width: 520px) {
+  .fieldRow,
+  .dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// Touch: finger-sized small buttons; 16px search text keeps iOS Safari from zooming.
+@media (pointer: coarse) {
+  .entryCardIconBtn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .connectivityBtn,
+  .connectivityBtnGhost,
+  .discoveryApplyBtn,
+  .footerBtn {
+    min-height: 40px;
+  }
+
+  .discoverySearch {
+    min-height: 40px;
+  }
+}
+
+@media (max-width: $breakpoint-mobile), (pointer: coarse) {
+  .input,
+  .textarea,
+  .discoverySearch,
+  .quickStartForm .input,
+  .quickStartForm .textarea,
+  .quickStartForm .discoverySearch {
+    font-size: 16px;
+  }
+}

@@ -49,3 +49,9 @@
     }
   }
 }
+
+@media (pointer: coarse) {
+  .removeMatch {
+    min-height: 40px;
+  }
+}

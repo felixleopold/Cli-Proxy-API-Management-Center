@@ -683,3 +683,40 @@
     padding-block: 4px;
   }
 }
+
+// Phones: the timestamp sits on its own line instead of taking a 160px column.
+@media (max-width: 768px) {
+  .logRow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding: 5px 8px;
+  }
+  .timestamp {
+    padding-top: 0;
+    font-size: 10.5px;
+    line-height: 1.4;
+  }
+}
+
+// Touch: copy and clear buttons are always visible, so make them finger-sized.
+@media (pointer: coarse) {
+  .searchClear {
+    width: 40px;
+    height: 40px;
+  }
+  .copyButton:global(.btn) {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+  }
+  .wrapped .copyButton:global(.btn) {
+    top: 0;
+    right: 2px;
+  }
+  .wrapped .logRow {
+    padding-right: 44px;
+  }
+  .copyButton:global(.btn.btn-sm) {
+    min-height: 36px;
+  }
+}

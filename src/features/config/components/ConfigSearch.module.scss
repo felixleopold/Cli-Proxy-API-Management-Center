@@ -131,3 +131,10 @@
     transition: none;
   }
 }
+
+// Phones and touch: 16px text so iOS Safari does not zoom on focus.
+@media (max-width: $breakpoint-mobile), (pointer: coarse) {
+  .searchBox :global(.input) {
+    font-size: 16px;
+  }
+}

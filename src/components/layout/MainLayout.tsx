@@ -16,6 +16,8 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { PageTransition } from '@/components/common/PageTransition';
 import { MainRoutes } from '@/router/MainRoutes';
+import { normalizeRoutePath } from '@/router/routePaths';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { authFilesApi, pluginsApi } from '@/services/api';
 import {
   IconSidebarAuthFiles,
@@ -350,12 +352,17 @@ export function MainLayout() {
   const languageMenuRef = useRef<HTMLDivElement | null>(null);
   const themeMenuRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
+  const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const drawerCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  // Below this width the sidebar is an off-canvas drawer (matches $breakpoint-mobile).
+  const isMobileShell = useMediaQuery('(max-width: 768px)');
+  const drawerOpen = sidebarOpen && isMobileShell;
 
   const fullBrandName = 'CLI Proxy API Management Center';
   const abbrBrandName = t('title.abbr');
   const isLogsPage = location.pathname.startsWith('/logs');
   const isPluginResourcePage = location.pathname.startsWith('/plugin-pages');
-  const showSidebarLabels = !sidebarCollapsed || sidebarOpen;
+  const showSidebarLabels = !sidebarCollapsed || drawerOpen;
 
   // Keep floating header height available to sticky mobile elements and overlays.
   useLayoutEffect(() => {
@@ -445,6 +452,19 @@ export function MainLayout() {
       document.documentElement.style.removeProperty('--content-center-x');
     };
   }, []);
+
+  // The open drawer takes focus and closes on Escape, handing focus back to the menu button.
+  useEffect(() => {
+    if (!drawerOpen) return;
+    drawerCloseButtonRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setSidebarOpen(false);
+      mobileMenuButtonRef.current?.focus();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [drawerOpen]);
 
   const closeLanguageMenu = useCallback(() => setLanguageMenuOpen(false), []);
   const closeThemeMenu = useCallback(() => setThemeMenuOpen(false), []);
@@ -600,7 +620,13 @@ export function MainLayout() {
       labelKey: 'nav_groups.operate',
       items: [
         {
-          path: '/',
+          path: '/usage-quota',
+          labelKey: 'nav.usage_quota',
+          metaKey: 'nav_meta.usage_quota',
+          icon: sidebarIcons.quota,
+        },
+        {
+          path: '/dashboard',
           labelKey: 'nav.dashboard',
           metaKey: 'nav_meta.dashboard',
           icon: sidebarIcons.dashboard,
@@ -648,12 +674,6 @@ export function MainLayout() {
       id: 'observe',
       labelKey: 'nav_groups.observe',
       items: [
-        {
-          path: '/usage-quota',
-          labelKey: 'nav.usage_quota',
-          metaKey: 'nav_meta.usage_quota',
-          icon: sidebarIcons.quota,
-        },
         {
           path: '/logs',
           labelKey: 'nav.logs',
@@ -709,9 +729,7 @@ export function MainLayout() {
   const navItems = navGroups.flatMap((group) => flattenNavItems(group.items));
   const navOrder = navItems.map((item) => item.path);
   const getRouteOrder = (pathname: string) => {
-    const trimmedPath =
-      pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
-    const normalizedPath = trimmedPath === '/dashboard' ? '/' : trimmedPath;
+    const normalizedPath = normalizeRoutePath(pathname);
 
     const authFilesIndex = navOrder.indexOf('/auth-files');
     if (authFilesIndex !== -1) {
@@ -732,14 +750,8 @@ export function MainLayout() {
   };
 
   const getTransitionVariant = useCallback((fromPathname: string, toPathname: string) => {
-    const normalize = (pathname: string) => {
-      const trimmed =
-        pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
-      return trimmed === '/dashboard' ? '/' : trimmed;
-    };
-
-    const from = normalize(fromPathname);
-    const to = normalize(toPathname);
+    const from = normalizeRoutePath(fromPathname);
+    const to = normalizeRoutePath(toPathname);
     const isAuthFiles = (pathname: string) =>
       pathname === '/auth-files' || pathname.startsWith('/auth-files/');
     if (isAuthFiles(from) && isAuthFiles(to)) return 'ios';
@@ -972,9 +984,8 @@ export function MainLayout() {
     );
   };
 
-  const mobileSidebarToggleLabel = sidebarOpen
-    ? t('sidebar.toggle_collapse', { defaultValue: 'Close navigation' })
-    : t('sidebar.toggle_expand', { defaultValue: 'Open navigation' });
+  const mobileSidebarOpenLabel = t('sidebar.open_navigation');
+  const mobileSidebarCloseLabel = t('sidebar.close_navigation');
 
   const sidebarToggleLabel = sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse');
 
@@ -1012,14 +1023,17 @@ export function MainLayout() {
 
         <div className="mobile-sidebar-actions">
           <Button
+            ref={mobileMenuButtonRef}
             className="mobile-menu-btn"
             variant="ghost"
             size="sm"
-            onClick={() => setSidebarOpen((prev) => !prev)}
-            title={mobileSidebarToggleLabel}
-            aria-label={mobileSidebarToggleLabel}
+            onClick={() => setSidebarOpen(true)}
+            title={mobileSidebarOpenLabel}
+            aria-label={mobileSidebarOpenLabel}
+            aria-controls="app-sidebar"
+            aria-expanded={drawerOpen}
           >
-            {sidebarOpen ? headerIcons.close : headerIcons.menu}
+            {headerIcons.menu}
           </Button>
         </div>
 
@@ -1148,15 +1162,17 @@ export function MainLayout() {
       <div className="main-body">
         <button
           type="button"
-          className={`sidebar-backdrop ${sidebarOpen ? 'visible' : ''}`}
+          className={`sidebar-backdrop ${drawerOpen ? 'visible' : ''}`}
           onClick={() => setSidebarOpen(false)}
-          aria-label={t('common.close')}
-          aria-hidden={!sidebarOpen}
-          tabIndex={sidebarOpen ? 0 : -1}
+          aria-hidden="true"
+          tabIndex={-1}
         />
 
         <aside
-          className={`sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}
+          id="app-sidebar"
+          className={`sidebar ${drawerOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}
+          inert={isMobileShell && !drawerOpen}
+          aria-label={isMobileShell ? t('sidebar.navigation') : undefined}
         >
           <div className="sidebar-header">
             <div className="sidebar-brand" title={fullBrandName}>
@@ -1168,6 +1184,21 @@ export function MainLayout() {
                 </span>
               )}
             </div>
+            {isMobileShell ? (
+              <button
+                ref={drawerCloseButtonRef}
+                type="button"
+                className="sidebar-close-btn"
+                onClick={() => {
+                  setSidebarOpen(false);
+                  mobileMenuButtonRef.current?.focus();
+                }}
+                title={mobileSidebarCloseLabel}
+                aria-label={mobileSidebarCloseLabel}
+              >
+                {headerIcons.close}
+              </button>
+            ) : null}
           </div>
 
           <div className="nav-section">

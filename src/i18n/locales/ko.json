@@ -2058,7 +2058,10 @@
     "expand": "펼치기",
     "collapse": "접기",
     "subtitle": "CLI Proxy API 콘솔",
-    "auth_files_count": "인증 파일: {{count}}개"
+    "auth_files_count": "인증 파일: {{count}}개",
+    "open_navigation": "탐색 열기",
+    "close_navigation": "탐색 닫기",
+    "navigation": "탐색"
   },
   "footer": {
     "api_version": "CLI Proxy API 버전",
