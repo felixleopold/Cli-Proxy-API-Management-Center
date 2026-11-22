@@ -15,9 +15,10 @@ const routeElements = (path: string) =>
 const routeElement = (path: string) => routeElements(path)[0];
 
 describe('default route', () => {
-  test('the root opens Usage & quota', () => {
+  test('the root opens Usage & quota and forwards query and hash', () => {
     expect(DEFAULT_ROUTE).toBe('/usage-quota');
-    expect(routeElement('/')).toBe('<Navigate to={DEFAULT_ROUTE} replace />');
+    expect(routeElement('/')).toBe('<DefaultRouteRedirect />');
+    expect(routesSource).toContain('<Navigate to={{ pathname: DEFAULT_ROUTE, search, hash }} replace />');
     expect(routeElement('/usage-quota')).toBe('<UsageQuotaPage />');
   });
 

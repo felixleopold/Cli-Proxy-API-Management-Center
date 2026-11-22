@@ -7,9 +7,13 @@
  */
 
 import { useLayoutEffect, type RefObject } from 'react';
+import { clampShift } from '@/components/ui/HoverCard/clampShift';
 
 /** Space kept between a popover and the screen edge, in px. */
 export const VIEWPORT_GUTTER = 8;
+
+const POPOVER_GAP = 6;
+const MIN_SCROLL_HEIGHT = 160;
 
 /**
  * The horizontal shift that moves a box spanning [left, left + width] inside
@@ -17,9 +21,25 @@ export const VIEWPORT_GUTTER = 8;
  * its start.
  */
 export function shiftIntoBounds(left: number, width: number, min: number, max: number): number {
-  if (left < min || width > max - min) return min - left;
-  if (left + width > max) return max - (left + width);
-  return 0;
+  return clampShift(left, left + width, max + VIEWPORT_GUTTER, min, max);
+}
+
+/** Picks above or below for a popover and caps its height when neither side fits the full box. */
+export function verticalFit(
+  anchorTop: number,
+  anchorBottom: number,
+  popoverHeight: number,
+  viewportHeight: number
+): { placement: 'below' | 'above'; maxHeight: number | null } {
+  const spaceBelow = viewportHeight - anchorBottom - VIEWPORT_GUTTER - POPOVER_GAP;
+  const spaceAbove = anchorTop - VIEWPORT_GUTTER - POPOVER_GAP;
+  if (popoverHeight <= spaceBelow) return { placement: 'below', maxHeight: null };
+  const placement = spaceAbove > spaceBelow ? 'above' : 'below';
+  const available = Math.max(
+    MIN_SCROLL_HEIGHT,
+    Math.floor(placement === 'above' ? spaceAbove : spaceBelow)
+  );
+  return { placement, maxHeight: popoverHeight > available ? available : null };
 }
 
 /** The horizontal range an element can show in: the viewport less its gutter, cut by clipping ancestors. */
@@ -38,14 +58,27 @@ function visibleRange(element: HTMLElement) {
 /**
  * Applies shiftIntoBounds to the element as a CSS `translate` (and a max-width
  * when it is wider than the room), on mount, whenever `key` changes, and on resize.
+ * Pass `vertical: true` for anchored menus/popovers that should flip above or scroll
+ * within the viewport when opened near the bottom edge.
  */
-export function useViewportClamp(ref: RefObject<HTMLElement | null>, key?: unknown) {
+export function useViewportClamp(
+  ref: RefObject<HTMLElement | null>,
+  key?: unknown,
+  options?: { vertical?: boolean }
+) {
+  const vertical = options?.vertical ?? false;
   useLayoutEffect(() => {
     const element = ref.current;
     if (!element) return;
     const clamp = () => {
       element.style.translate = '';
       element.style.maxWidth = '';
+      if (vertical) {
+        element.style.top = '';
+        element.style.bottom = '';
+        element.style.maxHeight = '';
+        element.style.overflowY = '';
+      }
       const { min, max } = visibleRange(element);
       let rect = element.getBoundingClientRect();
       if (rect.width > max - min) {
@@ -54,9 +87,23 @@ export function useViewportClamp(ref: RefObject<HTMLElement | null>, key?: unkno
       }
       const shift = shiftIntoBounds(rect.left, rect.width, min, max);
       if (shift !== 0) element.style.translate = `${Math.round(shift)}px 0`;
+
+      if (vertical && element.parentElement) {
+        const anchorRect = element.parentElement.getBoundingClientRect();
+        const vh = window.innerHeight || document.documentElement.clientHeight;
+        const fit = verticalFit(anchorRect.top, anchorRect.bottom, rect.height, vh);
+        if (fit.placement === 'above') {
+          element.style.top = 'auto';
+          element.style.bottom = `calc(100% + ${POPOVER_GAP}px)`;
+        }
+        if (fit.maxHeight !== null) {
+          element.style.maxHeight = `${fit.maxHeight}px`;
+          element.style.overflowY = 'auto';
+        }
+      }
     };
     clamp();
     window.addEventListener('resize', clamp);
     return () => window.removeEventListener('resize', clamp);
-  }, [ref, key]);
+  }, [ref, key, vertical]);
 }

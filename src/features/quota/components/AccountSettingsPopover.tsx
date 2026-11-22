@@ -62,7 +62,7 @@ export function AccountSettingsPopover({
   const fields = accountSettingsFields(provider);
   // False once this popover closes: a save that resolves later must not close a newer one.
   const liveRef = useRef(true);
-  useViewportClamp(rootRef);
+  useViewportClamp(rootRef, undefined, { vertical: true });
 
   // Closing by keyboard or button hands focus back to the ⚙ trigger.
   const closeToTrigger = useCallback(() => {

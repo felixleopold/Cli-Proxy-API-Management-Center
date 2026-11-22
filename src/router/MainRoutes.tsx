@@ -1,4 +1,4 @@
-import { Navigate, useRoutes, type Location } from 'react-router-dom';
+import { Navigate, useLocation, useRoutes, type Location } from 'react-router-dom';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { ProvidersWorkbenchPage } from '@/features/providers/ProvidersWorkbenchPage';
 import { AuthFilesPage } from '@/features/authFiles/AuthFilesPage';
@@ -17,8 +17,13 @@ import { SystemPage } from '@/pages/SystemPage';
 import { useAuthStore } from '@/stores';
 import { DEFAULT_ROUTE } from './routePaths';
 
+function DefaultRouteRedirect() {
+  const { search, hash } = useLocation();
+  return <Navigate to={{ pathname: DEFAULT_ROUTE, search, hash }} replace />;
+}
+
 const createMainRoutes = (supportsPlugin: boolean) => [
-  { path: '/', element: <Navigate to={DEFAULT_ROUTE} replace /> },
+  { path: '/', element: <DefaultRouteRedirect /> },
   { path: '/dashboard', element: <DashboardPage /> },
   { path: '/settings', element: <Navigate to="/config" replace /> },
   { path: '/api-keys', element: <Navigate to="/config" replace /> },

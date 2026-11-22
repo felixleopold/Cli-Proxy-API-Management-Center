@@ -6,6 +6,8 @@
  */
 
 import {
+  cloneElement,
+  isValidElement,
   useCallback,
   useEffect,
   useId,
@@ -13,6 +15,7 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
+  type ReactElement,
   type ReactNode,
 } from 'react';
 import { IconInfo } from '@/components/ui/icons';
@@ -52,15 +55,18 @@ export function HoverCard({
   const cardRef = useRef<HTMLSpanElement | null>(null);
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [flipped, setFlipped] = useState(false);
 
-  // Measure after the card is shown, then shift it back inside the viewport and clipping ancestors.
+  // Measure after the card is shown, then clamp horizontally and flip vertically if clipped.
   const clampToViewport = useCallback(() => {
     window.requestAnimationFrame(() => {
+      const anchor = anchorRef.current;
       const card = cardRef.current;
-      if (!card) return;
+      if (!anchor || !card) return;
       card.style.setProperty('--hover-card-shift', '0px');
       card.style.maxWidth = '';
       const vw = document.documentElement.clientWidth;
+      const vh = window.innerHeight || document.documentElement.clientHeight;
       let minEdge = 8;
       let maxEdge = vw - 8;
       for (let node = card.parentElement; node; node = node.parentElement) {
@@ -77,8 +83,18 @@ export function HoverCard({
       }
       const shift = clampShift(rect.left, rect.right, vw, minEdge, maxEdge);
       card.style.setProperty('--hover-card-shift', `${Math.round(shift)}px`);
+
+      const anchorRect = anchor.getBoundingClientRect();
+      const spaceBelow = vh - anchorRect.bottom - 8;
+      const spaceAbove = anchorRect.top - 8;
+      const needed = rect.height + 6;
+      const shouldFlip =
+        placement === 'below'
+          ? needed > spaceBelow && spaceAbove > spaceBelow
+          : needed > spaceAbove && spaceBelow > spaceAbove;
+      setFlipped(shouldFlip);
     });
-  }, []);
+  }, [placement]);
 
   // A tapped-open card closes on a tap outside or Escape.
   useEffect(() => {
@@ -124,18 +140,33 @@ export function HoverCard({
 
   const reset = () => {
     if (dismissed) setDismissed(false);
+    if (flipped) setFlipped(false);
   };
+
+  const effectivePlacement = flipped ? (placement === 'below' ? 'above' : 'below') : placement;
+  const attachToChild = !focusable && isValidElement<Record<string, unknown>>(children);
+  const triggerNode = attachToChild
+    ? (() => {
+        const existing = (children as ReactElement<{ 'aria-describedby'?: string }>).props[
+          'aria-describedby'
+        ];
+        const describedBy = existing ? `${existing} ${id}` : id;
+        return cloneElement(children as ReactElement<{ 'aria-describedby'?: string }>, {
+          'aria-describedby': describedBy,
+        });
+      })()
+    : children;
 
   return (
     <span
       ref={anchorRef}
       className={`${styles.anchor} ${className ?? ''}`}
-      data-placement={placement}
+      data-placement={effectivePlacement}
       data-align={align}
       data-open={open ? 'true' : undefined}
       data-dismissed={dismissed ? 'true' : undefined}
       tabIndex={focusable ? 0 : undefined}
-      aria-describedby={id}
+      aria-describedby={attachToChild ? undefined : id}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       onPointerEnter={(event) => {
@@ -147,7 +178,7 @@ export function HoverCard({
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) reset();
       }}
     >
-      {children}
+      {triggerNode}
       <span ref={cardRef} id={id} role="tooltip" className={styles.card}>
         {content}
       </span>

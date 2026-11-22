@@ -84,7 +84,7 @@ export function TimedMenu({
   const id = useId();
   const nowMs = useNow();
   const { rootRef } = usePopoverDismiss<HTMLDivElement>(onClose);
-  useViewportClamp(rootRef);
+  useViewportClamp(rootRef, undefined, { vertical: true });
   const [custom, setCustom] = useState(() =>
     localInputValue(Math.ceil((nowMs + 2 * HOUR_MS) / HOUR_MS) * HOUR_MS)
   );

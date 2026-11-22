@@ -225,19 +225,22 @@
   margin-bottom: 2px;
   font-weight: 600;
   color: var(--text-primary);
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .tooltipRow,
 .tooltipTotal {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 7px;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 
   b {
     margin-left: auto;
     padding-left: $spacing-md;
+    flex-shrink: 0;
+    white-space: nowrap;
     font-weight: 600;
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
@@ -255,7 +258,7 @@
 .tooltipNote {
   font-size: 11.5px;
   color: var(--text-tertiary);
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .xAxis {

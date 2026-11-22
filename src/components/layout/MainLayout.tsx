@@ -453,18 +453,34 @@ export function MainLayout() {
     };
   }, []);
 
-  // The open drawer takes focus and closes on Escape, handing focus back to the menu button.
+  const mainRef = useRef<HTMLElement | null>(null);
+  const drawerCloseReasonRef = useRef<'dismiss' | 'navigate' | null>(null);
+
+  const closeDrawer = useCallback((reason: 'dismiss' | 'navigate') => {
+    drawerCloseReasonRef.current = reason;
+    setSidebarOpen(false);
+  }, []);
+
+  // The open drawer traps background inertness, takes focus, closes on Escape, and restores focus after inert clears.
   useEffect(() => {
-    if (!drawerOpen) return;
-    drawerCloseButtonRef.current?.focus();
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      setSidebarOpen(false);
+    if (drawerOpen) {
+      drawerCloseButtonRef.current?.focus();
+      const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key !== 'Escape') return;
+        closeDrawer('dismiss');
+      };
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+    const reason = drawerCloseReasonRef.current;
+    if (!reason) return;
+    drawerCloseReasonRef.current = null;
+    if (reason === 'navigate') {
+      mainRef.current?.focus({ preventScroll: true });
+    } else {
       mobileMenuButtonRef.current?.focus();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [drawerOpen]);
+    }
+  }, [drawerOpen, closeDrawer]);
 
   const closeLanguageMenu = useCallback(() => setLanguageMenuOpen(false), []);
   const closeThemeMenu = useCallback(() => setThemeMenuOpen(false), []);
@@ -882,7 +898,11 @@ export function MainLayout() {
         className={({ isActive }) => `${className} ${isActive ? 'active' : ''}`}
         onClick={() => {
           focusedRailItemRef.current = null;
-          setSidebarOpen(false);
+          if (drawerOpen) {
+            closeDrawer('navigate');
+          } else {
+            setSidebarOpen(false);
+          }
           hideRailTooltip();
         }}
         aria-label={showSidebarLabels ? undefined : accessibleLabel}
@@ -997,7 +1017,7 @@ export function MainLayout() {
     >
       <div className="top-gradient-blur" aria-hidden="true" />
 
-      <header className="main-header" ref={headerRef}>
+      <header className="main-header" ref={headerRef} inert={drawerOpen}>
         <button
           type="button"
           className="sidebar-toggle-floating"
@@ -1163,7 +1183,7 @@ export function MainLayout() {
         <button
           type="button"
           className={`sidebar-backdrop ${drawerOpen ? 'visible' : ''}`}
-          onClick={() => setSidebarOpen(false)}
+          onClick={() => closeDrawer('dismiss')}
           aria-hidden="true"
           tabIndex={-1}
         />
@@ -1189,10 +1209,7 @@ export function MainLayout() {
                 ref={drawerCloseButtonRef}
                 type="button"
                 className="sidebar-close-btn"
-                onClick={() => {
-                  setSidebarOpen(false);
-                  mobileMenuButtonRef.current?.focus();
-                }}
+                onClick={() => closeDrawer('dismiss')}
                 title={mobileSidebarCloseLabel}
                 aria-label={mobileSidebarCloseLabel}
               >
@@ -1235,8 +1252,11 @@ export function MainLayout() {
             isPluginResourcePage ? ' content-plugin-resource' : ''
           }`}
           ref={contentRef}
+          inert={drawerOpen}
         >
           <main
+            ref={mainRef}
+            tabIndex={-1}
             className={`main-content${isLogsPage ? ' main-content-logs' : ''}${
               isPluginResourcePage ? ' main-content-plugin-resource' : ''
             }`}

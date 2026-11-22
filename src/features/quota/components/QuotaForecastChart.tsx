@@ -607,7 +607,19 @@ export function RemainingChart({
   const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
   // Where the last tap pinned the readout, on touch screens.
   const pinnedMs = useRef<number | null>(null);
-  const clearHover = useCallback(() => setHoverMs(null), [setHoverMs]);
+  // Tracks a touch gesture so vertical scrolling never pins or updates the readout.
+  const touchGesture = useRef<{
+    x: number;
+    y: number;
+    t: number;
+    prevHover: number | null;
+    prevPinned: number | null;
+    dragging: boolean;
+  } | null>(null);
+  const clearHover = useCallback(() => {
+    pinnedMs.current = null;
+    setHoverMs(null);
+  }, [setHoverMs]);
   useOutsideTap(ref, hoverMs !== null, clearHover);
   // Where a Shift+arrow selection started.
   const [keyAnchor, setKeyAnchor] = useState<number | null>(null);
@@ -638,31 +650,73 @@ export function RemainingChart({
   };
   const onPointerMove = (event: PointerEvent<SVGRectElement>) => {
     const t = pointerMs(event);
-    // A finger scrolling the page past the chart reads nothing; a tap or a drag does.
-    if (t === null || (event.pointerType !== 'mouse' && !drag)) return;
+    if (t === null) return;
+    if (event.pointerType === 'mouse') {
+      setHoverMs(t);
+      if (drag) setDrag({ from: drag.from, to: Math.min(t, nowMs) });
+      return;
+    }
+    const gesture = touchGesture.current;
+    if (!gesture) return;
+    const dx = Math.abs(event.clientX - gesture.x);
+    const dy = Math.abs(event.clientY - gesture.y);
+    if (!gesture.dragging) {
+      if (!onSelect || gesture.t > nowMs || dx < MIN_SELECTION_PX || dx <= dy * 1.2) return;
+      gesture.dragging = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
     setHoverMs(t);
-    if (drag) setDrag({ from: drag.from, to: Math.min(t, nowMs) });
+    setDrag({ from: gesture.t, to: Math.min(t, nowMs) });
   };
   const onPointerDown = (event: PointerEvent<SVGRectElement>) => {
     const t = pointerMs(event);
-    if (!onSelect || event.button !== 0 || t === null || t > nowMs) return;
+    if (event.button !== 0 || t === null) return;
+    if (event.pointerType !== 'mouse') {
+      touchGesture.current = {
+        x: event.clientX,
+        y: event.clientY,
+        t,
+        prevHover: hoverMs,
+        prevPinned: pinnedMs.current,
+        dragging: false,
+      };
+      return;
+    }
+    if (!onSelect || t > nowMs) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     setDrag({ from: t, to: t });
   };
+  const onPointerCancel = (event: PointerEvent<SVGRectElement>) => {
+    setDrag(null);
+    if (event.pointerType === 'mouse') return;
+    const gesture = touchGesture.current;
+    touchGesture.current = null;
+    if (!gesture) return;
+    pinnedMs.current = gesture.prevPinned;
+    setHoverMs(gesture.prevHover);
+  };
   const onPointerUp = (event: PointerEvent<SVGRectElement>) => {
     const touch = event.pointerType !== 'mouse';
+    const gesture = touch ? touchGesture.current : null;
+    if (touch) touchGesture.current = null;
     if (drag && onSelect) {
       const wide = Math.abs(frame.x(drag.to) - frame.x(drag.from)) >= MIN_SELECTION_PX;
       setDrag(null);
       if (wide) {
         onSelect({ fromMs: Math.min(drag.from, drag.to), toMs: Math.max(drag.from, drag.to) });
-        if (touch) setHoverMs(null);
+        if (touch) {
+          pinnedMs.current = null;
+          setHoverMs(null);
+        }
         return;
       }
       // A mouse click clears the selection; a tap reads the chart instead (its bar has Clear).
       if (!touch) onSelect(null);
     }
-    if (!touch) return;
+    if (!touch || !gesture) return;
+    if (Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) >= MIN_SELECTION_PX) {
+      return;
+    }
     // A tap pins the readout where it landed; tapping the same spot again unpins it.
     const t = pointerMs(event);
     const pinned = pinnedMs.current;
@@ -1025,7 +1079,7 @@ export function RemainingChart({
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          onPointerCancel={() => setDrag(null)}
+          onPointerCancel={onPointerCancel}
           // A lifted finger also "leaves": only the mouse clears the readout that way.
           onPointerLeave={(event) => event.pointerType === 'mouse' && setHoverMs(null)}
         />

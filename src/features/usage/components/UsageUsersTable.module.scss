@@ -205,6 +205,7 @@
  * background, so each row's tint is layered over the panel colour. */
 @include mobile {
   .table {
+    --row-bg: var(--bg-primary);
     min-width: 520px;
 
     thead th:first-child,
@@ -214,29 +215,35 @@
       z-index: 1;
       width: 150px;
       max-width: 150px;
-      background: var(--bg-primary);
+      background: var(--row-bg);
       box-shadow: 8px 0 10px -8px rgb(0 0 0 / 0.45);
     }
   }
 
-  .deviceRow th[scope='row'] {
-    padding-left: 18px;
-    background:
+  .deviceRow {
+    --row-bg:
       linear-gradient(
         color-mix(in srgb, var(--bg-tertiary) 40%, transparent),
         color-mix(in srgb, var(--bg-tertiary) 40%, transparent)
       ),
       var(--bg-primary);
+
+    th[scope='row'] {
+      padding-left: 18px;
+    }
   }
 
-  .modelRow th[scope='row'] {
-    padding-left: 30px;
-    background:
+  .modelRow {
+    --row-bg:
       linear-gradient(
         color-mix(in srgb, var(--bg-tertiary) 70%, transparent),
         color-mix(in srgb, var(--bg-tertiary) 70%, transparent)
       ),
       var(--bg-primary);
+
+    th[scope='row'] {
+      padding-left: 30px;
+    }
   }
 
   /* Name and its meta wrap inside the narrow sticky column. */

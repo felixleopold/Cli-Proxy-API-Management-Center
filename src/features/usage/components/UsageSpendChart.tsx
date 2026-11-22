@@ -118,6 +118,7 @@ export function UsageSpendChart({
     return `${start.toLocaleDateString(locale, short)} – ${new Date(bucket.endMs - 1).toLocaleDateString(locale, short)}`;
   };
 
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
   const bucketAt = (event: PointerEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     const ms =
@@ -129,9 +130,17 @@ export function UsageSpendChart({
   const handlePointer = (event: PointerEvent<HTMLDivElement>) => {
     if (event.pointerType !== 'touch') setActiveIndex(bucketAt(event));
   };
-  // A tap pins the bucket's breakdown; tapping it again, or outside the chart, clears it.
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'touch') {
+      touchStart.current = { x: event.clientX, y: event.clientY };
+    }
+  };
+  // A tap pins the bucket's breakdown; a swipe does not. Tapping again or outside clears it.
   const handleTap = (event: PointerEvent<HTMLDivElement>) => {
     if (event.pointerType !== 'touch') return;
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 12) return;
     const index = bucketAt(event);
     setActiveIndex((current) => (current === index ? null : index));
   };
@@ -200,8 +209,12 @@ export function UsageSpendChart({
           aria-label={`${summary}. ${t('usage.chart_keyboard_hint')}`}
           aria-describedby={active ? tooltipId : undefined}
           ref={canvasRef}
+          onPointerDown={handlePointerDown}
           onPointerMove={handlePointer}
           onPointerUp={handleTap}
+          onPointerCancel={() => {
+            touchStart.current = null;
+          }}
           onPointerLeave={(event) => event.pointerType !== 'touch' && setActiveIndex(null)}
           onFocus={() => setActiveIndex((index) => index ?? lastPastIndex)}
           onBlur={() => setActiveIndex(null)}

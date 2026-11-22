@@ -700,6 +700,9 @@
 
 // Touch: copy and clear buttons are always visible, so make them finger-sized.
 @media (pointer: coarse) {
+  .searchInput:global(.input) {
+    padding-right: 52px;
+  }
   .searchClear {
     width: 40px;
     height: 40px;
@@ -714,6 +717,7 @@
     right: 2px;
   }
   .wrapped .logRow {
+    min-height: 38px;
     padding-right: 44px;
   }
   .copyButton:global(.btn.btn-sm) {
