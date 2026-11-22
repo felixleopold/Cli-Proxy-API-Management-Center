@@ -891,6 +891,7 @@ export function RemainingChart({
         width={width}
         height={frame.height}
         className={styles.svg}
+        data-selectable={onSelect ? 1 : undefined}
         aria-hidden="true"
         style={{ color: row.color }}
       >

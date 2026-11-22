@@ -140,7 +140,6 @@ export function HoverCard({
 
   const reset = () => {
     if (dismissed) setDismissed(false);
-    if (flipped) setFlipped(false);
   };
 
   const effectivePlacement = flipped ? (placement === 'below' ? 'above' : 'below') : placement;

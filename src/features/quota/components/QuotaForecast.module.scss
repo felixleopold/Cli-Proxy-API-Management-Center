@@ -692,14 +692,18 @@
   shape-rendering: crispEdges;
 }
 
+/* Horizontal drags select a stretch of the past; vertical ones still scroll. */
+.svg[data-selectable] {
+  touch-action: pan-y pinch-zoom;
+}
+
 .hitArea {
   fill: transparent;
   pointer-events: all;
 
-  /* Horizontal drags select a stretch of the past; vertical ones still scroll. */
   &[data-selectable] {
     cursor: crosshair;
-    touch-action: pan-y;
+    touch-action: pan-y pinch-zoom;
   }
 }
 

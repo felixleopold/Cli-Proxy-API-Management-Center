@@ -16,7 +16,7 @@ describe('verticalFit', () => {
     expect(verticalFit(100, 140, 260, 667)).toEqual({ placement: 'below', maxHeight: null });
   });
 
-  test('flips above and caps height when opened near the bottom of a short screen', () => {
-    expect(verticalFit(560, 600, 620, 667)).toEqual({ placement: 'above', maxHeight: 546 });
+  test('flips above and caps height below the fixed header when opened near the bottom', () => {
+    expect(verticalFit(560, 600, 620, 667, 60)).toEqual({ placement: 'above', maxHeight: 494 });
   });
 });

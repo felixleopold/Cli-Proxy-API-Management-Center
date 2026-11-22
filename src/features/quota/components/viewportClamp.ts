@@ -29,10 +29,11 @@ export function verticalFit(
   anchorTop: number,
   anchorBottom: number,
   popoverHeight: number,
-  viewportHeight: number
+  viewportHeight: number,
+  topEdge = VIEWPORT_GUTTER
 ): { placement: 'below' | 'above'; maxHeight: number | null } {
   const spaceBelow = viewportHeight - anchorBottom - VIEWPORT_GUTTER - POPOVER_GAP;
-  const spaceAbove = anchorTop - VIEWPORT_GUTTER - POPOVER_GAP;
+  const spaceAbove = anchorTop - topEdge - POPOVER_GAP;
   if (popoverHeight <= spaceBelow) return { placement: 'below', maxHeight: null };
   const placement = spaceAbove > spaceBelow ? 'above' : 'below';
   const available = Math.max(
@@ -91,7 +92,12 @@ export function useViewportClamp(
       if (vertical && element.parentElement) {
         const anchorRect = element.parentElement.getBoundingClientRect();
         const vh = window.innerHeight || document.documentElement.clientHeight;
-        const fit = verticalFit(anchorRect.top, anchorRect.bottom, rect.height, vh);
+        const headerBottom = document.querySelector('.main-header')?.getBoundingClientRect().bottom;
+        const topEdge =
+          headerBottom && headerBottom > 0
+            ? Math.max(VIEWPORT_GUTTER, Math.ceil(headerBottom) + VIEWPORT_GUTTER)
+            : VIEWPORT_GUTTER;
+        const fit = verticalFit(anchorRect.top, anchorRect.bottom, rect.height, vh, topEdge);
         if (fit.placement === 'above') {
           element.style.top = 'auto';
           element.style.bottom = `calc(100% + ${POPOVER_GAP}px)`;
