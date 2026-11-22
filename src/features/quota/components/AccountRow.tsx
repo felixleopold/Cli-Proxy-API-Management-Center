@@ -547,6 +547,7 @@ export function AccountRow(props: AccountRowProps) {
         </button>
         {/* Its own grid cells on wider layouts (display: contents); a tray on phones. */}
         <span id={trayId} className={styles.tray}>
+          <SplitCell summary={summary} spend={spend} />
           {file ? (
             <span className={styles.pace}>
               <PaceControl
@@ -602,7 +603,6 @@ export function AccountRow(props: AccountRowProps) {
               )}
             </span>
           </span>
-          <SplitCell summary={summary} spend={spend} />
         </span>
       </div>
       {expanded && (
