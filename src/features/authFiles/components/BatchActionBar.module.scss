@@ -60,7 +60,17 @@
 
 @include mobile {
   .container {
-    width: calc(100vw - 16px);
+    left: 50%;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    width: calc(100vw - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+  }
+
+  .bar {
+    padding: 10px;
+  }
+
+  .right :global(.btn) {
+    flex: 1 1 auto;
   }
 
   .bar {

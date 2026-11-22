@@ -153,14 +153,16 @@ function LenderChip({
 
   return (
     <li className={styles.chip} data-released={release ? true : undefined}>
-      <span className={styles.lender}>{lender.lender}</span>
-      <span
-        className={styles.fact}
-        title={release ? (formatCountdown(t, release.untilMs, nowMs) ?? undefined) : undefined}
-      >
-        {status ?? reserveText(t, lender)}
+      <span className={styles.text}>
+        <span className={styles.lender}>{lender.lender}</span>
+        <span
+          className={styles.fact}
+          title={release ? (formatCountdown(t, release.untilMs, nowMs) ?? undefined) : undefined}
+        >
+          {status ?? reserveText(t, lender)}
+        </span>
+        <span className={styles.fact}>{accounts}</span>
       </span>
-      <span className={styles.fact}>{accounts}</span>
       <span className={styles.anchor}>
         <button
           type="button"

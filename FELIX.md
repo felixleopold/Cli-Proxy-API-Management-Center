@@ -35,10 +35,17 @@ Current base: upstream `v1.25.6`.
   pool burn (`burn_per_hour` on `GET /usage/pool`, plan-weighted units/hour, per window) replaces each
   account's learned rate, split by plan weight, so every account drains the same share of its window;
   without a burn the learned rate stays. The forecast always loads the pool report for this.
-- **Phone layout for Accounts** (`Accounts.module.scss`, container ≤ 560px): one stacked card per
-  account (name and plan, one line per window with its reset, spend and users, then pace and row
-  controls), 36px touch targets, the chevron always shown without hover.
-- **Usage & quota page** (`/usage-quota`, OBSERVE; `/usage` and `/quota` redirect there). Near-black,
+- **Mobile layout and starting page** (`src/router/MainRoutes.tsx`, `src/router/routePaths.ts`,
+  `MainLayout.tsx`, `src/styles/layout.scss`, `src/components/ui/HoverCard/`,
+  `src/features/quota/components/viewportClamp.ts`, `Accounts.module.scss`). `/` redirects to
+  `/usage-quota` (forwarding query and hash), and Usage & quota is first in the sidebar above
+  `/dashboard`; login preserves deep-link query and hash. Phones (360–430px) get `viewport-fit=cover`
+  safe areas, `100dvh` heights, an inert/Escape-closing mobile drawer above the header, viewport- and
+  ancestor-clamped menus/popovers (`TimedMenu`, `AccountSettingsPopover`, `HoverCard`/`InfoHint` with
+  tap-to-open and vertical flip), touch-sized controls and 16px mobile inputs (no iOS zoom),
+  tap-to-read tooltips on the forecast and spend charts, sticky label columns on the timeline and
+  users table, stacked account cards (`container ≤ 560px`), and wrapped secondary-page layouts.
+- **Usage & quota page** (`/usage-quota`, starting page; `/`, `/usage`, and `/quota` redirect there). Near-black,
   one provider filter, in order: header (counts, the Claude credit switch as an inline toggle, Refresh
   all), the *Reserves* strip (see Usage reserves), the *pool cards* (see Quota forecast), *Accounts*,
   the *Quota windows* timeline, *Spend history*, then the device label editor collapsed. *Accounts*

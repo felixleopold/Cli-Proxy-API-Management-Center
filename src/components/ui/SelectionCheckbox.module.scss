@@ -85,3 +85,16 @@
   font-size: 14px;
   font-weight: 500;
 }
+
+// Touch: widen the hit area around the box without changing layout.
+@media (pointer: coarse) {
+  .box {
+    position: relative;
+  }
+
+  .box::after {
+    content: '';
+    position: absolute;
+    inset: -11px;
+  }
+}

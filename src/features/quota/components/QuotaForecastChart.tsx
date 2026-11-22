@@ -5,7 +5,7 @@
  * from quotaForecastModel.ts; this file only maps it to pixels and handles hover.
  */
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -27,6 +27,8 @@ import {
 import { capacityChips } from './capacityMarks';
 import { RESET_DOT_RADIUS, placeResetMarks, type ResetMarkInput } from './resetMarks';
 import { TALL_FACTOR } from '../tallCharts';
+import { useOutsideTap } from './useOutsideTap';
+import { useViewportClamp } from './viewportClamp';
 import styles from './QuotaForecast.module.scss';
 
 const PLOT_HEIGHT = 180;
@@ -258,8 +260,11 @@ function Tooltip({
 }) {
   // Sit beside the crosshair, never on it; flip to its left near the right edge.
   const flip = x > width * 0.62;
+  const ref = useRef<HTMLDivElement>(null);
+  useViewportClamp(ref, `${x}:${rows.length}`);
   return (
     <div
+      ref={ref}
       className={styles.tooltip}
       style={{ left: x, top: MARGIN.top }}
       data-flip={flip ? 1 : 0}
@@ -600,6 +605,22 @@ export function RemainingChart({
   const { hoverMs, setHoverMs, focusProps } = useScrub(fromMs, toMs, nowMs, resetStops);
   // A drag across the past in progress, as the instant it started and where it is now.
   const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
+  // Where the last tap pinned the readout, on touch screens.
+  const pinnedMs = useRef<number | null>(null);
+  // Tracks a touch gesture so vertical scrolling never pins or updates the readout.
+  const touchGesture = useRef<{
+    x: number;
+    y: number;
+    t: number;
+    prevHover: number | null;
+    prevPinned: number | null;
+    dragging: boolean;
+  } | null>(null);
+  const clearHover = useCallback(() => {
+    pinnedMs.current = null;
+    setHoverMs(null);
+  }, [setHoverMs]);
+  useOutsideTap(ref, hoverMs !== null, clearHover);
   // Where a Shift+arrow selection started.
   const [keyAnchor, setKeyAnchor] = useState<number | null>(null);
   /** Shift+←/→ grows a selection from the crosshair, across the past only. */
@@ -630,22 +651,82 @@ export function RemainingChart({
   const onPointerMove = (event: PointerEvent<SVGRectElement>) => {
     const t = pointerMs(event);
     if (t === null) return;
+    if (event.pointerType === 'mouse') {
+      setHoverMs(t);
+      if (drag) setDrag({ from: drag.from, to: Math.min(t, nowMs) });
+      return;
+    }
+    const gesture = touchGesture.current;
+    if (!gesture) return;
+    const dx = Math.abs(event.clientX - gesture.x);
+    const dy = Math.abs(event.clientY - gesture.y);
+    if (!gesture.dragging) {
+      if (!onSelect || gesture.t > nowMs || dx < MIN_SELECTION_PX || dx <= dy * 1.2) return;
+      gesture.dragging = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
     setHoverMs(t);
-    if (drag) setDrag({ from: drag.from, to: Math.min(t, nowMs) });
+    setDrag({ from: gesture.t, to: Math.min(t, nowMs) });
   };
   const onPointerDown = (event: PointerEvent<SVGRectElement>) => {
     const t = pointerMs(event);
-    if (!onSelect || event.button !== 0 || t === null || t > nowMs) return;
+    if (event.button !== 0 || t === null) return;
+    if (event.pointerType !== 'mouse') {
+      touchGesture.current = {
+        x: event.clientX,
+        y: event.clientY,
+        t,
+        prevHover: hoverMs,
+        prevPinned: pinnedMs.current,
+        dragging: false,
+      };
+      return;
+    }
+    if (!onSelect || t > nowMs) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     setDrag({ from: t, to: t });
   };
-  const onPointerUp = () => {
-    if (!drag || !onSelect) return;
-    const wide = Math.abs(frame.x(drag.to) - frame.x(drag.from)) >= MIN_SELECTION_PX;
-    onSelect(
-      wide ? { fromMs: Math.min(drag.from, drag.to), toMs: Math.max(drag.from, drag.to) } : null
-    );
+  const onPointerCancel = (event: PointerEvent<SVGRectElement>) => {
     setDrag(null);
+    if (event.pointerType === 'mouse') return;
+    const gesture = touchGesture.current;
+    touchGesture.current = null;
+    if (!gesture) return;
+    pinnedMs.current = gesture.prevPinned;
+    setHoverMs(gesture.prevHover);
+  };
+  const onPointerUp = (event: PointerEvent<SVGRectElement>) => {
+    const touch = event.pointerType !== 'mouse';
+    const gesture = touch ? touchGesture.current : null;
+    if (touch) touchGesture.current = null;
+    if (drag && onSelect) {
+      const wide = Math.abs(frame.x(drag.to) - frame.x(drag.from)) >= MIN_SELECTION_PX;
+      setDrag(null);
+      if (wide) {
+        onSelect({ fromMs: Math.min(drag.from, drag.to), toMs: Math.max(drag.from, drag.to) });
+        if (touch) {
+          pinnedMs.current = null;
+          setHoverMs(null);
+        }
+        return;
+      }
+      // A mouse click clears the selection; a tap reads the chart instead (its bar has Clear).
+      if (!touch) onSelect(null);
+    }
+    if (!touch || !gesture) return;
+    if (Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) >= MIN_SELECTION_PX) {
+      return;
+    }
+    // A tap pins the readout where it landed; tapping the same spot again unpins it.
+    const t = pointerMs(event);
+    const pinned = pinnedMs.current;
+    const again =
+      t !== null &&
+      pinned !== null &&
+      hoverMs === pinned &&
+      Math.abs(frame.x(t) - frame.x(pinned)) < 16;
+    pinnedMs.current = again ? null : t;
+    setHoverMs(again ? null : t);
   };
   const band = drag
     ? { fromMs: Math.min(drag.from, drag.to), toMs: Math.max(drag.from, drag.to) }
@@ -810,6 +891,7 @@ export function RemainingChart({
         width={width}
         height={frame.height}
         className={styles.svg}
+        data-selectable={onSelect ? 1 : undefined}
         aria-hidden="true"
         style={{ color: row.color }}
       >
@@ -998,8 +1080,9 @@ export function RemainingChart({
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          onPointerCancel={() => setDrag(null)}
-          onPointerLeave={() => setHoverMs(null)}
+          onPointerCancel={onPointerCancel}
+          // A lifted finger also "leaves": only the mouse clears the readout that way.
+          onPointerLeave={(event) => event.pointerType === 'mouse' && setHoverMs(null)}
         />
       </svg>
 
@@ -1119,6 +1202,8 @@ export function DrainChart({
     [daily, edges, fromMs, toMs, frame.plotWidth]
   );
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const clearHover = useCallback(() => setHoverIndex(null), []);
+  useOutsideTap(ref, hoverIndex !== null, clearHover);
   // Nominal band for sizing; positions follow the edges on the time axis.
   const band = frame.plotWidth / Math.max(1, count);
   const bandStart = (index: number) => frame.x(edges[index]);
@@ -1192,8 +1277,13 @@ export function DrainChart({
                 y={MARGIN.top}
                 width={bandStart(index + 1) - bandStart(index)}
                 height={frame.plotHeight}
-                onPointerEnter={() => setHoverIndex(index)}
-                onPointerLeave={() => setHoverIndex(null)}
+                onPointerEnter={(event) => event.pointerType === 'mouse' && setHoverIndex(index)}
+                onPointerLeave={(event) => event.pointerType === 'mouse' && setHoverIndex(null)}
+                // A tap pins the column's readout; tapping it again, or outside, clears it.
+                onPointerUp={(event) =>
+                  event.pointerType !== 'mouse' &&
+                  setHoverIndex((current) => (current === index ? null : index))
+                }
               />
             </g>
           );

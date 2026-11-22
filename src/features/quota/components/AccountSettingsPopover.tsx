@@ -25,6 +25,7 @@ import {
   type AccountSettingsDraft,
 } from '../accountSettings';
 import { InfoHint } from './HoverCard';
+import { useViewportClamp } from './viewportClamp';
 import styles from './AccountSettingsPopover.module.scss';
 
 type TextField = Exclude<keyof AccountSettingsDraft, 'plan'>;
@@ -61,6 +62,7 @@ export function AccountSettingsPopover({
   const fields = accountSettingsFields(provider);
   // False once this popover closes: a save that resolves later must not close a newer one.
   const liveRef = useRef(true);
+  useViewportClamp(rootRef, undefined, { vertical: true });
 
   // Closing by keyboard or button hands focus back to the ⚙ trigger.
   const closeToTrigger = useCallback(() => {
@@ -73,17 +75,17 @@ export function AccountSettingsPopover({
     liveRef.current = true;
     const root = rootRef.current;
     root?.querySelector('input')?.focus();
-    const handlePointerDown = (event: MouseEvent) => {
+    const handlePointerDown = (event: PointerEvent) => {
       if (!root?.parentElement?.contains(event.target as Node)) onClose();
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') closeToTrigger();
     };
-    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('pointerdown', handlePointerDown);
     document.addEventListener('keydown', handleKeyDown);
     return () => {
       liveRef.current = false;
-      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('pointerdown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [onClose, closeToTrigger]);

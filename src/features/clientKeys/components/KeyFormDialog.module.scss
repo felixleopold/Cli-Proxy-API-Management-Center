@@ -246,3 +246,23 @@
     outline-offset: 1px;
   }
 }
+
+// Phones and touch: 16px field text (no iOS zoom) and finger-sized small controls.
+@media (max-width: $breakpoint-mobile), (pointer: coarse) {
+  .tagInput {
+    font-size: 16px;
+  }
+}
+
+@media (pointer: coarse) {
+  .tagRemove {
+    width: 28px;
+    height: 28px;
+    margin: -5px -6px -5px 0;
+  }
+
+  .segment span {
+    min-height: 40px;
+    padding: 4px 16px;
+  }
+}

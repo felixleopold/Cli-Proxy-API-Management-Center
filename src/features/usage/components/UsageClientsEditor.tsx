@@ -74,6 +74,10 @@ export function UsageClientsEditor({ rows, disabled, onSave }: UsageClientsEdito
         <label htmlFor={userId} className={styles.srOnly}>
           {t('usage.clients_user_label', { fingerprint: row.appKey?.name ?? row.fingerprint })}
         </label>
+        {/* The column header's word, shown on phones where the header is hidden. */}
+        <span className={styles.fieldLabel} aria-hidden="true">
+          {t('usage.clients_user')}
+        </span>
         <AutocompleteInput
           id={userId}
           value={valueOf(row).user}
@@ -97,14 +101,19 @@ export function UsageClientsEditor({ rows, disabled, onSave }: UsageClientsEdito
           {row.apiKey ? maskApiKey(row.apiKey) : t('usage.clients_key_unknown')}
         </span>
       </div>
-      <input
-        className={`input ${styles.input}`}
-        value={valueOf(row).device}
-        placeholder={t('usage.clients_device_placeholder')}
-        aria-label={t('usage.clients_device_label', { fingerprint: row.fingerprint })}
-        disabled={disabled || saving}
-        onChange={(event) => edit(row, { device: event.target.value })}
-      />
+      <div className={styles.deviceField}>
+        <span className={styles.fieldLabel} aria-hidden="true">
+          {t('usage.clients_device')}
+        </span>
+        <input
+          className={`input ${styles.input}`}
+          value={valueOf(row).device}
+          placeholder={t('usage.clients_device_placeholder')}
+          aria-label={t('usage.clients_device_label', { fingerprint: row.fingerprint })}
+          disabled={disabled || saving}
+          onChange={(event) => edit(row, { device: event.target.value })}
+        />
+      </div>
       {userField(row)}
     </li>
   );

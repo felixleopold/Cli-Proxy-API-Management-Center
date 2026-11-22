@@ -1,3 +1,5 @@
+@use '../../../styles/mixins' as *;
+
 /* The person's reserve: summary line, controls, then the logins it holds back. */
 
 .bar {
@@ -162,4 +164,29 @@
 .heldName {
   font-weight: 600;
   color: var(--text-primary);
+}
+
+/* Phones: each group on its own row, touch-height buttons, a 16px field (no iOS zoom). */
+@include mobile {
+  .group {
+    width: 100%;
+  }
+
+  .segmented button {
+    min-height: 40px;
+    font-size: 13.5px;
+  }
+
+  .percentInput {
+    min-height: 40px;
+
+    input {
+      width: 56px;
+      font-size: 16px;
+    }
+  }
+
+  .group button {
+    min-height: 40px;
+  }
 }

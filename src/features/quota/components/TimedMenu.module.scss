@@ -163,3 +163,31 @@
     color: var(--text-primary);
   }
 }
+
+/* Phones: the menu is kept on screen by useViewportClamp; here its choices grow to touch
+ * size and the date field reaches 16px, so iOS does not zoom into it. */
+@include mobile {
+  .menu {
+    width: min(320px, calc(100vw - 16px));
+    max-width: calc(100vw - 16px);
+    gap: 12px;
+    font-size: 13px;
+  }
+
+  .choice {
+    align-items: center;
+    min-height: 44px;
+    padding: 8px 10px;
+  }
+
+  .hour,
+  .end {
+    min-height: 40px;
+    font-size: 13px;
+  }
+
+  .input {
+    height: 40px;
+    font-size: 16px;
+  }
+}

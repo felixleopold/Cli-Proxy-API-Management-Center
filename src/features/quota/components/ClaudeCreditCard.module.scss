@@ -58,3 +58,29 @@
     color: var(--amber-text);
   }
 }
+
+/* Phones: a full-width row whose state wraps under the label instead of being cut, so the
+ * turn-off time reads without the hover title; the switch stays on the right. */
+@include mobile {
+  .toggle {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    min-height: 44px;
+    padding: 6px 6px 6px 14px;
+    row-gap: 4px;
+    white-space: normal;
+    line-height: 1.3;
+
+    > :last-child {
+      margin-left: auto;
+    }
+  }
+
+  .state {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: visible;
+    overflow-wrap: anywhere;
+  }
+}

@@ -2015,7 +2015,10 @@
     "expand": "Mở rộng",
     "collapse": "Thu gọn",
     "subtitle": "Bảng điều khiển CLI Proxy API",
-    "auth_files_count": "File xác thực: {{count}}"
+    "auth_files_count": "File xác thực: {{count}}",
+    "open_navigation": "Mở điều hướng",
+    "close_navigation": "Đóng điều hướng",
+    "navigation": "Điều hướng"
   },
   "footer": {
     "api_version": "Phiên bản CLI Proxy API",

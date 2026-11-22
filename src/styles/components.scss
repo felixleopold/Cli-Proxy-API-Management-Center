@@ -382,7 +382,10 @@ textarea {
 
 @media (max-width: $breakpoint-mobile) {
   .modal-overlay {
-    padding: $spacing-md;
+    padding: max(#{$spacing-md}, env(safe-area-inset-top, 0px))
+      max(#{$spacing-md}, env(safe-area-inset-right, 0px))
+      max(#{$spacing-md}, env(safe-area-inset-bottom, 0px))
+      max(#{$spacing-md}, env(safe-area-inset-left, 0px));
   }
 
   .modal {
@@ -552,4 +555,24 @@ textarea {
 
 .hint {
   color: var(--text-secondary);
+}
+
+// Touch: finger-sized close and small icon buttons. Desktop keeps its compact sizes.
+@media (pointer: coarse) {
+  .modal-close-floating {
+    width: 40px;
+    height: 40px;
+  }
+
+  .btn.btn-sm {
+    min-height: 40px;
+  }
+}
+
+// iOS Safari zooms the page when a focused field's text is under 16px.
+@media (max-width: $breakpoint-mobile), (pointer: coarse) {
+  .input,
+  textarea {
+    font-size: 16px;
+  }
 }

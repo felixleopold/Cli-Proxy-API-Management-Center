@@ -292,3 +292,44 @@
     animation: none;
   }
 }
+
+// Phones and touch: 16px search text (no iOS zoom) and finger-sized controls.
+@media (max-width: $breakpoint-mobile), (pointer: coarse) {
+  .search :global(.input),
+  .pageSizeInput {
+    font-size: 16px;
+  }
+}
+
+// Phones: anchor the display popover to the toolbar's right edge so it never
+// runs off the left of a 360px screen when the button wraps to the start of a row.
+@include mobile {
+  .toolbar {
+    position: relative;
+  }
+
+  .display {
+    position: static;
+  }
+
+  .popover {
+    max-width: calc(100vw - 32px);
+  }
+}
+
+@media (pointer: coarse) {
+  .search :global(.input) {
+    height: 42px;
+  }
+
+  .segment {
+    min-height: 36px;
+    padding: 6px 14px;
+  }
+
+  .displayButton,
+  .deleteAction,
+  .pageSizeInput {
+    height: 40px;
+  }
+}

@@ -431,3 +431,40 @@
     transition: none;
   }
 }
+
+// Phones and touch: 16px search text (no iOS zoom) and finger-sized controls.
+@media (max-width: $breakpoint-mobile), (pointer: coarse) {
+  .searchInput {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: $breakpoint-mobile) {
+  .search {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+}
+
+@media (pointer: coarse) {
+  .search,
+  .menuButton {
+    height: 42px;
+  }
+
+  .clearSearch {
+    width: 36px;
+    height: 36px;
+    right: 3px;
+  }
+
+  .segmented button {
+    min-height: 36px;
+    padding: 4px 14px;
+  }
+
+  .iconAction {
+    width: 40px;
+    height: 40px;
+  }
+}

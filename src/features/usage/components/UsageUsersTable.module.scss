@@ -199,3 +199,71 @@
   font-size: 13px;
   color: var(--text-tertiary);
 }
+
+/* Phones: the user / device / model column stays put while the numbers scroll under it, with
+ * an edge shadow as the cue; expanders grow to touch height. Sticky cells need an opaque
+ * background, so each row's tint is layered over the panel colour. */
+@include mobile {
+  .table {
+    --row-bg: var(--bg-primary);
+    min-width: 520px;
+
+    thead th:first-child,
+    tbody th[scope='row'] {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      width: 150px;
+      max-width: 150px;
+      background: var(--row-bg);
+      box-shadow: 8px 0 10px -8px rgb(0 0 0 / 0.45);
+    }
+  }
+
+  .deviceRow {
+    --row-bg:
+      linear-gradient(
+        color-mix(in srgb, var(--bg-tertiary) 40%, transparent),
+        color-mix(in srgb, var(--bg-tertiary) 40%, transparent)
+      ),
+      var(--bg-primary);
+
+    th[scope='row'] {
+      padding-left: 18px;
+    }
+  }
+
+  .modelRow {
+    --row-bg:
+      linear-gradient(
+        color-mix(in srgb, var(--bg-tertiary) 70%, transparent),
+        color-mix(in srgb, var(--bg-tertiary) 70%, transparent)
+      ),
+      var(--bg-primary);
+
+    th[scope='row'] {
+      padding-left: 30px;
+    }
+  }
+
+  /* Name and its meta wrap inside the narrow sticky column. */
+  .expander {
+    flex-wrap: wrap;
+    row-gap: 2px;
+    min-height: 40px;
+  }
+
+  .modelCell {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  .modelName,
+  .fingerprint {
+    overflow-wrap: anywhere;
+  }
+
+  .meta {
+    white-space: normal;
+  }
+}

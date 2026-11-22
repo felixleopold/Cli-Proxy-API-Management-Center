@@ -144,3 +144,44 @@ select.input,
   line-height: 1.4;
   color: var(--text-tertiary);
 }
+
+/* Phones: kept on screen by useViewportClamp, with touch-sized fields at 16px (no iOS zoom). */
+@include mobile {
+  .popover {
+    width: min(360px, calc(100vw - 16px));
+    max-width: calc(100vw - 16px);
+  }
+
+  .field {
+    grid-template-columns: minmax(0, 1fr) minmax(120px, 46%);
+  }
+
+  .label {
+    font-size: 13px;
+  }
+
+  .input {
+    height: 40px;
+    font-size: 16px;
+  }
+
+  .suffix {
+    font-size: 13px;
+  }
+
+  .footer {
+    flex-wrap: wrap;
+
+    button {
+      min-height: 40px;
+    }
+  }
+
+  .hint {
+    flex-basis: 100%;
+  }
+
+  .lifecycle button {
+    min-height: 40px;
+  }
+}

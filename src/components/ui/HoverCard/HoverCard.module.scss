@@ -1,4 +1,7 @@
-/* Hover cards: plain floating text, opened by :hover and :focus-within only. */
+/*
+ * Hover cards: plain floating text. Pointer devices open them with :hover and focus;
+ * touch screens with a tap (data-open). --hover-card-shift keeps them in the viewport.
+ */
 
 .anchor {
   position: relative;
@@ -19,13 +22,15 @@
 }
 
 .card {
+  --hover-card-shift: 0px;
+
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
   z-index: 40;
   display: none;
   width: max-content;
-  max-width: 280px;
+  max-width: min(280px, calc(100vw - 16px));
   padding: 8px 10px;
   border: 1px solid var(--border-color);
   border-radius: 9px;
@@ -41,8 +46,10 @@
   text-align: left;
   text-transform: none;
   white-space: normal;
+  overflow-wrap: anywhere;
   cursor: default;
   pointer-events: none;
+  transform: translateX(var(--hover-card-shift));
 
   strong,
   b {
@@ -58,7 +65,7 @@
 
 .anchor[data-align='center'] > .card {
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(calc(-50% + var(--hover-card-shift)));
 }
 
 .anchor[data-align='end'] > .card {
@@ -66,9 +73,28 @@
   right: 0;
 }
 
-.anchor:hover > .card,
-.anchor:focus-within > .card {
+@media (hover: hover) {
+  .anchor:hover > .card,
+  .anchor:focus-within > .card {
+    display: block;
+  }
+}
+
+// Touch screens: a tap toggles the card; only keyboard focus opens it otherwise.
+@media (hover: none) {
+  .anchor:focus-visible > .card,
+  .anchor:has(:focus-visible) > .card {
+    display: block;
+  }
+}
+
+.anchor[data-open='true'] > .card {
   display: block;
+  pointer-events: auto;
+}
+
+.anchor[data-dismissed='true'] > .card {
+  display: none;
 }
 
 .info {
@@ -76,6 +102,7 @@
 }
 
 .infoIcon {
+  position: relative;
   display: inline-flex;
   color: var(--text-tertiary);
   border-radius: 50%;
@@ -94,5 +121,19 @@
 @media (hover: hover) and (pointer: fine) {
   .infoIcon:hover {
     color: var(--text-secondary);
+  }
+}
+
+// Touch: a 36px hit area around the 12px icon, without moving the surrounding text.
+@media (pointer: coarse) {
+  .infoIcon {
+    cursor: pointer;
+  }
+
+  .infoIcon::after {
+    content: '';
+    position: absolute;
+    inset: -12px;
+    border-radius: 50%;
   }
 }

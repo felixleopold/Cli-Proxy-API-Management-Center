@@ -79,3 +79,14 @@
     transition: none;
   }
 }
+
+@media (pointer: coarse) {
+  .pill {
+    min-height: 40px;
+  }
+
+  .clear {
+    min-height: 40px;
+    padding: 8px 10px;
+  }
+}

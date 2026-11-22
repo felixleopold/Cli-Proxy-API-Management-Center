@@ -11,6 +11,7 @@ import { useNow } from '@/hooks/useNow';
 import { HOUR_MS } from '@/utils/time/durations';
 import { resolveTimedChoice, type NextResets, type TimedChoice } from '../accountControls';
 import { formatWhen } from './countdown';
+import { useViewportClamp } from './viewportClamp';
 import styles from './TimedMenu.module.scss';
 
 /** The preset durations of a menu, in hours. */
@@ -26,16 +27,16 @@ function usePopoverDismiss<T extends HTMLElement>(onClose: () => void) {
   }, [onClose]);
   useEffect(() => {
     const root = rootRef.current;
-    const handlePointerDown = (event: MouseEvent) => {
+    const handlePointerDown = (event: PointerEvent) => {
       if (!root?.parentElement?.contains(event.target as Node)) onClose();
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') closeToTrigger();
     };
-    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('pointerdown', handlePointerDown);
     document.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('pointerdown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [onClose, closeToTrigger]);
@@ -83,6 +84,7 @@ export function TimedMenu({
   const id = useId();
   const nowMs = useNow();
   const { rootRef } = usePopoverDismiss<HTMLDivElement>(onClose);
+  useViewportClamp(rootRef, undefined, { vertical: true });
   const [custom, setCustom] = useState(() =>
     localInputValue(Math.ceil((nowMs + 2 * HOUR_MS) / HOUR_MS) * HOUR_MS)
   );

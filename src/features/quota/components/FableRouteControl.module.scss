@@ -41,3 +41,26 @@
     color: var(--text-primary);
   }
 }
+
+/* Phones: a full-width row, the select taking whatever the label leaves. */
+@include mobile {
+  .group {
+    display: flex;
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .title {
+    flex: none;
+  }
+
+  .select {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+
+    button[aria-haspopup='listbox'] {
+      min-height: 36px;
+    }
+  }
+}

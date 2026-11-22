@@ -252,3 +252,10 @@
     color: var(--destructive-color);
   }
 }
+
+@media (pointer: coarse) {
+  .iconBtn {
+    width: 40px;
+    height: 40px;
+  }
+}

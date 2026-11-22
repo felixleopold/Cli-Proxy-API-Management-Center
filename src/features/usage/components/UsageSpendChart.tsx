@@ -1,4 +1,13 @@
-import { useEffect, useId, useMemo, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   addUnits,
@@ -11,6 +20,8 @@ import {
 } from '../usageModel';
 import { slotClassName } from './slotClass';
 import { spendAxis } from './spendAxis';
+import { useOutsideTap } from '@/features/quota/components/useOutsideTap';
+import { useViewportClamp } from '@/features/quota/components/viewportClamp';
 import styles from './UsageSpendChart.module.scss';
 
 export interface ChartSeries {
@@ -58,6 +69,11 @@ export function UsageSpendChart({
   const locale = i18n.resolvedLanguage;
   const tooltipId = useId();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const clearActive = useCallback(() => setActiveIndex(null), []);
+  useOutsideTap(canvasRef, activeIndex !== null, clearActive);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  useViewportClamp(tooltipRef, activeIndex);
 
   // A hover-opened tooltip must also close on Escape when focus is elsewhere (WCAG 1.4.13).
   useEffect(() => {
@@ -102,12 +118,31 @@ export function UsageSpendChart({
     return `${start.toLocaleDateString(locale, short)} – ${new Date(bucket.endMs - 1).toLocaleDateString(locale, short)}`;
   };
 
-  const handlePointer = (event: PointerEvent<HTMLDivElement>) => {
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const bucketAt = (event: PointerEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     const ms =
       span.startMs + ((event.clientX - rect.left) / rect.width) * (span.endMs - span.startMs);
     const index = stacked.findIndex((bucket) => ms >= bucket.startMs && ms < bucket.endMs);
-    setActiveIndex(index === -1 ? null : index);
+    return index === -1 ? null : index;
+  };
+  // A finger scrolls the page across the chart, so only a mouse or pen reads on the move.
+  const handlePointer = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== 'touch') setActiveIndex(bucketAt(event));
+  };
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'touch') {
+      touchStart.current = { x: event.clientX, y: event.clientY };
+    }
+  };
+  // A tap pins the bucket's breakdown; a swipe does not. Tapping again or outside clears it.
+  const handleTap = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== 'touch') return;
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 12) return;
+    const index = bucketAt(event);
+    setActiveIndex((current) => (current === index ? null : index));
   };
 
   const handleKey = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -173,8 +208,14 @@ export function UsageSpendChart({
           tabIndex={0}
           aria-label={`${summary}. ${t('usage.chart_keyboard_hint')}`}
           aria-describedby={active ? tooltipId : undefined}
+          ref={canvasRef}
+          onPointerDown={handlePointerDown}
           onPointerMove={handlePointer}
-          onPointerLeave={() => setActiveIndex(null)}
+          onPointerUp={handleTap}
+          onPointerCancel={() => {
+            touchStart.current = null;
+          }}
+          onPointerLeave={(event) => event.pointerType !== 'touch' && setActiveIndex(null)}
           onFocus={() => setActiveIndex((index) => index ?? lastPastIndex)}
           onBlur={() => setActiveIndex(null)}
           onKeyDown={handleKey}
@@ -238,6 +279,7 @@ export function UsageSpendChart({
 
           {active && (
             <div
+              ref={tooltipRef}
               id={tooltipId}
               className={styles.tooltip}
               style={{

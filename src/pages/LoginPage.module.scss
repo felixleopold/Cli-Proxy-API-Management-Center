@@ -3,6 +3,7 @@
 // 主容器 - 左右分栏布局
 .container {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   background: var(--bg-secondary);
 }
@@ -93,8 +94,12 @@
   position: relative;
 
   @media (max-width: $breakpoint-mobile) {
-    padding: $spacing-lg;
+    padding: max(#{$spacing-lg}, env(safe-area-inset-top, 0px))
+      max(#{$spacing-lg}, env(safe-area-inset-right, 0px))
+      max(#{$spacing-lg}, env(safe-area-inset-bottom, 0px))
+      max(#{$spacing-lg}, env(safe-area-inset-left, 0px));
     min-height: 100vh;
+    min-height: 100dvh;
   }
 }
 
