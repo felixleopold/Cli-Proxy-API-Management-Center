@@ -2606,7 +2606,7 @@
     "auth_pre_tracking": "공유 풀(추적 이전)",
     "auth_own_account": "개인 계정(게이트웨이 이전)",
     "removed_credential": "삭제된 자격 증명",
-    "other_subscriptions": "기타 구독",
+    "other_providers": "기타 공급자",
     "pre_tracking_note": "{{amount}}은(는) 자격 증명 추적 이전의 공유 풀 사용량으로, 합계에만 포함되고 구독에는 포함되지 않습니다.",
     "own_account_note": "{{amount}}은(는) 게이트웨이 이전의 개인 계정 사용량으로, 합계에만 포함되고 구독에는 포함되지 않습니다.",
     "chart_title": "기간별 비용",
@@ -2622,7 +2622,7 @@
     "selection_empty": "선택 범위에 사용량이 없습니다",
     "stack_label": "누적 기준",
     "stack_user": "사용자별",
-    "stack_subscription": "구독별",
+    "stack_provider": "공급자별",
     "users_title": "사용자",
     "retired_credential": "은퇴: {{name}}"
   },

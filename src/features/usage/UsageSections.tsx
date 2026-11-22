@@ -50,7 +50,7 @@ import {
   rollupUsers,
   seriesKey,
   stackByTime,
-  subscriptionSlots,
+  providerSlots,
   unpricedModels,
   sumCost,
   summarizeSubscription,
@@ -63,8 +63,8 @@ import {
 } from './usageModel';
 import styles from './UsageSections.module.scss';
 
-type StackBy = 'user' | 'subscription';
-const STACK_MODES: StackBy[] = ['user', 'subscription'];
+type StackBy = 'user' | 'provider';
+const STACK_MODES: StackBy[] = ['user', 'provider'];
 
 const slotOrder = (slot: SeriesSlot) => (slot === 'other' ? 100 : slot === 'none' ? 101 : slot);
 
@@ -207,14 +207,7 @@ export function UsageSections({
   );
   // From the shared buckets, so a model only a private credential used is not named.
   const unpriced = useMemo(() => unpricedModels(buckets), [buckets]);
-  // A retired credential with spend in the loaded ledger keeps the colour it had while active.
-  const subscriptionColors = useMemo(() => {
-    const spent = new Set(buckets.map((bucket) => bucket.authId));
-    return subscriptionSlots(
-      [...subscriptions, ...retired.filter((subscription) => spent.has(subscription.id))],
-      buckets
-    );
-  }, [buckets, retired, subscriptions]);
+  const providerColors = useMemo(() => providerSlots(QUOTA_TAB_ORDER, buckets), [buckets]);
   const subscriptionById = useMemo(
     () => new Map(subscriptions.map((subscription) => [subscription.id, subscription])),
     [subscriptions]
@@ -291,30 +284,31 @@ export function UsageSections({
       stackByTime(selected, timeBuckets, (bucket) =>
         stackMode === 'user'
           ? seriesKey(userColors, labelByFingerprint.get(bucket.fingerprint)?.user ?? '')
-          : seriesKey(subscriptionColors, bucket.authId)
+          : seriesKey(providerColors, bucket.provider.toLowerCase())
       ),
-    [labelByFingerprint, selected, stackMode, subscriptionColors, timeBuckets, userColors]
+    [labelByFingerprint, providerColors, selected, stackMode, timeBuckets, userColors]
   );
   const series = useMemo<ChartSeries[]>(() => {
     const keys = new Set(stacked.flatMap((bucket) => Array.from(bucket.values.keys())));
-    const colors = stackMode === 'user' ? userColors : subscriptionColors;
+    const colors = stackMode === 'user' ? userColors : providerColors;
     return Array.from(keys)
       .map((key): ChartSeries => {
         if (key === OTHER_KEY) {
           return {
             key,
             slot: 'other',
-            label: t(stackMode === 'user' ? 'usage.other_users' : 'usage.other_subscriptions'),
+            label: t(stackMode === 'user' ? 'usage.other_users' : 'usage.other_providers'),
           };
         }
         return {
           key,
           slot: colors.get(key) ?? 'other',
-          label: stackMode === 'user' ? userLabel(key) : subscriptionLabel(key),
+          label:
+            stackMode === 'user' ? userLabel(key) : providerLabel(key, t('usage.unknown_provider')),
         };
       })
       .sort((a, b) => slotOrder(a.slot) - slotOrder(b.slot));
-  }, [stackMode, stacked, subscriptionColors, subscriptionLabel, t, userColors, userLabel]);
+  }, [providerColors, stackMode, stacked, t, userColors, userLabel]);
 
   // Resets only read as landmarks at hour and six-hour resolution.
   const markers = useMemo<ChartMarker[]>(() => {

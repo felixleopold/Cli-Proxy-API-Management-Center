@@ -637,30 +637,18 @@ export function userSlots(clients: readonly UsageClient[]): Map<string, SeriesSl
 }
 
 /**
- * Subscriptions by spend in the loaded buckets, so the named slots go to the
- * ones that cost money rather than to whichever provider sorts first (seven
- * Antigravity logins once took every slot). Ties by provider, then name;
- * imported personal-account usage last.
+ * Providers in the given order, then any other provider in the buckets
+ * alphabetically, so a provider's colour depends on nothing but who exists.
  */
-export function subscriptionSlots(
-  subscriptions: readonly Subscription[],
+export function providerSlots(
+  order: readonly string[],
   buckets: readonly UsageLedgerBucket[]
 ): Map<string, SeriesSlot> {
-  const spend = new Map<string, number>();
-  for (const bucket of buckets) {
-    spend.set(bucket.authId, (spend.get(bucket.authId) ?? 0) + bucket.costUsd);
-  }
-  return assignSlots([
-    ...[...subscriptions]
-      .sort(
-        (a, b) =>
-          (spend.get(b.id) ?? 0) - (spend.get(a.id) ?? 0) ||
-          a.provider.localeCompare(b.provider) ||
-          a.name.localeCompare(b.name)
-      )
-      .map((subscription) => subscription.id),
-    OWN_ACCOUNT_AUTH_ID,
-  ]);
+  const known = new Set(order);
+  const others = Array.from(new Set(buckets.map((bucket) => bucket.provider.toLowerCase())))
+    .filter((provider) => !known.has(provider))
+    .sort();
+  return assignSlots([...order, ...others]);
 }
 
 /**

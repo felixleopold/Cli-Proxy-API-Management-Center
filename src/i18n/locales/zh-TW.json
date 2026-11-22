@@ -2618,7 +2618,7 @@
     "auth_pre_tracking": "共用池（憑證追蹤前）",
     "auth_own_account": "個人帳號（接入閘道前）",
     "removed_credential": "已刪除的憑證",
-    "other_subscriptions": "其他訂閱",
+    "other_providers": "其他供應商",
     "pre_tracking_note": "{{amount}} 是憑證追蹤開始前的共用池用量，只計入總額，不計入任何訂閱。",
     "own_account_note": "{{amount}} 是接入閘道前的個人帳號用量，只計入總額，不計入任何訂閱。",
     "chart_title": "花費趨勢",
@@ -2634,7 +2634,7 @@
     "selection_empty": "所選範圍內沒有用量",
     "stack_label": "堆疊方式",
     "stack_user": "依使用者",
-    "stack_subscription": "依訂閱",
+    "stack_provider": "依供應商",
     "users_title": "使用者",
     "retired_credential": "已退役：{{name}}"
   },
