@@ -9,12 +9,19 @@
 
 import { useCallback, useState, type MouseEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconAlertTriangle, IconChevronRight, IconSettings } from '@/components/ui/icons';
+import {
+  IconAlertTriangle,
+  IconChevronRight,
+  IconMoreHorizontal,
+  IconSettings,
+  IconShield,
+  IconZap,
+} from '@/components/ui/icons';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { useNow } from '@/hooks/useNow';
 import { apiClient, authFilesApi } from '@/services/api';
 import { useNotificationStore } from '@/stores';
-import type { AuthFileItem, ResolvedTheme } from '@/types';
+import type { AuthFileItem, AuthFilePaceMode, ResolvedTheme } from '@/types';
 import {
   getAuthFileIcon,
   getThemeSurfaceIconBackground,
@@ -31,7 +38,7 @@ import { formatPercent } from '@/utils/format';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { isClaudeFile } from '@/utils/quota/validators';
 import { DAY_MS } from '@/utils/time/durations';
-import { activePause } from '../accountControls';
+import { activePace, activePause } from '../accountControls';
 import { nextResetsOf, type AccountWindow, type AccountWindows } from '../accountCards';
 import { AccountSettingsPopover } from './AccountSettingsPopover';
 import { formatCountdown, formatWhen } from './countdown';
@@ -441,12 +448,16 @@ export function AccountRow(props: AccountRowProps) {
   const now = useNow();
   const [expanded, setExpanded] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Phones: the secondary controls sit in a tray this row's ⋯ button opens.
+  const [trayOpen, setTrayOpen] = useState(false);
   // Stable, so the popover's listeners and initial focus do not rerun on every render.
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const detailsId = `${nameId}-details`;
   const disabled = file?.disabled === true;
   const retiredAtMs = file?.disabled ? file.retiredAtMs : undefined;
   const pausedUntilMs = file ? activePause(file, now) : null;
+  const pace = file ? activePace(file, now) : null;
+  const trayId = `${nameId}-tray`;
   const verificationRequired = file && requiresVerification(file);
   const verificationUrl = verificationRequired ? file.verificationUrl : undefined;
 
@@ -456,6 +467,7 @@ export function AccountRow(props: AccountRowProps) {
       data-disabled={disabled || undefined}
       data-active={(summary !== null && spend.activeId === summary.subscription.id) || undefined}
       data-expanded={expanded || undefined}
+      data-tray-open={trayOpen || undefined}
       aria-busy={busy || undefined}
     >
       <div
@@ -495,6 +507,12 @@ export function AccountRow(props: AccountRowProps) {
             {file?.fableLocked && (
               <span className={styles.fableBadge}>{t('fable_lock.badge')}</span>
             )}
+            {pace && <PaceBadge mode={pace.mode} untilMs={pace.untilMs} />}
+            {disabled && retiredAtMs === undefined && (
+              <span className={`${styles.statusBadge} ${styles.phoneOnly}`}>
+                {t('routing.state_disabled')}
+              </span>
+            )}
             <IconChevronRight size={12} aria-hidden="true" className={styles.chevron} />
           </button>
           {verificationUrl && (
@@ -517,62 +535,75 @@ export function AccountRow(props: AccountRowProps) {
           long
         />
         <SpendCell summary={summary} spend={spend} labelId={nameId} />
-        <SplitCell summary={summary} spend={spend} />
-        {file ? (
-          <span className={styles.pace}>
-            <PaceControl
-              file={file}
-              resets={nextResetsOf(windows)}
-              onChange={(patch) => onFileChange(getQuotaCacheKey(file), patch)}
-              onReload={onSettingsSaved}
-            />
-            <PauseControl
-              file={file}
-              resets={nextResetsOf(windows)}
-              onChange={(patch) => onFileChange(getQuotaCacheKey(file), patch)}
-              onReload={onSettingsSaved}
-            />
-            {isClaudeFile(file) && (
-              <FableLockControl
+        {/* Its own grid cells on wider layouts (display: contents); a tray on phones. */}
+        <span id={trayId} className={styles.tray}>
+          <SplitCell summary={summary} spend={spend} />
+          {file ? (
+            <span className={styles.pace}>
+              <PaceControl
                 file={file}
+                resets={nextResetsOf(windows)}
                 onChange={(patch) => onFileChange(getQuotaCacheKey(file), patch)}
                 onReload={onSettingsSaved}
               />
-            )}
-          </span>
-        ) : (
-          <span />
-        )}
-        <span className={styles.controls}>
-          {file ? <StatusToggle file={file} onFileChange={onFileChange} /> : <span />}
-          <span className={styles.actions}>
-            {actions}
-            {file && (
-              <span className={styles.settingsAnchor} data-row-control>
-                <button
-                  type="button"
-                  className={styles.iconButton}
-                  aria-label={t('usage_accounts.settings_open', { name })}
-                  title={t('usage_accounts.settings_title')}
-                  aria-expanded={settingsOpen}
-                  aria-haspopup="dialog"
-                  onClick={() => setSettingsOpen((open) => !open)}
-                >
-                  <IconSettings size={14} aria-hidden="true" />
-                </button>
-                {settingsOpen && (
-                  <RowSettings
-                    file={file}
-                    provider={provider}
-                    onClose={closeSettings}
-                    onSaved={onSettingsSaved}
-                    onFileChange={onFileChange}
-                  />
-                )}
-              </span>
-            )}
+              <PauseControl
+                file={file}
+                resets={nextResetsOf(windows)}
+                onChange={(patch) => onFileChange(getQuotaCacheKey(file), patch)}
+                onReload={onSettingsSaved}
+              />
+              {isClaudeFile(file) && (
+                <FableLockControl
+                  file={file}
+                  onChange={(patch) => onFileChange(getQuotaCacheKey(file), patch)}
+                  onReload={onSettingsSaved}
+                />
+              )}
+            </span>
+          ) : (
+            <span />
+          )}
+          <span className={styles.controls}>
+            {file ? <StatusToggle file={file} onFileChange={onFileChange} /> : <span />}
+            <span className={styles.actions}>
+              {actions}
+              {file && (
+                <span className={styles.settingsAnchor} data-row-control>
+                  <button
+                    type="button"
+                    className={styles.iconButton}
+                    aria-label={t('usage_accounts.settings_open', { name })}
+                    title={t('usage_accounts.settings_title')}
+                    aria-expanded={settingsOpen}
+                    aria-haspopup="dialog"
+                    onClick={() => setSettingsOpen((open) => !open)}
+                  >
+                    <IconSettings size={14} aria-hidden="true" />
+                  </button>
+                  {settingsOpen && (
+                    <RowSettings
+                      file={file}
+                      provider={provider}
+                      onClose={closeSettings}
+                      onSaved={onSettingsSaved}
+                      onFileChange={onFileChange}
+                    />
+                  )}
+                </span>
+              )}
+            </span>
           </span>
         </span>
+        <button
+          type="button"
+          className={`${styles.iconButton} ${styles.moreButton}`}
+          aria-label={t('usage_mobile.more_actions', { name })}
+          aria-expanded={trayOpen}
+          aria-controls={trayId}
+          onClick={() => setTrayOpen((open) => !open)}
+        >
+          <IconMoreHorizontal size={16} aria-hidden="true" />
+        </button>
       </div>
       {expanded && (
         <div id={detailsId} className={styles.details}>
@@ -590,6 +621,26 @@ export function PausedBadge({ untilMs }: { untilMs: number }) {
   return (
     <span className={styles.pausedBadge}>
       {t('pause.badge', { time: formatWhen(untilMs, now, i18n.resolvedLanguage) })}
+    </span>
+  );
+}
+
+/** "⚡ 2h 59m" beside the name on phones, where the pace buttons are tucked away. */
+function PaceBadge({ mode, untilMs }: { mode: AuthFilePaceMode; untilMs: number }) {
+  const { t, i18n } = useTranslation();
+  const now = useNow();
+  const Icon = mode === 'flash' ? IconZap : IconShield;
+  return (
+    <span
+      className={`${styles.paceBadge} ${styles.phoneOnly}`}
+      data-pace={mode}
+      title={t('pace.active_until', {
+        mode: t(`pace.${mode}_title`),
+        time: formatWhen(untilMs, now, i18n.resolvedLanguage),
+      })}
+    >
+      <Icon size={11} aria-hidden="true" />
+      {formatCountdown(t, untilMs, now)}
     </span>
   );
 }

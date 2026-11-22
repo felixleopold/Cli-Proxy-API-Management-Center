@@ -3,7 +3,7 @@ import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { useNow } from '@/hooks/useNow';
 import { useNotificationStore } from '@/stores';
 import { claudeCreditStatus, formatClockTime, splitMinutes } from '../claudeCreditModel';
-import { useClaudeCreditFallback } from '../hooks/useClaudeCreditFallback';
+import type { useClaudeCreditFallback } from '../hooks/useClaudeCreditFallback';
 import styles from './ClaudeCreditCard.module.scss';
 
 /**
@@ -11,11 +11,16 @@ import styles from './ClaudeCreditCard.module.scss';
  * exhausted, as a compact label · state · toggle group in the page header (the
  * full explanation is its tooltip). Turning it on asks first and lasts the
  * gateway's fixed duration; turning it off is immediate. Renders nothing on
- * gateways without the switch.
+ * gateways without the switch. The page owns the switch's state, so its phone
+ * header can show it while this card is tucked away.
  */
-export function ClaudeCreditCard() {
+export function ClaudeCreditCard({
+  credit,
+}: {
+  credit: ReturnType<typeof useClaudeCreditFallback>;
+}) {
   const { t } = useTranslation();
-  const { state, saving, setEnabled } = useClaudeCreditFallback();
+  const { state, saving, setEnabled } = credit;
   const showConfirmation = useNotificationStore((store) => store.showConfirmation);
   const showNotification = useNotificationStore((store) => store.showNotification);
   // The countdown ticks once a minute, only while the switch is on.

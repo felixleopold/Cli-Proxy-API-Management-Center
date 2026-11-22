@@ -3097,5 +3097,13 @@
     "load_failed": "개인 할당량 기록을 불러올 수 없습니다.",
     "private_for": "개인 · {{user}}",
     "disabled": "비활성화됨"
+  },
+  "usage_mobile": {
+    "controls": "제어",
+    "options": "옵션",
+    "more_actions": "{{name}} 추가 작업",
+    "credits_on": "API 크레딧 켜짐",
+    "credits_on_until": "{{time}}까지 API 크레딧 켜짐",
+    "reserve_released": "{{lender}} {{time}}까지 해제됨"
   }
 }

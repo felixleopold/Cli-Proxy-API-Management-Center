@@ -3103,5 +3103,13 @@
     "load_failed": "Không thể tải lịch sử hạn mức riêng.",
     "private_for": "Riêng · {{user}}",
     "disabled": "Đã tắt"
+  },
+  "usage_mobile": {
+    "controls": "Điều khiển",
+    "options": "Tùy chọn",
+    "more_actions": "Thêm thao tác cho {{name}}",
+    "credits_on": "Đang bật tín dụng API",
+    "credits_on_until": "Bật tín dụng API đến {{time}}",
+    "reserve_released": "{{lender}} đã mở dự trữ đến {{time}}"
   }
 }

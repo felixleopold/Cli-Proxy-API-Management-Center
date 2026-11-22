@@ -266,8 +266,9 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  @media (max-width: 460px) {
-    grid-template-columns: minmax(0, 1fr);
+  @include mobile {
+    gap: 12px 16px;
+    padding: 0;
   }
 }
 
@@ -443,17 +444,82 @@
 }
 
 /* Phones: touch-height range buttons sharing the row, and a larger window stepper. */
+/* The title row holds a phone-only ⓘ in place of the section's helper text. */
+.titleRow {
+  display: contents;
+}
+
+.phoneHint {
+  display: none;
+}
+
 @include mobile {
+  .titleRow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .phoneHint {
+    display: inline-flex;
+  }
+
+  .wideOnly {
+    display: none;
+  }
+
+  .section {
+    gap: 10px;
+    padding-top: 16px;
+  }
+
+  .sectionTitle {
+    font-size: 18px;
+  }
+
+  .content {
+    gap: 12px;
+  }
+
+  .stat {
+    gap: 1px;
+  }
+
+  .statLabel {
+    font-size: 11.5px;
+  }
+
+  .statValue {
+    font-size: 19px;
+  }
+
+  .statHint {
+    font-size: 11px;
+  }
+
+  .panel {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .panelHead {
+    gap: 6px 10px;
+  }
+
+  .panelHint {
+    font-size: 12px;
+  }
+
   .segmented button {
-    min-height: 40px;
-    padding: 8px 14px;
-    font-size: 13.5px;
+    min-height: 36px;
+    padding: 6px 14px;
+    font-size: 13px;
   }
 
   .segmentedSmall button {
-    min-height: 36px;
-    padding: 6px 12px;
-    font-size: 13px;
+    min-height: 32px;
+    padding: 4px 11px;
+    font-size: 12.5px;
   }
 
   .chipButton {

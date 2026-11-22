@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { authFilesApi } from '@/services/api';
 import { triggerHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useNow } from '@/hooks/useNow';
 import { useRevealGroup } from '@/hooks/motion';
 import { useAuthStore, useQuotaStore, useThemeStore } from '@/stores';
@@ -55,6 +56,8 @@ import { nextRecoveryMs } from './resetSchedule';
 import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from './providers';
 import type { QuotaProviderType } from './providers/types';
 import { useDevinQuotaAutoLoad } from './providers/devin/useDevinQuotaAutoLoad';
+import { useActiveOverrides } from './hooks/useActiveOverrides';
+import { useClaudeCreditFallback } from './hooks/useClaudeCreditFallback';
 import { useQuotaActions } from './hooks/useQuotaActions';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
 import { useQuotaHistory } from './hooks/useQuotaHistory';
@@ -89,6 +92,9 @@ export function UsageQuotaPage() {
   const revealRef = useRevealGroup<HTMLDivElement>();
 
   const disableControls = connectionStatus !== 'connected';
+  // Phones get one compact header line; the global controls and reserves open from it.
+  const compact = useMediaQuery('(max-width: 768px)');
+  const credit = useClaudeCreditFallback();
 
   /* ---------- 文件列表 ---------- */
 
@@ -368,6 +374,7 @@ export function UsageQuotaPage() {
   );
 
   const canUseActions = !disableControls && !loading && filesGeneration === sessionGeneration;
+  const overrides = useActiveOverrides(credit.state, files);
 
   /* ---------- 渲染 ---------- */
 
@@ -403,6 +410,17 @@ export function UsageQuotaPage() {
     />
   );
 
+  // Lenders and their reserve releases; hidden without a lender reserve.
+  const reserves = (
+    <ReservesStrip
+      files={files}
+      pools={pools}
+      cardReadings={cardReadings}
+      onChange={handleLenderRelease}
+      onReload={loadFiles}
+    />
+  );
+
   return (
     <div className={styles.page} ref={revealRef}>
       <QuotaHeader
@@ -416,9 +434,12 @@ export function UsageQuotaPage() {
         extra={
           <>
             <FableRouteControl files={files} disabled={!canUseActions} onReload={loadFiles} />
-            <ClaudeCreditCard />
+            <ClaudeCreditCard credit={credit} />
           </>
         }
+        compact={compact}
+        panel={compact ? reserves : undefined}
+        overrides={overrides}
       />
 
       <UsageSections
@@ -432,14 +453,7 @@ export function UsageQuotaPage() {
         accounts={renderAccounts}
         forecast={
           <>
-            {/* Lenders and their reserve releases; hidden without a lender reserve. */}
-            <ReservesStrip
-              files={files}
-              pools={pools}
-              cardReadings={cardReadings}
-              onChange={handleLenderRelease}
-              onReload={loadFiles}
-            />
+            {!compact && reserves}
             {/* Pooled across every credential of the provider, independent of search and paging. */}
             <QuotaForecast
               files={files}

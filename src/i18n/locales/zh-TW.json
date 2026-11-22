@@ -3102,5 +3102,13 @@
     "load_failed": "無法載入私有額度歷史。",
     "private_for": "私有 · {{user}}",
     "disabled": "已停用"
+  },
+  "usage_mobile": {
+    "controls": "控制",
+    "options": "選項",
+    "more_actions": "{{name}} 的更多操作",
+    "credits_on": "API 額度已開啟",
+    "credits_on_until": "API 額度開啟至 {{time}}",
+    "reserve_released": "{{lender}} 已釋放至 {{time}}"
   }
 }

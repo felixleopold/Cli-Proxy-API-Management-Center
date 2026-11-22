@@ -129,9 +129,20 @@
 }
 
 @include mobile {
+  .toolbar {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
   .search {
-    flex: 1 1 220px;
+    flex: 1 1 auto;
     height: 40px;
+  }
+
+  .sort {
+    flex: none;
+    min-width: 0;
+    width: 132px;
   }
 
   .clearSearch {
@@ -269,7 +280,8 @@
   }
 
   /* Disabled accounts stay listed but recede; their controls stay usable. */
-  &[data-disabled] .row > :not(.controls) {
+  &[data-disabled] .row > :not(.tray, .moreButton),
+  &[data-disabled] .tray > :not(.controls) {
     opacity: 0.45;
   }
 }
@@ -761,7 +773,48 @@ strong + .cardLine {
   align-items: center;
   justify-content: space-between;
   gap: 4px;
+  padding-right: 12px;
   cursor: default;
+}
+
+/* Users, pace and controls: their own grid cells here, a tray behind ⋯ on phones. */
+.tray {
+  display: contents;
+}
+
+.iconButton.moreButton,
+.phoneOnly {
+  display: none;
+}
+
+/* "⚡ 2h 59m" beside the name on phones, in the pace hue. */
+.paceBadge {
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--pace-color) 45%, transparent);
+  border-radius: 999px;
+  font-family: $font-mono;
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--pace-color) 14%, transparent);
+  white-space: nowrap;
+
+  &[data-pace='flash'] {
+    --pace-color: var(--routing-flash);
+  }
+
+  &[data-pace='shield'] {
+    --pace-color: var(--routing-shield);
+  }
+
+  svg {
+    color: var(--pace-color);
+  }
 }
 
 /* The shared switch is sized for forms; rows take it at three quarters. */
@@ -989,17 +1042,20 @@ strong + .cardLine {
     > :nth-child(6) {
       grid-area: spend;
     }
-    > :nth-child(7) {
+  }
+
+  .tray {
+    > :nth-child(1) {
       grid-area: split;
       align-self: center;
       width: 56px;
       justify-self: end;
     }
-    > :nth-child(8) {
+    > :nth-child(2) {
       grid-area: pace;
       justify-self: end;
     }
-    > :nth-child(9) {
+    > :nth-child(3) {
       grid-area: controls;
       gap: 8px;
       padding-right: 0;
@@ -1011,39 +1067,43 @@ strong + .cardLine {
   }
 }
 
-/* ---------- Phone: one stacked card per account ---------- */
+/* ---------- Phone: three dense lines per account ----------
+ * Name, plan, spend and ⋯ on the first line, then the 5-hour and weekly bars. The users bar,
+ * pace, pause, Fable lock, enable switch and row actions open as a tray under the bars. */
 
 @container accounts (max-width: 560px) {
   .row {
-    grid-template-columns: 20px minmax(0, 1fr) auto;
+    grid-template-columns: 20px minmax(0, 1fr) auto auto auto;
     grid-template-areas:
-      'icon  account  plan'
-      '.     short    short'
-      '.     long     long'
-      '.     spend    split'
-      'pace  pace     controls';
-    row-gap: 10px;
-    padding: 12px 12px 10px;
+      'icon account plan spend more'
+      '.    short   short short short'
+      '.    long    long  long  long'
+      'tray tray    tray  tray  tray';
+    column-gap: 8px;
+    row-gap: 2px;
+    min-height: 0;
+    padding: 4px 4px 8px 12px;
 
-    > :nth-child(7) {
-      width: 72px;
-    }
-    > :nth-child(8) {
-      justify-self: start;
-      /* Line the pace buttons up with the icon column. */
-      margin-left: -5px;
-    }
-    > :nth-child(9) {
-      gap: 4px;
+    > :nth-child(6) {
+      justify-self: end;
     }
   }
 
-  /* Badges wrap under the name instead of squeezing it; the chevron stays beside the name,
-   * and the whole name line is a comfortable tap target. */
+  .iconButton.moreButton {
+    display: inline-flex;
+    grid-area: more;
+  }
+
+  .phoneOnly {
+    display: inline-flex;
+  }
+
+  /* A long name ellipsizes with its chevron beside it; state badges wrap under it when the
+   * line has no room, so the name stays readable. */
   .account {
     flex-wrap: wrap;
-    row-gap: 4px;
-    min-height: 40px;
+    row-gap: 2px;
+    min-height: 36px;
     max-width: 100%;
   }
 
@@ -1057,17 +1117,10 @@ strong + .cardLine {
     order: -1;
   }
 
-  /* One window per line, so its reset reads in full. */
+  /* Bars span the card; the reset sits at the end of its bar's line. */
   .window {
     grid-template-columns: 4.5ch minmax(40px, 1fr) auto;
-  }
-
-  .spendButton {
-    display: inline-flex;
-    align-items: center;
-    min-height: 40px;
-    margin: -8px -8px;
-    padding: 0 8px;
+    padding-right: 8px;
   }
 
   .resetLine {
@@ -1076,81 +1129,94 @@ strong + .cardLine {
     text-align: right;
   }
 
-  /* Touch targets. */
+  .spendButton {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    margin: 0;
+    padding: 0 6px;
+  }
+
+  .spendValue {
+    font-size: 13px;
+  }
+
   .iconButton {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
   }
 
   .iconButton.paceButton {
-    min-width: 40px;
-    padding: 0 8px;
+    min-width: 36px;
+    padding: 0 7px;
+  }
+
+  .tray {
+    display: none;
+    grid-area: tray;
+
+    /* Switch, pace and the row actions on one line; who spent the window under them. */
+    .item[data-tray-open] & {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 2px;
+      margin-top: 6px;
+      padding: 6px 8px 2px 0;
+      border-top: 1px dashed var(--border-color);
+    }
+
+    > :nth-child(1) {
+      order: 4;
+      flex: 1 1 100%;
+      width: auto;
+      padding: 4px 0;
+    }
+
+    > :nth-child(1):empty {
+      display: none;
+    }
+
+    .iconButton {
+      width: 34px;
+    }
+
+    .iconButton.paceButton {
+      width: auto;
+      min-width: 34px;
+    }
+
+    > :nth-child(2) {
+      order: 1;
+    }
+
+    > :nth-child(3) {
+      display: contents;
+    }
+  }
+
+  .controls > :first-child {
+    order: 0;
+  }
+
+  .controls > .actions {
+    order: 3;
+    margin-left: auto;
   }
 
   .toggle {
-    width: 52px;
-    height: 40px;
+    width: 44px;
+    height: 36px;
 
     > label {
-      transform: none;
+      transform: scale(0.85);
     }
   }
 
   .details {
     grid-template-columns: minmax(0, 1fr);
     padding: 4px 12px 16px;
-  }
-}
-
-/* Narrow phones: 40px buttons no longer fit on one line, so the enable switch moves up beside
- * the spend, leaving pace on the left and the row actions on the right of the last line. */
-@container accounts (max-width: 420px) {
-  .row {
-    grid-template-columns: 20px minmax(0, 1fr) auto auto;
-    grid-template-areas:
-      'icon account account plan'
-      '.    short   short   short'
-      '.    long    long    long'
-      '.    spend   split   toggle'
-      'pace pace    actions actions';
-
-    > :nth-child(7) {
-      width: 54px;
-      margin-right: 10px;
-    }
-    > :nth-child(9) {
-      display: contents;
-    }
-  }
-
-  /* Slightly narrower buttons (still 40px tall) keep pace and the actions on one line; an
-   * active pace with its time left wraps inside its own area instead of overlapping. */
-  .iconButton {
-    width: 38px;
-  }
-
-  .iconButton.paceButton {
-    min-width: 38px;
-  }
-
-  .pace {
-    flex-wrap: wrap;
-    row-gap: 4px;
-  }
-
-  .pace .pace {
-    display: contents;
-  }
-
-  .controls > :first-child {
-    grid-area: toggle;
-    justify-self: end;
-  }
-
-  .controls > .actions {
-    grid-area: actions;
-    justify-self: end;
   }
 }
 
