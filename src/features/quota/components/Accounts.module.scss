@@ -777,9 +777,24 @@ strong + .cardLine {
   cursor: default;
 }
 
-/* Users, pace and controls: their own grid cells here, a tray behind ⋯ on phones. */
+/* Pace, controls and users: their own grid cells on desktop (cols 8, 9, 7), a tray behind ⋯ on phones. */
 .tray {
   display: contents;
+
+  > :nth-child(1) {
+    grid-column: 8;
+    grid-row: 1;
+  }
+
+  > :nth-child(2) {
+    grid-column: 9;
+    grid-row: 1;
+  }
+
+  > :nth-child(3) {
+    grid-column: 7;
+    grid-row: 1;
+  }
 }
 
 .iconButton.moreButton,
@@ -1046,24 +1061,114 @@ strong + .cardLine {
 
   .tray {
     > :nth-child(1) {
+      grid-area: pace;
+      justify-self: end;
+    }
+    > :nth-child(2) {
+      grid-area: controls;
+      gap: 8px;
+      padding-right: 0;
+    }
+    > :nth-child(3) {
       grid-area: split;
       align-self: center;
       width: 56px;
       justify-self: end;
     }
-    > :nth-child(2) {
-      grid-area: pace;
-      justify-self: end;
-    }
-    > :nth-child(3) {
-      grid-area: controls;
-      gap: 8px;
-      padding-right: 0;
-    }
   }
 
   .details {
     padding-left: 44px;
+  }
+}
+
+/* ---------- Narrow desktop container (<= 560px above mobile viewport): five-line stacked card ---------- */
+
+@container accounts (max-width: 560px) {
+  .row {
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    grid-template-areas:
+      'icon  account  plan'
+      '.     short    short'
+      '.     long     long'
+      '.     spend    split'
+      'pace  pace     controls';
+    row-gap: 10px;
+    padding: 12px 12px 10px;
+  }
+
+  .tray {
+    > :nth-child(1) {
+      justify-self: start;
+      /* Line the pace buttons up with the icon column. */
+      margin-left: -5px;
+    }
+    > :nth-child(2) {
+      gap: 4px;
+    }
+    > :nth-child(3) {
+      width: 72px;
+    }
+  }
+
+  .account {
+    flex-wrap: wrap;
+    row-gap: 4px;
+    min-height: 40px;
+    max-width: 100%;
+  }
+
+  .name {
+    order: -2;
+    max-width: calc(100% - 18px);
+    font-size: 14px;
+  }
+
+  .chevron {
+    order: -1;
+  }
+
+  .window {
+    grid-template-columns: 4.5ch minmax(40px, 1fr) auto;
+  }
+
+  .spendButton {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    margin: -8px -8px;
+    padding: 0 8px;
+  }
+
+  .resetLine {
+    grid-column: 3;
+    grid-row: 1;
+    text-align: right;
+  }
+
+  .iconButton {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+
+  .iconButton.paceButton {
+    min-width: 40px;
+    padding: 0 8px;
+  }
+
+  .toggle {
+    width: 52px;
+    height: 40px;
+
+    > label {
+      transform: none;
+    }
+  }
+
+  .details {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 4px 12px 16px;
   }
 }
 
@@ -1156,7 +1261,7 @@ strong + .cardLine {
     display: none;
     grid-area: tray;
 
-    /* Pace, enable switch and row actions in DOM/tab order; who spent the window under them. */
+    /* Pace, enable switch, row actions, then users spend bar in matching DOM and visual order. */
     .item[data-tray-open] & {
       display: flex;
       flex-wrap: wrap;
@@ -1168,13 +1273,23 @@ strong + .cardLine {
     }
 
     > :nth-child(1) {
+      order: 0;
+      margin-left: 0;
+      justify-self: auto;
+    }
+
+    > :nth-child(2) {
+      display: contents;
+    }
+
+    > :nth-child(3) {
       order: 3;
       flex: 1 1 100%;
       width: auto;
       padding: 4px 0;
     }
 
-    > :nth-child(1):empty {
+    > :nth-child(3):empty {
       display: none;
     }
 
@@ -1185,14 +1300,6 @@ strong + .cardLine {
     .iconButton.paceButton {
       width: auto;
       min-width: 34px;
-    }
-
-    > :nth-child(2) {
-      order: 0;
-    }
-
-    > :nth-child(3) {
-      display: contents;
     }
   }
 
