@@ -1,9 +1,15 @@
 const VIEWPORT_MARGIN = 8;
 
-/** Horizontal shift (px) that brings a card spanning [left, right] inside the viewport. */
-export function clampShift(left: number, right: number, viewportWidth: number): number {
+/** Horizontal shift (px) that brings a card spanning [left, right] inside [minEdge, maxEdge]. */
+export function clampShift(
+  left: number,
+  right: number,
+  viewportWidth: number,
+  minEdge = VIEWPORT_MARGIN,
+  maxEdge = viewportWidth - VIEWPORT_MARGIN
+): number {
   let shift = 0;
-  if (right > viewportWidth - VIEWPORT_MARGIN) shift = viewportWidth - VIEWPORT_MARGIN - right;
-  if (left + shift < VIEWPORT_MARGIN) shift = VIEWPORT_MARGIN - left;
+  if (right > maxEdge) shift = maxEdge - right;
+  if (left + shift < minEdge) shift = minEdge - left;
   return shift;
 }

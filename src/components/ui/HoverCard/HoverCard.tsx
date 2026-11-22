@@ -53,16 +53,30 @@ export function HoverCard({
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
-  // Measure after the card is shown, then shift it back inside the viewport.
+  // Measure after the card is shown, then shift it back inside the viewport and clipping ancestors.
   const clampToViewport = useCallback(() => {
     window.requestAnimationFrame(() => {
       const card = cardRef.current;
       if (!card) return;
       card.style.setProperty('--hover-card-shift', '0px');
-      const rect = card.getBoundingClientRect();
+      card.style.maxWidth = '';
+      const vw = document.documentElement.clientWidth;
+      let minEdge = 8;
+      let maxEdge = vw - 8;
+      for (let node = card.parentElement; node; node = node.parentElement) {
+        if (getComputedStyle(node).overflowX === 'visible') continue;
+        const ancestorRect = node.getBoundingClientRect();
+        minEdge = Math.max(minEdge, ancestorRect.left);
+        maxEdge = Math.min(maxEdge, ancestorRect.right);
+      }
+      let rect = card.getBoundingClientRect();
       if (rect.width === 0) return;
-      const shift = clampShift(rect.left, rect.right, document.documentElement.clientWidth);
-      card.style.setProperty('--hover-card-shift', `${shift}px`);
+      if (maxEdge > minEdge && rect.width > maxEdge - minEdge) {
+        card.style.maxWidth = `${Math.floor(maxEdge - minEdge)}px`;
+        rect = card.getBoundingClientRect();
+      }
+      const shift = clampShift(rect.left, rect.right, vw, minEdge, maxEdge);
+      card.style.setProperty('--hover-card-shift', `${Math.round(shift)}px`);
     });
   }, []);
 
@@ -87,12 +101,14 @@ export function HoverCard({
     if (!isTouchOnly()) return;
     const target = event.target as Element;
     if (cardRef.current?.contains(target)) {
+      event.stopPropagation();
       setOpen(false);
       return;
     }
     // Let buttons and links inside the trigger do their own job.
     const interactive = target.closest(INTERACTIVE_SELECTOR);
     if (interactive && event.currentTarget.contains(interactive)) return;
+    event.stopPropagation();
     setDismissed(false);
     setOpen((prev) => {
       if (!prev) clampToViewport();
