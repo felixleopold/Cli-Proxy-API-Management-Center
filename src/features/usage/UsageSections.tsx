@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconChevronLeft, IconChevronRight } from '@/components/ui/icons';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { InfoHint } from '@/components/ui/HoverCard';
 import { getAuthFileIcon } from '@/features/authFiles/constants';
 import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
 import { providerLabel } from '@/features/dashboard/utils';
@@ -448,10 +449,21 @@ export function UsageSections({
       <section className={styles.section} aria-labelledby="accounts-title">
         <header className={styles.sectionHead}>
           <div className={styles.sectionCopy}>
-            <h2 id="accounts-title" className={styles.sectionTitle}>
-              {t('quota_management.details_title')}
-            </h2>
-            <p className={styles.sectionHint}>{t('quota_management.details_hint')}</p>
+            <div className={styles.titleRow}>
+              <h2 id="accounts-title" className={styles.sectionTitle}>
+                {t('quota_management.details_title')}
+              </h2>
+              {/* Phones: the helper text sits behind ⓘ instead of three lines of copy. */}
+              <span className={styles.phoneHint}>
+                <InfoHint
+                  label={t('quota_management.details_title')}
+                  text={t('quota_management.details_hint')}
+                />
+              </span>
+            </div>
+            <p className={`${styles.sectionHint} ${styles.wideOnly}`}>
+              {t('quota_management.details_hint')}
+            </p>
           </div>
         </header>
         {accounts(spend)}

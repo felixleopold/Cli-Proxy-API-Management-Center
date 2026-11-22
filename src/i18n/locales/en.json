@@ -3097,5 +3097,13 @@
     "load_failed": "Private quota history couldn't be loaded.",
     "private_for": "Private · {{user}}",
     "disabled": "Disabled"
+  },
+  "usage_mobile": {
+    "controls": "Controls",
+    "options": "Options",
+    "more_actions": "More actions for {{name}}",
+    "credits_on": "API credits on",
+    "credits_on_until": "API credits on until {{time}}",
+    "reserve_released": "{{lender}} released until {{time}}"
   }
 }

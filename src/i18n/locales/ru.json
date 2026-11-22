@@ -3129,5 +3129,13 @@
     "load_failed": "Не удалось загрузить историю личных квот.",
     "private_for": "Личное · {{user}}",
     "disabled": "Отключено"
+  },
+  "usage_mobile": {
+    "controls": "Управление",
+    "options": "Параметры",
+    "more_actions": "Другие действия для {{name}}",
+    "credits_on": "API-кредиты включены",
+    "credits_on_until": "API-кредиты включены до {{time}}",
+    "reserve_released": "{{lender}}: резерв открыт до {{time}}"
   }
 }

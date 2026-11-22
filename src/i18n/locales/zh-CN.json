@@ -3076,5 +3076,13 @@
     "load_failed": "无法加载私有额度历史。",
     "private_for": "私有 · {{user}}",
     "disabled": "已禁用"
+  },
+  "usage_mobile": {
+    "controls": "控制",
+    "options": "选项",
+    "more_actions": "{{name}} 的更多操作",
+    "credits_on": "API 额度已开启",
+    "credits_on_until": "API 额度开启至 {{time}}",
+    "reserve_released": "{{lender}} 已释放至 {{time}}"
   }
 }

@@ -10,10 +10,10 @@
  * their reserve (GET /usage/pool?user=), with that person's reserve override.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useId, useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconChevronDown } from '@/components/ui/icons';
+import { IconChevronDown, IconSlidersHorizontal } from '@/components/ui/icons';
 import { Select } from '@/components/ui/Select';
 import { useNow } from '@/hooks/useNow';
 import { useThemeStore } from '@/stores';
@@ -169,6 +169,9 @@ export function QuotaForecast({
     };
   });
   const [view, setView] = useState<ForecastView>('remaining');
+  // Phones fold the control boxes behind a one-line summary (see .controlsBar).
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const controlsId = useId();
   // Taller charts: each card toggles its own; the last choice per kind is remembered.
   const [tallStored] = useState(readTallCharts);
   const [tallCards, setTallCards] = useState<Record<string, boolean>>({});
@@ -625,12 +628,26 @@ export function QuotaForecast({
         aria-label={t('quota_management.forecast_title')}
         data-shot-section="pools"
       >
-        <div className={styles.controls}>{personPicker}</div>
+        <div className={styles.controls} data-open>
+          {personPicker}
+        </div>
         {personBarNode}
         {gatewayOnly.map(gatewayCard)}
       </section>
     );
   }
+
+  const summaryParts = [
+    person,
+    view === 'remaining'
+      ? t('quota_management.forecast_legend_remaining')
+      : t('quota_management.forecast_tab_drain'),
+    `${t('quota_forecast.burn_label')} ${t('quota_forecast.hours_short', { count: prefs.burnHours })}`,
+    view === 'remaining' && t(`quota_forecast.future_${future}`),
+    view === 'remaining'
+      ? `${past === 0 ? t('quota_forecast.past_all') : daysShort(past)} → ${daysShort(horizon)}`
+      : `${t('quota_management.forecast_last')} ${daysShort(drainDays)}`,
+  ].filter(Boolean);
 
   return (
     <section
@@ -638,7 +655,21 @@ export function QuotaForecast({
       aria-label={t('quota_management.forecast_title')}
       data-shot-section="pools"
     >
-      <div className={styles.controls}>
+      <button
+        type="button"
+        className={styles.controlsBar}
+        aria-expanded={controlsOpen}
+        aria-controls={controlsId}
+        onClick={() => setControlsOpen((open) => !open)}
+      >
+        <span className={styles.controlsSummary}>{summaryParts.join(' · ')}</span>
+        <span className={styles.controlsToggle}>
+          <IconSlidersHorizontal size={14} aria-hidden="true" />
+          {t('usage_mobile.options')}
+          <IconChevronDown size={14} aria-hidden="true" className={styles.controlsChevron} />
+        </span>
+      </button>
+      <div id={controlsId} className={styles.controls} data-open={controlsOpen || undefined}>
         {personPicker}
         <div
           className={styles.segmented}

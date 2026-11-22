@@ -859,9 +859,22 @@
     --floating-control-size: 36px;
   }
 
+  // A solid band under the status bar and the floating pills, fading out just below them, so
+  // scrolled text never shows through. No mask or backdrop blur: iOS Safari renders that pair
+  // unreliably, which let page text bleed behind the Dynamic Island.
   .top-gradient-blur {
     left: 0;
-    height: calc(114px + env(safe-area-inset-top, 0px));
+    height: calc(var(--header-height) + 18px);
+    background: linear-gradient(
+      180deg,
+      var(--bg-secondary) 0,
+      var(--bg-secondary) calc(100% - 18px),
+      transparent 100%
+    );
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    mask-image: none;
+    -webkit-mask-image: none;
   }
 
   .nav-tooltip {
