@@ -628,7 +628,9 @@ export function QuotaForecast({
         aria-label={t('quota_management.forecast_title')}
         data-shot-section="pools"
       >
-        <div className={styles.controls}>{personPicker}</div>
+        <div className={styles.controls} data-open>
+          {personPicker}
+        </div>
         {personBarNode}
         {gatewayOnly.map(gatewayCard)}
       </section>

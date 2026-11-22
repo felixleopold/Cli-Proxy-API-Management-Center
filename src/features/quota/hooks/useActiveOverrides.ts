@@ -3,22 +3,21 @@ import { useTranslation } from 'react-i18next';
 import { useNow } from '@/hooks/useNow';
 import type { ClaudeCreditFallback } from '@/services/api';
 import type { AuthFileItem } from '@/types';
+import { lenderReserves } from '../accountControls';
 import { claudeCreditStatus, formatClockTime } from '../claudeCreditModel';
 import { formatWhen } from '../components/countdown';
+
+const NO_RESETS = () => ({ fiveHour: null, weekly: null });
 
 /** Lenders whose reserve release is still running, each once, soonest end first. */
 export function activeLenderReleases(
   files: readonly AuthFileItem[],
   nowMs: number
 ): { lender: string; untilMs: number }[] {
-  const byLender = new Map<string, number>();
-  for (const file of files) {
-    const untilMs = file.lenderReserveOverrideUntilMs;
-    if (!file.lender || untilMs === undefined || untilMs <= nowMs) continue;
-    byLender.set(file.lender, Math.max(byLender.get(file.lender) ?? 0, untilMs));
-  }
-  return [...byLender]
-    .map(([lender, untilMs]) => ({ lender, untilMs }))
+  return lenderReserves(files, NO_RESETS, nowMs)
+    .flatMap((entry) =>
+      entry.release ? [{ lender: entry.lender, untilMs: entry.release.untilMs }] : []
+    )
     .sort((a, b) => a.untilMs - b.untilMs);
 }
 

@@ -535,6 +535,16 @@ export function AccountRow(props: AccountRowProps) {
           long
         />
         <SpendCell summary={summary} spend={spend} labelId={nameId} />
+        <button
+          type="button"
+          className={`${styles.iconButton} ${styles.moreButton}`}
+          aria-label={t('usage_mobile.more_actions', { name })}
+          aria-expanded={trayOpen}
+          aria-controls={trayId}
+          onClick={() => setTrayOpen((open) => !open)}
+        >
+          <IconMoreHorizontal size={16} aria-hidden="true" />
+        </button>
         {/* Its own grid cells on wider layouts (display: contents); a tray on phones. */}
         <span id={trayId} className={styles.tray}>
           <SplitCell summary={summary} spend={spend} />
@@ -594,16 +604,6 @@ export function AccountRow(props: AccountRowProps) {
             </span>
           </span>
         </span>
-        <button
-          type="button"
-          className={`${styles.iconButton} ${styles.moreButton}`}
-          aria-label={t('usage_mobile.more_actions', { name })}
-          aria-expanded={trayOpen}
-          aria-controls={trayId}
-          onClick={() => setTrayOpen((open) => !open)}
-        >
-          <IconMoreHorizontal size={16} aria-hidden="true" />
-        </button>
       </div>
       {expanded && (
         <div id={detailsId} className={styles.details}>

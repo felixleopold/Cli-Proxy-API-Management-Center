@@ -1071,7 +1071,7 @@ strong + .cardLine {
  * Name, plan, spend and ⋯ on the first line, then the 5-hour and weekly bars. The users bar,
  * pace, pause, Fable lock, enable switch and row actions open as a tray under the bars. */
 
-@container accounts (max-width: 560px) {
+@include mobile {
   .row {
     grid-template-columns: 20px minmax(0, 1fr) auto auto auto;
     grid-template-areas:
@@ -1156,7 +1156,7 @@ strong + .cardLine {
     display: none;
     grid-area: tray;
 
-    /* Switch, pace and the row actions on one line; who spent the window under them. */
+    /* Pace, enable switch and row actions in DOM/tab order; who spent the window under them. */
     .item[data-tray-open] & {
       display: flex;
       flex-wrap: wrap;
@@ -1168,7 +1168,7 @@ strong + .cardLine {
     }
 
     > :nth-child(1) {
-      order: 4;
+      order: 3;
       flex: 1 1 100%;
       width: auto;
       padding: 4px 0;
@@ -1188,7 +1188,7 @@ strong + .cardLine {
     }
 
     > :nth-child(2) {
-      order: 1;
+      order: 0;
     }
 
     > :nth-child(3) {
@@ -1197,11 +1197,11 @@ strong + .cardLine {
   }
 
   .controls > :first-child {
-    order: 0;
+    order: 1;
   }
 
   .controls > .actions {
-    order: 3;
+    order: 2;
     margin-left: auto;
   }
 

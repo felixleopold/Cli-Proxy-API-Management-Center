@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconChevronDown, IconRefreshCw, IconSlidersHorizontal } from '@/components/ui/icons';
 import { useCountUp } from '@/hooks/motion';
@@ -45,6 +45,7 @@ export function QuotaHeader(props: QuotaHeaderProps) {
   } = props;
   const { t } = useTranslation();
   const panelId = useId();
+  const controlsButtonRef = useRef<HTMLButtonElement | null>(null);
   const [open, setOpen] = useState(false);
   // 批量结果陆续落地时，「已加载」是页面上唯一滚动的数字
   const displayLoadedCount = useCountUp(loadedCount);
@@ -82,6 +83,7 @@ export function QuotaHeader(props: QuotaHeaderProps) {
           </h1>
           <div className={styles.compactActions} data-reveal>
             <button
+              ref={controlsButtonRef}
               type="button"
               className={styles.compactButton}
               aria-expanded={open}
@@ -112,7 +114,10 @@ export function QuotaHeader(props: QuotaHeaderProps) {
             className={styles.overrides}
             aria-controls={panelId}
             aria-expanded={false}
-            onClick={() => setOpen(true)}
+            onClick={() => {
+              setOpen(true);
+              controlsButtonRef.current?.focus();
+            }}
           >
             {overrides.map((override) => (
               <span key={override.key} className={styles.override}>

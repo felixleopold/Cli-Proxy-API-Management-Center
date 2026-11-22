@@ -248,9 +248,10 @@
   background: var(--viz-failure);
 }
 
-/* Overrides in force, one line; tapping opens the panel. */
+/* Overrides in force; wraps if several are active so times stay readable. Tapping opens the panel. */
 .overrides {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   min-width: 0;
@@ -259,7 +260,6 @@
   background: transparent;
   font: inherit;
   text-align: left;
-  overflow: hidden;
   cursor: pointer;
 
   &:focus-visible {
@@ -272,6 +272,7 @@
 .override {
   flex: 0 1 auto;
   min-width: 0;
+  max-width: 100%;
   padding: 3px 9px;
   border: 1px solid color-mix(in srgb, var(--amber-color) 45%, transparent);
   border-radius: $radius-full;
