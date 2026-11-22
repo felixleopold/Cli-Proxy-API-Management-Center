@@ -2592,7 +2592,7 @@
     "auth_pre_tracking": "共享池（凭证追踪前）",
     "auth_own_account": "个人账号（接入网关前）",
     "removed_credential": "已删除的凭证",
-    "other_subscriptions": "其他订阅",
+    "other_providers": "其他供应商",
     "pre_tracking_note": "{{amount}} 是凭证追踪开始前的共享池用量，只计入总额，不计入任何订阅。",
     "own_account_note": "{{amount}} 是接入网关前的个人账号用量，只计入总额，不计入任何订阅。",
     "chart_title": "花费趋势",
@@ -2608,7 +2608,7 @@
     "selection_empty": "所选范围内没有用量",
     "stack_label": "堆叠方式",
     "stack_user": "按用户",
-    "stack_subscription": "按订阅",
+    "stack_provider": "按供应商",
     "users_title": "用户",
     "retired_credential": "已退役：{{name}}"
   },

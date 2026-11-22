@@ -2612,7 +2612,7 @@
     "auth_pre_tracking": "Nhóm chung, trước khi theo dõi",
     "auth_own_account": "Tài khoản cá nhân, trước gateway",
     "removed_credential": "Thông tin xác thực đã xóa",
-    "other_subscriptions": "Gói khác",
+    "other_providers": "Nhà cung cấp khác",
     "pre_tracking_note": "{{amount}} là mức dùng của nhóm chung trước khi theo dõi thông tin xác thực. Chỉ tính vào tổng, không tính vào gói nào.",
     "own_account_note": "{{amount}} là mức dùng tài khoản cá nhân trước khi dùng gateway. Chỉ tính vào tổng, không tính vào gói nào.",
     "chart_title": "Chi phí theo thời gian",
@@ -2628,7 +2628,7 @@
     "selection_empty": "Không có mức dùng trong lựa chọn này",
     "stack_label": "Xếp chồng theo",
     "stack_user": "Theo người dùng",
-    "stack_subscription": "Theo gói",
+    "stack_provider": "Theo nhà cung cấp",
     "users_title": "Người dùng",
     "retired_credential": "Đã ngừng: {{name}}"
   },

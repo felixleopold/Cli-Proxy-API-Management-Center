@@ -2624,7 +2624,7 @@
     "auth_pre_tracking": "Общий пул, до учёта",
     "auth_own_account": "Личный аккаунт, до шлюза",
     "removed_credential": "Удалённые учётные данные",
-    "other_subscriptions": "Другие подписки",
+    "other_providers": "Другие провайдеры",
     "pre_tracking_note": "{{amount}} — расход общего пула до начала учёта учётных данных. Входит в итоги, но не в подписки.",
     "own_account_note": "{{amount}} — расход личного аккаунта до подключения шлюза. Входит в итоги, но не в подписки.",
     "chart_title": "Расход по времени",
@@ -2640,7 +2640,7 @@
     "selection_empty": "Нет расхода в выбранном периоде",
     "stack_label": "Группировка",
     "stack_user": "По пользователям",
-    "stack_subscription": "По подпискам",
+    "stack_provider": "По провайдерам",
     "users_title": "Пользователи",
     "retired_credential": "Выведен: {{name}}"
   },

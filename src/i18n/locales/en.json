@@ -2606,7 +2606,7 @@
     "auth_pre_tracking": "Shared pool, before tracking",
     "auth_own_account": "Personal account, before the gateway",
     "removed_credential": "Removed credential",
-    "other_subscriptions": "Other subscriptions",
+    "other_providers": "Other providers",
     "pre_tracking_note": "{{amount}} is shared-pool usage from before credentials were tracked. It counts toward totals, not toward any subscription.",
     "own_account_note": "{{amount}} is personal-account usage from before the gateway. It counts toward totals, not toward any subscription.",
     "chart_title": "Spend over time",
@@ -2622,7 +2622,7 @@
     "selection_empty": "No usage in this selection",
     "stack_label": "Stack by",
     "stack_user": "By user",
-    "stack_subscription": "By subscription",
+    "stack_provider": "By provider",
     "users_title": "Users",
     "retired_credential": "Retired: {{name}}"
   },
