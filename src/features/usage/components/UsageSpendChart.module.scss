@@ -283,3 +283,10 @@
     opacity: 1;
   }
 }
+
+/* Phones: the readout is kept on screen by useViewportClamp; long reset notes wrap. */
+@include mobile {
+  .tooltipNote {
+    white-space: normal;
+  }
+}

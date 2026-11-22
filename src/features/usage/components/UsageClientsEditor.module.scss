@@ -57,6 +57,7 @@
   font-family: $font-mono;
   font-size: 13px;
   color: var(--text-primary);
+  overflow-wrap: anywhere;
 }
 
 .keyHint,
@@ -76,8 +77,32 @@
   font-size: 13px;
 }
 
-.userField {
+.userField,
+.deviceField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   min-width: 0;
+}
+
+/* Desktop reads the column header; phones, where it is hidden, get it above each field. */
+.fieldLabel {
+  display: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+
+  @include mobile {
+    display: block;
+  }
+}
+
+/* Touch height and 16px text, so iOS does not zoom into the field. */
+@include mobile {
+  .input {
+    height: 40px;
+    font-size: 16px;
+  }
 }
 
 .autocomplete {

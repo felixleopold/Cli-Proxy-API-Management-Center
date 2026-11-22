@@ -441,3 +441,45 @@
     transition: none;
   }
 }
+
+/* Phones: touch-height range buttons sharing the row, and a larger window stepper. */
+@include mobile {
+  .segmented button {
+    min-height: 40px;
+    padding: 8px 14px;
+    font-size: 13.5px;
+  }
+
+  .segmentedSmall button {
+    min-height: 36px;
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  .chipButton {
+    width: 40px;
+    height: 40px;
+  }
+
+  .windowBack {
+    min-height: 40px;
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  .windowBar,
+  .windowStepper {
+    width: 100%;
+  }
+
+  .chipText {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    row-gap: 2px;
+    justify-content: center;
+  }
+
+  .chipName {
+    max-width: 100%;
+  }
+}

@@ -1,3 +1,5 @@
+@use '../../../styles/mixins' as *;
+
 /* Same footprint and quietness as the forecast card's collapse chevron. */
 .toggle {
   flex: none;
@@ -31,5 +33,12 @@
 
   @media (prefers-reduced-motion: reduce) {
     transition: none;
+  }
+}
+
+@include mobile {
+  .toggle {
+    width: 40px;
+    height: 40px;
   }
 }

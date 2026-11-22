@@ -122,7 +122,7 @@ export function PrivateUsagePage({ now: nowProp }: { now?: number } = {}) {
     prefix: string,
     format: (option: T) => string
   ) => (
-    <>
+    <span className={styles.segmentGroup}>
       <span className={styles.controlLabel} aria-hidden="true">
         {prefix}
       </span>
@@ -138,7 +138,7 @@ export function PrivateUsagePage({ now: nowProp }: { now?: number } = {}) {
           </button>
         ))}
       </div>
-    </>
+    </span>
   );
 
   const windowSection = (authId: string, color: string, view: PrivateWindowView) => {

@@ -431,7 +431,7 @@ export function QuotaForecast({
     prefix: string,
     format: (option: T) => string
   ) => (
-    <>
+    <span className={styles.segmentGroup}>
       <span className={styles.controlLabel} aria-hidden="true">
         {prefix}
       </span>
@@ -447,7 +447,7 @@ export function QuotaForecast({
           </button>
         ))}
       </div>
-    </>
+    </span>
   );
   /** One control box; `before` puts another group in the same box (Past beside Next). */
   const segmented = <T extends number>(
@@ -564,8 +564,7 @@ export function QuotaForecast({
   };
   const shownPerson = personPools.reports.find((report) => report.user)?.user ?? null;
   const overrideFor = overrideTarget(personPools.reports, person);
-  const canPickPerson =
-    users.length > 0 && personPools.supported && personProviders.length > 0;
+  const canPickPerson = users.length > 0 && personPools.supported && personProviders.length > 0;
   const personPicker = canPickPerson && (
     <div className={styles.control}>
       <span className={styles.controlLabel} aria-hidden="true">

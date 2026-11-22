@@ -4,6 +4,7 @@
 // Fixed-width lane column so every row's bars start at the same x — the whole
 // point of the chart is comparing when lanes end relative to each other.
 $lane-width: 210px;
+$lane-width-phone: 124px;
 
 .timeline {
   display: flex;
@@ -401,14 +402,76 @@ $lane-width: 210px;
 }
 
 @include mobile {
-  // The lane column can't shrink much before names become unreadable, so the
-  // chart scrolls horizontally rather than compressing to illegibility.
+  // Phones: a compact lane column that stays put (sticky) while the days scroll
+  // sideways under it, so bars stay comparable without the labels eating most of
+  // the screen. Its edge shadow says the tracks continue beneath.
   .chart {
     overflow-x: auto;
+    overscroll-behavior-x: contain;
   }
 
   .axis,
   .lane {
-    min-width: 720px;
+    grid-template-columns: $lane-width-phone 1fr;
+    min-width: 640px;
+  }
+
+  .axisLabel,
+  .laneHead {
+    position: sticky;
+    left: 0;
+    z-index: 4;
+    background: var(--bg-primary);
+    box-shadow:
+      1px 0 0 var(--border-color),
+      8px 0 10px -8px rgb(0 0 0 / 0.45);
+  }
+
+  .axisLabel {
+    padding: 8px 10px;
+  }
+
+  .laneHead {
+    padding: 8px 10px;
+  }
+
+  .laneTop {
+    align-items: flex-start;
+  }
+
+  .laneDot {
+    margin-top: 4px;
+  }
+
+  // Up to two full lines, broken anywhere: an email has no spaces to wrap at.
+  .laneName {
+    font-size: 12px;
+    white-space: normal;
+    word-break: break-all;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .laneLimits {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .laneLimit {
+    max-width: 100%;
+    font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nav,
+  .modes {
+    button {
+      min-height: 40px;
+      padding: 8px 14px;
+      font-size: 13.5px;
+    }
   }
 }

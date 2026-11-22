@@ -133,6 +133,12 @@
   .actions {
     justify-content: flex-start;
   }
+
+  .primaryAction {
+    justify-content: center;
+    min-height: 44px;
+    width: 100%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
