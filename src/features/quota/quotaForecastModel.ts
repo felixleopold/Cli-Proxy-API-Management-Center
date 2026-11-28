@@ -961,7 +961,9 @@ interface CredentialReset {
 /**
  * Past resets of one credential: each reset its snapshots pointed at that has
  * passed by now, with the used percent of the last snapshot before it (what the
- * history line drops from). Snapshots whose reset differs by a jitter are one reset.
+ * history line drops from). Snapshots whose reset differs by a jitter are one
+ * reset, and a window replaced by a later snapshot before its reset arrived
+ * (early reset, manual reset credit, or an unopened sliding window) is skipped.
  */
 const pastResets = (
   credential: PoolCredential,
@@ -971,8 +973,12 @@ const pastResets = (
 ): CredentialReset[] => {
   const resets: CredentialReset[] = [];
   let current: Snapshot | null = null;
-  const close = () => {
-    if (current && current.resetAtMs <= nowMs) {
+  const close = (nextAtMs?: number) => {
+    if (
+      current &&
+      current.resetAtMs <= nowMs &&
+      (nextAtMs === undefined || nextAtMs >= current.resetAtMs - SAME_RESET_TOLERANCE_MS)
+    ) {
       resets.push({
         index,
         atMs: current.resetAtMs,
@@ -986,7 +992,7 @@ const pastResets = (
     .filter((snapshot) => snapshot.atMs < snapshot.resetAtMs)
     .forEach((snapshot) => {
       if (current && Math.abs(snapshot.resetAtMs - current.resetAtMs) > SAME_RESET_TOLERANCE_MS) {
-        close();
+        close(snapshot.atMs);
       }
       current = snapshot;
     });
