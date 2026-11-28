@@ -501,6 +501,15 @@ const consumeCodexRateLimitResetCredit = async (
 
   const requestHeader = buildCodexRequestHeader(file);
 
+  // The consume endpoint redeems the credit named by credit_id; without one it resets nothing.
+  // Spend the one that expires first.
+  const credits = await fetchCodexResetCredits(authIndex, requestHeader, t);
+  if (credits.error) throw new Error(credits.error);
+  const credit = credits.credits
+    .filter((item) => item.id && Date.parse(item.expiresAt) > Date.now())
+    .sort((a, b) => Date.parse(a.expiresAt) - Date.parse(b.expiresAt))[0];
+  if (!credit) throw new Error(t('codex_quota.reset_not_confirmed'));
+
   const result = await apiCallApi.request({
     authIndex,
     method: 'POST',
@@ -508,6 +517,7 @@ const consumeCodexRateLimitResetCredit = async (
     header: requestHeader,
     data: JSON.stringify({
       redeem_request_id: createCodexRedeemRequestId(),
+      credit_id: credit.id,
     }),
   });
 
