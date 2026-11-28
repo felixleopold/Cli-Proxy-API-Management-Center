@@ -1208,6 +1208,22 @@ describe('reset events', () => {
     expect(event.accounts.map((account) => account.authId)).toEqual(['a']);
     expect(resetUseOf(event.utilization)).toBe('low');
   });
+
+  test('windows superseded before their reset (early reset or sliding unopened window) emit no ghost past resets', () => {
+    const a = credential({ authId: 'a', usedPercent: 30, resetAtMs: NOW + 5 * DAY_MS });
+    const samples = [
+      // Window from a week ago whose scheduled reset (NOW - 2h) was superseded early.
+      sample({ authId: 'a', atMs: NOW - 7 * DAY_MS, usedPercent: 42, resetAtMs: NOW - 2 * HOUR_MS }),
+      // Unopened sliding window advancing every 5 minutes while at 0% used.
+      sample({ authId: 'a', atMs: NOW - 7 * DAY_MS + 5 * 60 * 1000, usedPercent: 0, resetAtMs: NOW - 115 * 60 * 1000 }),
+      sample({ authId: 'a', atMs: NOW - 7 * DAY_MS + 10 * 60 * 1000, usedPercent: 0, resetAtMs: NOW - 110 * 60 * 1000 }),
+      // Flicker back to the old window, then replaced by the current window.
+      sample({ authId: 'a', atMs: NOW - 7 * DAY_MS + 15 * 60 * 1000, usedPercent: 42, resetAtMs: NOW - 2 * HOUR_MS }),
+      sample({ authId: 'a', atMs: NOW - 2 * DAY_MS, usedPercent: 10, resetAtMs: NOW + 5 * DAY_MS }),
+    ];
+    const events = poolResetEvents(pool(a), samples, NOW - 7 * DAY_MS, NOW, NOW);
+    expect(events).toEqual([]);
+  });
 });
 
 describe('capacity timeline', () => {
